@@ -4,7 +4,7 @@
 // @namespace    projudi-remove-scrollbar
 // @version      1.0
 // @description  Esconde as barras do iframe, mantendo o scroll.
-// @updateURL    https://gitlab.com/-/snippets/4899369/raw/main/projudi-scrollbar.user.js
+// @updateURL    https://gist.githubusercontent.com/lourencosv/5ed42604857f11f1a92226196f636d0d/raw
 // @match        *://projudi.tjgo.jus.br/*
 // @grant        none
 // ==/UserScript==
