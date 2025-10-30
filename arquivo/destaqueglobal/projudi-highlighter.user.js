@@ -3,7 +3,7 @@
 // @namespace    projudi-highlighter
 // @version      3.2.1
 // @description  Destaque global, com painel configurável (Ctrl+Shift+H).
-// @updateURL    https://gitlab.com/-/snippets/4899370/raw/main/projudi-highlighter.user.js
+// @updateURL    https://gist.githubusercontent.com/lourencosv/a00fdc30f88d7212261dac4397bff07f/raw
 // @match        *://projudi.tjgo.jus.br/*
 // @run-at       document-end
 // @inject-into  content
