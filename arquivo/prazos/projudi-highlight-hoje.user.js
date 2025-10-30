@@ -4,7 +4,7 @@
 // @namespace    projudi-today-highlight
 // @version      2.0.1
 // @description  Realça apenas a data atual no projudi, com cores definidas.
-// @updateURL    https://gitlab.com/-/snippets/4899371/raw/main/projudi-highlight-hoje.user.js
+// @updateURL    https://gist.githubusercontent.com/lourencosv/f9a2549211ec7a07807ce2d6a3cfd0a9/raw
 // @author       você
 // @match        *://projudi.tjgo.jus.br/*
 // @run-at       document-idle
