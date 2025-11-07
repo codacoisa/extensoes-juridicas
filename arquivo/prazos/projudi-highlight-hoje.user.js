@@ -1,11 +1,13 @@
 // ==UserScript==
 // @name         Projudi - Highlight Hoje
-// @icon         https://projudi.tjgo.jus.br/imagens/favicon.svg
-// @namespace    projudi-today-highlight
-// @version      2.0.1
+// @namespace    projudi-highlight-hoje.user.js
+// @version      2.1
+// @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Realça apenas a data atual no projudi, com cores definidas.
+// @author       louencosv (GPT)
+// @license      CC BY-NC 4.0
 // @updateURL    https://gist.githubusercontent.com/lourencosv/f9a2549211ec7a07807ce2d6a3cfd0a9/raw
-// @author       você
+// @downloadURL  https://gist.githubusercontent.com/lourencosv/f9a2549211ec7a07807ce2d6a3cfd0a9/raw
 // @match        *://projudi.tjgo.jus.br/*
 // @run-at       document-idle
 // @grant        none
