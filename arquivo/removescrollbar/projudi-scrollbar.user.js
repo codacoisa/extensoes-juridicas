@@ -1,10 +1,13 @@
 // ==UserScript==
 // @name         Projudi - Remove Scrollbar
-// @icon         https://projudi.tjgo.jus.br/imagens/favicon.svg
-// @namespace    projudi-remove-scrollbar
+// @namespace    projudi-scrollbar.user.js
 // @version      1.0
+// @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Esconde as barras do iframe, mantendo o scroll.
+// @author       lourencosv (GPT)
+// @license      CC BY-NC 4.0
 // @updateURL    https://gist.githubusercontent.com/lourencosv/5ed42604857f11f1a92226196f636d0d/raw
+// @downloadURL  https://gist.githubusercontent.com/lourencosv/5ed42604857f11f1a92226196f636d0d/raw
 // @match        *://projudi.tjgo.jus.br/*
 // @grant        none
 // ==/UserScript==
