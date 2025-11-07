@@ -1,9 +1,13 @@
 // ==UserScript==
 // @name         Projudi - Highlighter Global
-// @namespace    projudi-highlighter
-// @version      3.2.1
+// @namespace    projudi-highlighter.user.js
+// @version      3.3
+// @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaque global, com painel configurável (Ctrl+Shift+H).
+// @author       louencosv (GPT)
+// @license      CC BY-NC 4.0
 // @updateURL    https://gist.githubusercontent.com/lourencosv/a00fdc30f88d7212261dac4397bff07f/raw
+// @downloadURL  https://gist.githubusercontent.com/lourencosv/a00fdc30f88d7212261dac4397bff07f/raw
 // @match        *://projudi.tjgo.jus.br/*
 // @run-at       document-end
 // @inject-into  content
