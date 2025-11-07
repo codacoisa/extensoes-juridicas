@@ -6,8 +6,8 @@
 // @description  Esconde as barras do iframe, mantendo o scroll.
 // @author       lourencosv (GPT)
 // @license      CC BY-NC 4.0
-// @updateURL    https://gist.githubusercontent.com/lourencosv/5ed42604857f11f1a92226196f636d0d/raw
-// @downloadURL  https://gist.githubusercontent.com/lourencosv/5ed42604857f11f1a92226196f636d0d/raw
+// @updateURL    https://gist.githubusercontent.com/lourencosv/5ed42604857f11f1a92226196f636d0d/raw/projudi-scrollbar.user.js
+// @downloadURL  https://gist.githubusercontent.com/lourencosv/5ed42604857f11f1a92226196f636d0d/raw/projudi-scrollbar.user.js
 // @match        *://projudi.tjgo.jus.br/*
 // @grant        none
 // ==/UserScript==
