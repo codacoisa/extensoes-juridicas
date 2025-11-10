@@ -114,7 +114,7 @@
     panel.className = 'phm-panel';
     panel.innerHTML = `
       <header>
-        <h3>MOVIMENTAÇÕES (COLUNA 2)</h3>
+        <h3>MOVIMENTAÇÕES</h3>
         <button class="phm-close" data-phm-action="close" title="Fechar">×</button>
       </header>
       <div class="phm-body">
@@ -144,7 +144,7 @@
               <label><input type="checkbox" data-phm-hk="altKey" ${hk.altKey ? 'checked' : ''}/> Alt</label>
               <label>Key <input type="text" maxlength="1" value="${(hk.key||'m').toLowerCase()}" data-phm-hk="key"/></label>
             </div>
-            <div class="phm-small">Padrão: Ctrl+Shift+M. Não usa Command.</div>
+            <div class="phm-small">Padrão: Ctrl+Shift+M.</div>
           </div>
           <div style="display:flex;gap:8px;align-items:center">
             <button class="phm-btn" data-phm-action="reapply">Reaplicar</button>
