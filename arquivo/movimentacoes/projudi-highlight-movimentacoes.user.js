@@ -6,8 +6,8 @@
 // @description  Destaca as movimentações no Projudi, com painel configurável (Ctrl+Shift+M).
 // @author       lourencosv (GPT)
 // @license      CC BY-NC 4.0
-// @updateURL    https://gist.githubusercontent.com/lourencosv//raw/projudi-highlight-movimentacoes.user.js
-// @downloadURL  https://gist.githubusercontent.com/lourencosv//raw/projudi-highlight-movimentacoes.user.js
+// @updateURL    https://gist.githubusercontent.com/lourencosv/5ffde04a50de4c905c398bee2b9ae2ed/raw/projudi-highlight-movimentacoes.user.js
+// @downloadURL  https://gist.githubusercontent.com/lourencosv/5ffde04a50de4c905c398bee2b9ae2ed/raw/projudi-highlight-movimentacoes.user.js
 // @match        *://projudi.tjgo.jus.br/*
 // @include      *projudi*
 // @run-at       document-end
