@@ -31,9 +31,12 @@
     'Autos Conclusos',
     'Petição Enviada',
     'Recebido',
-    'Autos ao Contador',
+    'Despacho Autos ao Contador',
     'Relatório'
   ];
+  const DISPLAY_NAMES = {
+    'Despacho Autos ao Contador': 'Autos ao Contador'
+  };
 
   const DEFAULTS = {
     enabled: true,
@@ -49,8 +52,8 @@
       'Julgamento': '#eedbdb',
       'Juntada': '#e8f5e9',
       'Autos Conclusos': '#fff4ce',
-      'Petição Enviada': '#fde68a',
-      'Recebido': '#fde68a',
+      'Petição Enviada': '#faeba6',
+      'Recebido': '#faeba6',
       'Despacho Autos ao Contador': '#eedbdb',
       'Relatório': '#eedbdb'
     },
@@ -61,7 +64,7 @@
     hotkeys: { togglePanel: { ctrlKey: true, shiftKey: true, altKey: false, key: 'm' } } // Ctrl+Shift+M
   };
 
-  const STORAGE_KEY = 'projudi_highlight_movs_cfg_v10';
+  const STORAGE_KEY = 'projudi_highlight_movs_cfg_v11';
 
   function deepMerge(base, add) {
     for (const k in add) {
@@ -75,9 +78,7 @@
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       return raw ? deepMerge(deepClone(DEFAULTS), JSON.parse(raw)) : deepClone(DEFAULTS);
-    } catch {
-      return deepClone(DEFAULTS);
-    }
+    } catch { return deepClone(DEFAULTS); }
   }
   function saveCfg(cfg) { localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg)); }
 
@@ -103,6 +104,7 @@
     .phm-hotkey { display:flex; gap:8px; align-items:center; }
     .phm-hotkey input[type="text"] { width:42px; text-transform:lowercase; }
     .phm-colors-grid { display:grid; grid-template-columns: 1fr auto auto auto auto auto; gap:8px; align-items:center; }
+    .phm-firstline-bold::first-line { font-weight: 600; }
   `);
 
   // ---------- Painel ----------
@@ -124,14 +126,15 @@
           const enabled = CFG.enabledTypes[key] !== false;
           const noBg = CFG.noBackgroundTypes[key];
           const bold = CFG.boldTypes[key];
+          const label = DISPLAY_NAMES[key] || key;
           return `
           <div class="phm-row phm-colors-grid">
-            <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-phm-enabled="${key}" ${enabled ? 'checked' : ''}/> ${key}</label>
+            <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-phm-enabled="${key}" ${enabled ? 'checked' : ''}/> ${label}</label>
             <span><span class="phm-small">Fundo</span><input type="color" value="${toHexColor(bg)}" data-phm-color-bg="${key}"/></span>
             <span><span class="phm-small">Texto</span><input type="color" value="${toHexColor(fg)}" data-phm-color-fg="${key}"/></span>
             <label class="phm-small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-phm-nobg="${key}" ${noBg ? 'checked' : ''}/> Sem fundo</label>
             <label class="phm-small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-phm-bold="${key}" ${bold ? 'checked' : ''}/> Negrito</label>
-            <span class="phm-chip" style="background:${noBg ? 'transparent' : bg}; color:${fg}; font-weight:${bold ? '600' : '400'}; border-color:#e5e7eb">Exemplo</span>
+            <span class="phm-chip ${bold ? 'phm-firstline-bold' : ''}" style="background:${noBg ? 'transparent' : bg}; color:${fg}; border-color:#e5e7eb">Exemplo</span>
           </div>`;
         }).join('')}
 
@@ -147,7 +150,7 @@
             <div class="phm-small">Padrão: Ctrl+Shift+M.</div>
           </div>
           <div style="display:flex;gap:8px;align-items:center">
-            <button class="phm-btn" data-phm-action="reapply">Reaplicar</button>
+            <button class="phm-btn" data-phm-action="reset">Resetar</button>
             <button class="phm-btn" data-phm-action="save">Salvar</button>
           </div>
         </div>
@@ -159,7 +162,7 @@
       if (!btn) return;
       const action = btn.getAttribute('data-phm-action');
       if (action === 'close') panel.remove();
-      if (action === 'reapply') reapply();
+      if (action === 'reset') { CFG = deepClone(DEFAULTS); saveCfg(CFG); panel.remove(); ensurePanel(); reapply(); }
       if (action === 'save') {
         panel.querySelectorAll('[data-phm-color-bg]').forEach(inp => { CFG.colors[inp.getAttribute('data-phm-color-bg')] = inp.value; });
         panel.querySelectorAll('[data-phm-color-fg]').forEach(inp => { CFG.textColors[inp.getAttribute('data-phm-color-fg')] = inp.value; });
@@ -237,16 +240,18 @@
     td.style.padding = CFG.padding;
     td.style.borderRadius = CFG.radius;
     td.style.color = fg;
-    td.style.fontWeight = bold ? '600' : '';
+
+    // Negrito apenas na primeira linha (via pseudo-elemento)
+    td.classList.toggle('phm-firstline-bold', !!bold);
   }
 
   function clearStyle(td) {
     td.style.background = '';
     td.style.padding = '';
     td.style.borderRadius = '';
-    td.style.fontWeight = '';
     td.style.borderLeft = '';
     td.style.color = '';
+    td.classList.remove('phm-firstline-bold');
   }
 
   function processTable(root = document) {
@@ -264,20 +269,14 @@
 
   function reapply() {
     document.querySelectorAll('table tr, .tabelaLista tr, tr').forEach(tr => {
-      const cells = tr.children;
-      if (!cells || cells.length < 2) return;
-      clearStyle(cells[1]);
+      const cells = tr.children; if (!cells || cells.length < 2) return; clearStyle(cells[1]);
     });
     processTable(document);
   }
 
   // ---------- Observer & Hotkey ----------
-  const OBS = new MutationObserver(muts => {
-    for (const m of muts) { if (m.type === 'childList') { processTable(document); break; } }
-  });
-  function initObserver() {
-    try { OBS.observe(document.documentElement, { subtree: true, childList: true }); } catch {}
-  }
+  const OBS = new MutationObserver(muts => { for (const m of muts) { if (m.type === 'childList') { processTable(document); break; } } });
+  function initObserver() { try { OBS.observe(document.documentElement, { subtree: true, childList: true }); } catch {} }
 
   function keysEqual(ev, spec) {
     const eq = (a, b) => !!a === !!b;
