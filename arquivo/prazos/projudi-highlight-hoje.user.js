@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Projudi - Highlight Hoje
 // @namespace    projudi-highlight-hoje.user.js
-// @version      2.1
+// @version      2.2
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Realça apenas a data atual no projudi, com cores definidas.
 // @author       louencosv (GPT)
@@ -17,83 +17,168 @@
   "use strict";
 
   // ====== CONFIGURAÇÃO DE ESTILO ======
-  const BG = "rgba(255,205,210,1)";   // #FFCDD2FF
-  const FG = "rgba(183,28,28,1)";     // #B71C1CFF
-  const CLASS = "tm-today-highlight";
+  const CLASS_TODAY = "tm-highlight-hoje";
+  const CLASS_TOMORROW = "tm-highlight-amanha";
+  const CLASS_AFTER = "tm-highlight-depois";
 
-  // Injeta CSS uma vez
   const style = document.createElement("style");
   style.textContent = `
-    .${CLASS} {
-      background-color: ${BG} !important;
-      color: ${FG} !important;
+    .${CLASS_TODAY},
+    .${CLASS_TOMORROW},
+    .${CLASS_AFTER} {
+      position: relative;
+      cursor: help;
       padding: 0.1em 0.15em;
       border-radius: 2px;
+    }
+
+    /* CORES */
+    .${CLASS_TODAY} {
+      background-color: rgba(255,205,210,1) !important; /* vermelho claro */
+      color: rgba(183,28,28,1) !important;             /* vermelho escuro */
+    }
+    .${CLASS_TOMORROW} {
+      background-color: rgba(255,224,178,1) !important; /* laranja claro */
+      color: rgba(191,54,12,1) !important;              /* laranja escuro */
+    }
+    .${CLASS_AFTER} {
+      background-color: rgba(255,249,196,1) !important; /* amarelo claro */
+      color: rgba(245,127,23,1) !important;             /* amarelo/laranja escuro */
+    }
+
+    /* TOOLTIP BASE */
+    .${CLASS_TODAY}::after,
+    .${CLASS_TOMORROW}::after,
+    .${CLASS_AFTER}::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      left: 50%;
+      top: -6px;
+      transform: translateX(-50%) translateY(-100%);
+      background: #333;
+      color: #fff;
+      padding: 4px 8px;
+      font-size: 11px;
+      border-radius: 4px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s;
+      z-index: 99999;
+    }
+
+    /* SETINHA DO BALÃO */
+    .${CLASS_TODAY}::before,
+    .${CLASS_TOMORROW}::before,
+    .${CLASS_AFTER}::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: -6px;
+      transform: translateX(-50%);
+      border-width: 5px;
+      border-style: solid;
+      border-color: transparent transparent #333 transparent;
+      opacity: 0;
+      transition: opacity .25s;
+      z-index: 99998;
+    }
+
+    /* MOSTRAR TOOLTIP */
+    .${CLASS_TODAY}:hover::after,
+    .${CLASS_TODAY}:hover::before,
+    .${CLASS_TOMORROW}:hover::after,
+    .${CLASS_TOMORROW}:hover::before,
+    .${CLASS_AFTER}:hover::after,
+    .${CLASS_AFTER}:hover::before {
+      opacity: 1;
     }
   `;
   document.documentElement.appendChild(style);
 
-  // ====== DATA DE HOJE E REGEX DINÂMICO ======
-  const now = new Date();
+  // ====== FUNÇÕES DE DATA ======
   const pad2 = (n) => (n < 10 ? "0" + n : "" + n);
-  const d = now.getDate();
-  const m = now.getMonth() + 1;
-  const yyyy = now.getFullYear();
-  const yy = ("" + yyyy).slice(-2);
 
-  // Aceitar com e sem zero à esquerda:
-  // Se for 09 => alternativas "09" e "9"; se for 12 => só "12".
+  /**
+   * Aceitar com e sem zero à esquerda:
+   * Se for 09 => alternativas "09" e "9"; se for 12 => só "12".
+   */
   const alt = (num) => {
     const s = pad2(num);
     const n = String(num);
     return s === n ? s : `${s}|${n}`;
   };
 
-  const dayAlt = alt(d);
-  const monAlt = alt(m);
+  /**
+   * Cria objeto com dados de uma data (dia, mês, ano, regex).
+   */
+  function makeDateInfo(date) {
+    const d = date.getDate();
+    const m = date.getMonth() + 1;
+    const yyyy = date.getFullYear();
+    const yy = String(yyyy).slice(-2);
 
-  // Aceitar "/" OU "-" e ano com 4 ou 2 dígitos
-  // Evitar capturar dentro de números maiores com lookarounds
-  // Ex.: (?<!\d)(?:09|9)[/-](?:09|9)[/-](?:2025|25)(?!\d)
-  const pattern = new RegExp(
-    `(?<!\\d)(?:${dayAlt})[\\/-](?:${monAlt})[\\/-](?:${yyyy}|${yy})(?!\\d)`,
-    "g"
-  );
+    const dayAlt = alt(d);
+    const monAlt = alt(m);
+
+    // Aceitar "/" OU "-" e ano com 4 ou 2 dígitos
+    // Ex.: (?<!\d)(?:09|9)[/-](?:09|9)[/-](?:2025|25)(?!\d)
+    const patternSrc = `(?<!\\d)(?:${dayAlt})[\\/-](?:${monAlt})[\\/-](?:${yyyy}|${yy})(?!\\d)`;
+    const regex = new RegExp(patternSrc, "g");
+
+    return { d, m, yyyy, yy, regex };
+  }
+
+  // Hoje, amanhã e depois de amanhã
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  const afterTomorrow = new Date(today);
+  afterTomorrow.setDate(today.getDate() + 2);
+
+  const infoToday = makeDateInfo(today);
+  const infoTomorrow = makeDateInfo(tomorrow);
+  const infoAfterTomorrow = makeDateInfo(afterTomorrow);
+
+  const DATE_CONFIGS = [
+    { info: infoToday, className: CLASS_TODAY },
+    { info: infoTomorrow, className: CLASS_TOMORROW },
+    { info: infoAfterTomorrow, className: CLASS_AFTER },
+  ];
+
+  // Strings rápidas para o filtro preliminar no walker (evita regex em tudo)
+  const QUICK_STRINGS = new Set([
+    String(infoToday.d),
+    pad2(infoToday.d),
+    String(infoTomorrow.d),
+    pad2(infoTomorrow.d),
+    String(infoAfterTomorrow.d),
+    pad2(infoAfterTomorrow.d),
+  ]);
 
   // ====== NAVEGAR PELOS NÓS DE TEXTO ======
   const SKIP_TAGS = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEXTAREA", "INPUT"]);
+  const HIGHLIGHT_CLASSES = [CLASS_TODAY, CLASS_TOMORROW, CLASS_AFTER];
+  const HIGHLIGHT_SELECTOR = HIGHLIGHT_CLASSES.map((c) => "." + c).join(",");
+
   const isSkippable = (node) =>
     node &&
     (SKIP_TAGS.has(node.nodeName) ||
-     node.closest?.(`.${CLASS}, script, style, noscript, textarea, input`));
+      node.closest?.(`${HIGHLIGHT_SELECTOR}, script, style, noscript, textarea, input`));
 
   // ====== COLUNAS ALVO PARA REALÇAR ======
-  // Apenas realçar datas nas colunas cujo cabeçalho contenha estes textos.
   const TARGET_HEADERS = [
     "data limite",
     "possível data limite",
     "possivel data limite",
   ];
 
-  /**
-   * Calcula o índice da coluna deste <td> dentro da linha.
-   * Não leva em conta colSpan ou rowSpan complexos, mas funciona para tabelas simples.
-   * @param {HTMLElement} td
-   * @returns {number}
-   */
   function getColumnIndex(td) {
     const tr = td?.parentElement;
     if (!tr) return -1;
     return Array.prototype.indexOf.call(tr.children, td);
   }
 
-  /**
-   * Retorna true se o <td> pertence a uma coluna cujo cabeçalho contém uma das
-   * palavras-chave em TARGET_HEADERS.
-   * Faz uma busca no <thead> da tabela e compara o texto do cabeçalho.
-   * @param {HTMLElement} td
-   * @returns {boolean}
-   */
   function isTargetColumn(td) {
     if (!td) return false;
     const table = td.closest?.("table");
@@ -102,19 +187,17 @@
     if (!thead) return false;
     const headerRows = Array.from(thead.querySelectorAll("tr"));
     if (headerRows.length === 0) return false;
-    // índice da coluna que estamos testando
+
     const colIndex = getColumnIndex(td);
     if (colIndex < 0) return false;
-    // Verifica a partir da última linha de cabeçalho para a primeira.
+
     for (let r = headerRows.length - 1; r >= 0; r--) {
       const row = headerRows[r];
       let idx = 0;
       for (const cell of row.children) {
         const span = parseInt(cell.getAttribute("colspan")) || 1;
-        // Se o índice da coluna está dentro do span desta célula de cabeçalho
         if (idx <= colIndex && colIndex < idx + span) {
           const text = (cell.textContent || "").trim().toLowerCase();
-          // Usa includes para capturar variações como "Possível Data Limite" com espaços extras
           if (TARGET_HEADERS.some((h) => text.includes(h))) {
             return true;
           }
@@ -126,12 +209,6 @@
     return false;
   }
 
-  /**
-   * Determina se o nó de texto está em um <td> de uma coluna alvo.
-   * Sobe na árvore até encontrar o <td> mais próximo.
-   * @param {Node} node
-   * @returns {boolean}
-   */
   function isInTargetCell(node) {
     let el = node?.parentElement;
     while (el && el !== document.body && el.nodeName !== "TD") {
@@ -142,34 +219,64 @@
   }
 
   function highlightInTextNode(textNode) {
-    // Realça somente se estiver em uma coluna alvo
-    if (!isInTargetCell(textNode)) {
-      return;
-    }
+    if (!isInTargetCell(textNode)) return;
     const text = textNode.nodeValue;
-    if (!text || !pattern.test(text)) {
-      return;
+    if (!text) return;
+
+    // Reseta lastIndex dos regex
+    for (const cfg of DATE_CONFIGS) {
+      cfg.info.regex.lastIndex = 0;
     }
-    pattern.lastIndex = 0; // reset para reutilizar
+
+    const matches = [];
+
+    // Coleta todas as ocorrências das três datas
+    for (const cfg of DATE_CONFIGS) {
+      const { regex } = cfg.info;
+      let m;
+      while ((m = regex.exec(text)) !== null) {
+        matches.push({
+          start: m.index,
+          end: m.index + m[0].length,
+          text: m[0],
+          className: cfg.className,
+        });
+      }
+    }
+
+    if (matches.length === 0) return;
+
+    // Ordena e remove sobreposição (se houver)
+    matches.sort((a, b) => a.start - b.start || a.end - b.end);
+    const filtered = [];
+    let lastEnd = -1;
+    for (const m of matches) {
+      if (m.start >= lastEnd) {
+        filtered.push(m);
+        lastEnd = m.end;
+      }
+    }
 
     const frag = document.createDocumentFragment();
     let lastIndex = 0;
-    let match;
 
-    while ((match = pattern.exec(text)) !== null) {
-      const start = match.index;
-      const end = start + match[0].length;
-
-      if (start > lastIndex) {
-        frag.appendChild(document.createTextNode(text.slice(lastIndex, start)));
+    for (const m of filtered) {
+      if (m.start > lastIndex) {
+        frag.appendChild(document.createTextNode(text.slice(lastIndex, m.start)));
       }
-
       const span = document.createElement("span");
-      span.className = CLASS;
-      span.textContent = text.slice(start, end);
+      span.className = m.className;
+      span.textContent = m.text;
+      span.setAttribute(
+        "data-tooltip",
+        m.className === CLASS_TODAY
+          ? "Possível vencimento HOJE"
+          : m.className === CLASS_TOMORROW
+          ? "Possível vencimento AMANHÃ"
+          : "Possível vencimento DEPOIS DE AMANHÃ"
+      );
       frag.appendChild(span);
-
-      lastIndex = end;
+      lastIndex = m.end;
     }
 
     if (lastIndex < text.length) {
@@ -187,20 +294,32 @@
         acceptNode: (node) => {
           const parent = node.parentNode;
           if (!parent || isSkippable(parent)) return NodeFilter.FILTER_REJECT;
+
           // Evitar reprocessar trechos já destacados:
-          if (parent.classList && parent.classList.contains(CLASS)) {
+          if (
+            parent.classList &&
+            HIGHLIGHT_CLASSES.some((c) => parent.classList.contains(c))
+          ) {
             return NodeFilter.FILTER_REJECT;
           }
-          // Pequena otimização: só passa textos que têm dd ou mm do dia
+
           const t = node.nodeValue;
           if (!t || t.length < 6) return NodeFilter.FILTER_REJECT;
-          // Checagem rápida antes do regex completo
-          if (
-            !(t.includes("/") || t.includes("-")) ||
-            !(t.includes(String(d)) || t.includes(pad2(d)))
-          ) {
+
+          if (!(t.includes("/") || t.includes("-"))) {
             return NodeFilter.FILTER_SKIP;
           }
+
+          // Filtro rápido: se o texto não contém nenhum dia relevante, nem tenta regex
+          let hasQuick = false;
+          for (const qs of QUICK_STRINGS) {
+            if (t.includes(qs)) {
+              hasQuick = true;
+              break;
+            }
+          }
+          if (!hasQuick) return NodeFilter.FILTER_SKIP;
+
           return NodeFilter.FILTER_ACCEPT;
         },
       },
@@ -216,7 +335,7 @@
   // Primeira varredura
   walkAndHighlight(document.body);
 
-  // Observar mudanças no DOM (para páginas dinâmicas)
+  // Observar mudanças no DOM (páginas dinâmicas)
   const mo = new MutationObserver((mutations) => {
     for (const m of mutations) {
       for (const node of m.addedNodes) {
