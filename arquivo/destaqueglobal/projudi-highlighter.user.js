@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Projudi - Highlighter Global
 // @namespace    projudi-highlighter.user.js
-// @version      3.4
+// @version      3.5
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaque global, com painel configurável (Ctrl+Shift+H).
 // @author       lourencosv (GPT)
@@ -21,11 +21,11 @@
 (function () {
   "use strict";
 
-  // =========================
-  // 1) Configuração geral
-  // =========================
+  // =========================================================
+  // 1) CONFIG GERAL
+  // =========================================================
 
-  // Classe aplicada nos spans destacados para poder localizar/remover depois.
+  // Classe aplicada nos spans destacados para localizar/remover depois.
   const HIGHLIGHT_CLASS = "__vini_domain_highlight__";
 
   // Chaves de persistência (armazenadas pelo gerenciador de userscripts).
@@ -33,31 +33,42 @@
   const KEY_HIGHLIGHT_COLOR = "hl:highlight_color";
   const KEY_TEXT_COLOR = "hl:text_color";
   const KEY_BOLD = "hl:text_bold";
+  const KEY_ITALIC = "hl:text_italic";
 
-  // Mínimo de caracteres para aceitar um termo.
+  // Tamanho mínimo de termo.
   const MIN_LEN = 3;
 
-  // Defaults de personalização.
-  const DEFAULT_HIGHLIGHT_COLOR = "#C5E1A5FF"; // RGBA em hex (inclui alpha no final)
-  const DEFAULT_TEXT_COLOR = "#000000";
+  // Defaults.
+  const DEFAULT_HIGHLIGHT_COLOR = "#C5E1A5FF"; // RGBA em hex (alpha no final)
+  const DEFAULT_TEXT_COLOR = "#111111";
 
   // Preferências carregadas do storage.
   let highlightColor = DEFAULT_HIGHLIGHT_COLOR;
   let textColor = DEFAULT_TEXT_COLOR;
   let textBold = false;
+  let textItalic = false;
 
-  // Estado do painel (aberto/fechado).
+  // Estado do painel (somente no top window).
   let panelOpen = false;
 
-  // =========================
-  // 2) Utilitários de texto
-  // =========================
+  // Flags de execução
+  const IS_TOP = (() => {
+    try {
+      return window.top === window;
+    } catch {
+      return false;
+    }
+  })();
 
-  // Remove pontuação periférica (ajuda a normalizar termos).
+  // =========================================================
+  // 2) UTILITÁRIOS DE TEXTO
+  // =========================================================
+
+  // Remove pontuação periférica.
   const stripPeripheralPunct = (s) =>
     s.replace(/^[\s'".,;:!?()\[\]{}-]+|[\s'".,;:!?()\[\]{}-]+$/g, "");
 
-  // Remove diacríticos (acentos) para comparação canônica.
+  // Remove diacríticos para comparação canônica.
   const toNoDiacritics = (s) => {
     try {
       return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -66,24 +77,33 @@
     }
   };
 
-  // Colapsa múltiplos espaços e aparas nas extremidades.
+  // Colapsa múltiplos espaços.
   const collapseSpaces = (s) => String(s || "").replace(/\s+/g, " ").trim();
 
-  // Normalização “canônica” para deduplicar/comparar termos.
+  // Normalização “canônica” para dedup e comparação.
   const norm = (s) =>
     toNoDiacritics(collapseSpaces(stripPeripheralPunct(String(s || "")))).toLowerCase();
 
-  // Conta caracteres úteis (após colapsar espaços).
   const charCount = (s) => collapseSpaces(String(s || "")).length;
 
-  // Escapa texto para uso seguro em RegExp.
+  // Escapa para RegExp.
   const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-  // =========================
-  // 3) Storage: termos globais
-  // =========================
+  // Converte #RRGGBBAA para rgba() CSS.
+  function cssColorFromHexRgba(hex) {
+    const h = String(hex || "").trim();
+    if (!/^#[0-9a-fA-F]{8}$/.test(h)) return h || DEFAULT_HIGHLIGHT_COLOR;
+    const r = parseInt(h.slice(1, 3), 16);
+    const g = parseInt(h.slice(3, 5), 16);
+    const b = parseInt(h.slice(5, 7), 16);
+    const a = parseInt(h.slice(7, 9), 16) / 255;
+    return `rgba(${r}, ${g}, ${b}, ${a.toFixed(3)})`;
+  }
 
-  // Carrega termos, normaliza e deduplica.
+  // =========================================================
+  // 3) STORAGE: TERMOS GLOBAIS
+  // =========================================================
+
   async function loadTerms() {
     try {
       const raw = await GM.getValue(KEY_GLOBAL, []);
@@ -102,19 +122,16 @@
           out.push(s);
         }
       }
-
       return out;
     } catch {
       return [];
     }
   }
 
-  // Salva lista de termos como está (use setBulkTerms para normalização forte).
   async function saveTerms(terms) {
     await GM.setValue(KEY_GLOBAL, terms);
   }
 
-  // Adiciona termo (com dedup canônico).
   async function addTerm(term) {
     const t = collapseSpaces(String(term || ""));
     if (!t || t.length < MIN_LEN) return false;
@@ -130,7 +147,6 @@
     return false;
   }
 
-  // Remove termo por versão canônica.
   async function removeByCanonical(canonicalTerm) {
     const terms = await loadTerms();
     const key = norm(canonicalTerm);
@@ -143,7 +159,6 @@
     return false;
   }
 
-  // Substitui a lista por outra (normalizando e deduplicando).
   async function setBulkTerms(newTermsArray) {
     const seen = new Set();
     const out = [];
@@ -163,9 +178,9 @@
     return out;
   }
 
-  // =========================
-  // 4) Storage: preferências (cor/estilo)
-  // =========================
+  // =========================================================
+  // 4) STORAGE: PREFERÊNCIAS (COR/ESTILO)
+  // =========================================================
 
   async function loadSettings() {
     try {
@@ -177,24 +192,26 @@
 
       const tb = await GM.getValue(KEY_BOLD, false);
       textBold = !!tb;
+
+      const ti = await GM.getValue(KEY_ITALIC, false);
+      textItalic = !!ti;
     } catch {
       highlightColor = DEFAULT_HIGHLIGHT_COLOR;
       textColor = DEFAULT_TEXT_COLOR;
       textBold = false;
+      textItalic = false;
     }
   }
 
-  // =========================
-  // 5) Motor de destaque (highlight)
-  // =========================
+  // =========================================================
+  // 5) MOTOR DE DESTAQUE (HIGHLIGHT)
+  // =========================================================
 
-  // Decide se deve ignorar nó pai (script/style/inputs etc).
   function shouldSkip(node) {
     const skippable = /^(SCRIPT|STYLE|NOSCRIPT|IFRAME|TEXTAREA|INPUT|SVG)$/i;
     return skippable.test(node.nodeName) || node.classList?.contains(HIGHLIGHT_CLASS);
   }
 
-  // Itera por text nodes visíveis no DOM.
   function walkTextNodes(root, cb) {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
@@ -212,7 +229,6 @@
     while ((n = walker.nextNode())) cb(n);
   }
 
-  // Remove spans já destacados, voltando para texto puro.
   function clearExistingHighlights(root = document.body) {
     root.querySelectorAll("." + HIGHLIGHT_CLASS).forEach((node) => {
       const p = node.parentNode;
@@ -222,7 +238,6 @@
     });
   }
 
-  // Aplica destaque para um termo específico (case-insensitive e unicode).
   function highlightSingleTerm(term, root = document.body) {
     const pat = escapeRegExp(term);
     const reTest = new RegExp("(" + pat + ")", "iu");
@@ -243,17 +258,18 @@
         span.textContent = match;
 
         // Preferências do usuário.
-        span.style.backgroundColor = highlightColor;
-        if (textColor) span.style.color = textColor;
-        span.style.fontWeight = textBold ? "bold" : "normal";
+        span.style.backgroundColor = cssColorFromHexRgba(highlightColor);
+        span.style.color = textColor || DEFAULT_TEXT_COLOR;
+        span.style.fontWeight = textBold ? "700" : "400";
+        span.style.fontStyle = textItalic ? "italic" : "normal";
 
-        // Ajustes visuais mínimos.
-        span.style.borderRadius = "2px";
-        span.style.padding = "0";
+        // Ajustes visuais.
+        span.style.borderRadius = "3px";
+        span.style.padding = "0 1px";
         span.style.margin = "0";
         span.style.cursor = "pointer";
 
-        // Guarda o termo original para remoção por clique.
+        // Guarda o termo original (para remoção por clique).
         span.dataset.term = term;
 
         frag.appendChild(span);
@@ -266,42 +282,52 @@
     });
   }
 
-  // Reaplica todos os destaques.
   async function applyHighlights() {
     const terms = await loadTerms();
     clearExistingHighlights();
     if (!terms.length) return;
 
-    // Ordena por tamanho para evitar que termos menores “quebrem” termos maiores.
+    // Ordena por tamanho (evita termos menores “atrapalharem” os maiores).
     const ordered = [...terms].sort((a, b) => b.length - a.length);
     for (const t of ordered) highlightSingleTerm(t);
   }
 
-  // =========================
-  // 6) Broadcast entre frames
-  // =========================
+  // =========================================================
+  // 6) SYNC ENTRE FRAMES
+  // =========================================================
 
-  // Em páginas com frames, pede para o topo avisar os outros frames.
+  // Pede para todos os frames reaplicarem.
   const broadcastApply = () => {
     try {
       window.top.postMessage({ type: "VINI_APPLY_HIGHLIGHTS" }, "*");
     } catch {}
   };
 
-  // Recebe mensagem para reaplicar destaque no frame atual.
+  // Reaplica no frame que receber a mensagem.
   window.addEventListener("message", (e) => {
     const d = e && e.data;
     if (d && d.type === "VINI_APPLY_HIGHLIGHTS") applyHighlights();
   });
 
-  // =========================
-  // 7) Mini toolbar "Destacar"
-  // (aparece perto da seleção de texto)
-  // =========================
+  // Comando de abrir/fechar painel (manda para o TOP).
+  window.addEventListener("message", (e) => {
+    const d = e && e.data;
+    if (!d) return;
+    if (d.type === "VINI_TOGGLE_PANEL_REQUEST" && IS_TOP) {
+      togglePanelSafe();
+    }
+  });
+
+  // =========================================================
+  // 7) TOOLBAR "DESTACAR" (por seleção)
+  // =========================================================
 
   let toolbar, toolbarRoot;
 
-  // Cria a toolbar (Shadow DOM) uma vez.
+  // Cache do último texto selecionado válido (evita perder seleção ao clicar no botão).
+  let lastSelectionText = "";
+  let lastSelectionRangeRect = null;
+
   function ensureToolbar() {
     if (toolbarRoot) return;
 
@@ -319,24 +345,31 @@
     btn.textContent = "Destacar";
     Object.assign(btn.style, {
       pointerEvents: "auto",
-      fontFamily: "system-ui, -apple-system, sans-serif",
+      fontFamily: "system-ui, -apple-system, Segoe UI, sans-serif",
       fontSize: "12px",
       padding: "6px 10px",
-      border: "1px solid rgba(0,0,0,.15)",
-      borderRadius: "8px",
-      background: "#fff",
-      boxShadow: "0 2px 10px rgba(0,0,0,.12)",
+      border: "1px solid rgba(0,0,0,.14)",
+      borderRadius: "10px",
+      background: "#ffffff",
+      boxShadow: "0 6px 18px rgba(0,0,0,.12)",
       cursor: "pointer",
       display: "none",
+      lineHeight: "1",
+      userSelect: "none",
     });
 
-    // Clique: adiciona o texto selecionado como termo de destaque.
+    // Evita que o clique “roube” a seleção.
+    btn.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
     btn.addEventListener("click", async (e) => {
       e.preventDefault();
       e.stopPropagation();
 
-      const sel = window.getSelection && window.getSelection();
-      const text = sel ? String(sel.toString()).trim() : "";
+      // Usa o cache (a seleção pode colapsar no clique).
+      const text = String(lastSelectionText || "").trim();
 
       if (text && charCount(text) >= MIN_LEN) {
         const ok = await addTerm(text);
@@ -346,12 +379,20 @@
         }
       }
 
+      lastSelectionText = "";
+      lastSelectionRangeRect = null;
       hideToolbar();
+
+      const sel = window.getSelection && window.getSelection();
       if (sel) sel.removeAllRanges();
     });
 
     const style = document.createElement("style");
-    style.textContent = `:host{all:initial} button:hover{background:#f6f6f6}`;
+    style.textContent = `
+      :host{all:initial}
+      button:hover{filter:brightness(.97)}
+      button:active{transform:translateY(1px)}
+    `;
     root.appendChild(style);
     root.appendChild(btn);
 
@@ -359,7 +400,6 @@
     toolbarRoot = host;
   }
 
-  // Mostra a toolbar em posição fixa.
   function showToolbarAt(x, y) {
     ensureToolbar();
     toolbar.style.position = "fixed";
@@ -368,64 +408,88 @@
     toolbar.style.display = "block";
   }
 
-  // Esconde a toolbar.
   function hideToolbar() {
     if (toolbar) toolbar.style.display = "none";
   }
 
-  // Reposiciona toolbar com base na seleção atual.
-  function positionToolbarNearSelection() {
+  function captureSelectionSnapshot() {
     const sel = window.getSelection && window.getSelection();
-    if (!sel || sel.isCollapsed) return hideToolbar();
+    if (!sel || sel.isCollapsed) return false;
 
     const txt = String(sel.toString()).trim();
-    if (!txt || charCount(txt) < MIN_LEN) return hideToolbar();
+    if (!txt || charCount(txt) < MIN_LEN) return false;
 
-    const range = sel.getRangeAt(0).cloneRange();
-    const rects = range.getClientRects();
-    if (!rects.length) return hideToolbar();
+    lastSelectionText = txt;
 
-    const r = rects[rects.length - 1];
-    showToolbarAt(r.right + 8, r.top - 8);
+    try {
+      const range = sel.getRangeAt(0).cloneRange();
+      const rects = range.getClientRects();
+      if (rects && rects.length) {
+        lastSelectionRangeRect = rects[rects.length - 1];
+      } else {
+        lastSelectionRangeRect = null;
+      }
+    } catch {
+      lastSelectionRangeRect = null;
+    }
+
+    return true;
   }
 
-  // Eventos para manter a toolbar coerente.
+  function positionToolbarNearSelection() {
+    if (!captureSelectionSnapshot()) {
+      lastSelectionText = "";
+      lastSelectionRangeRect = null;
+      return hideToolbar();
+    }
+
+    const r = lastSelectionRangeRect;
+    if (!r) return hideToolbar();
+
+    showToolbarAt(r.right + 10, r.top - 10);
+  }
+
   document.addEventListener("selectionchange", positionToolbarNearSelection);
+
+  // Mostra imediatamente ao “terminar” a seleção (sem depender de scroll/movimento).
   document.addEventListener(
-    "scroll",
+    "mouseup",
     () => {
-      const sel = window.getSelection && window.getSelection();
-      if (sel && !sel.isCollapsed && String(sel.toString()).trim() !== "") positionToolbarNearSelection();
-      else hideToolbar();
+      setTimeout(() => {
+        positionToolbarNearSelection();
+      }, 0);
     },
     { passive: true }
   );
 
-  // Atalho de seleção (não é o painel): Ctrl+Alt+D adiciona a seleção como termo.
-  // Se você quiser “zero atalhos” no script, é só remover este listener.
-  document.addEventListener("keydown", async (e) => {
-    if (e.ctrlKey && e.altKey && String(e.key || "").toLowerCase() === "d") {
-      const sel = window.getSelection && window.getSelection();
-      const text = sel ? String(sel.toString()).trim() : "";
+  // Quando a seleção é feita via teclado (Shift+setas), também reposiciona.
+  document.addEventListener(
+    "keyup",
+    (e) => {
+      if (e && e.shiftKey) positionToolbarNearSelection();
+    },
+    { passive: true }
+  );
 
-      if (text && charCount(text) >= MIN_LEN) {
-        const ok = await addTerm(text);
-        if (ok) {
-          await applyHighlights();
-          broadcastApply();
-        }
+  document.addEventListener(
+    "scroll",
+    () => {
+      if (lastSelectionText && lastSelectionRangeRect) {
+        const r = lastSelectionRangeRect;
+        showToolbarAt(r.right + 10, r.top - 10);
+      } else {
+        positionToolbarNearSelection();
       }
-    }
-  });
+    },
+    { passive: true }
+  );
 
-  // =========================
-  // 8) Popover "Remover"
-  // (clique em termo destacado mostra botão Remover)
-  // =========================
+  // =========================================================
+  // 8) POPOVER "REMOVER" (clique no destaque)
+  // =========================================================
 
   let pop, popRoot, currentCanonical = null;
 
-  // Cria o popover (Shadow DOM) uma vez.
   function ensurePop() {
     if (popRoot) return;
 
@@ -443,13 +507,13 @@
     Object.assign(wrap.style, {
       pointerEvents: "auto",
       display: "none",
-      fontFamily: "system-ui, -apple-system, sans-serif",
+      fontFamily: "system-ui, -apple-system, Segoe UI, sans-serif",
       fontSize: "12px",
-      padding: "6px 8px",
-      border: "1px solid rgba(0,0,0,.15)",
-      borderRadius: "8px",
+      padding: "6px 10px",
+      border: "1px solid rgba(0,0,0,.14)",
+      borderRadius: "10px",
       background: "#fff",
-      boxShadow: "0 2px 10px rgba(0,0,0,.12)",
+      boxShadow: "0 6px 18px rgba(0,0,0,.12)",
     });
 
     const btn = document.createElement("button");
@@ -461,9 +525,9 @@
       padding: "0",
       margin: "0",
       color: "#c00",
+      fontWeight: "600",
     });
 
-    // Clique: remove o termo (por forma canônica) e reaplica destaques.
     btn.addEventListener("click", async (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -475,7 +539,6 @@
           broadcastApply();
         }
       }
-
       hidePop();
     });
 
@@ -490,7 +553,6 @@
     popRoot = host;
   }
 
-  // Mostra o popover perto do elemento clicado.
   function showPopAt(x, y, canonicalTerm) {
     ensurePop();
     currentCanonical = canonicalTerm;
@@ -501,28 +563,24 @@
     pop.style.display = "block";
   }
 
-  // Esconde popover.
   function hidePop() {
     if (pop) pop.style.display = "none";
     currentCanonical = null;
   }
 
-  // Captura clique: se clicou em um span destacado, abre popover; caso contrário, fecha.
   document.addEventListener(
     "click",
     (e) => {
-      // Se o clique foi dentro do popover, não fecha.
       if (popRoot) {
         const path = e.composedPath ? e.composedPath() : null;
         if (path && path.indexOf(popRoot) !== -1) return;
       }
 
       const t = e.target;
-
       if (t && t.classList && t.classList.contains(HIGHLIGHT_CLASS)) {
         const rect = t.getBoundingClientRect();
         const canonical = t.dataset.term || t.textContent;
-        showPopAt(rect.right + 6, rect.top - 6, canonical);
+        showPopAt(rect.right + 8, rect.top - 8, canonical);
 
         e.stopPropagation();
         e.preventDefault();
@@ -534,17 +592,25 @@
     true
   );
 
-  // =========================
-  // 9) Painel (menu/config)
-  // =========================
+  // =========================================================
+  // 9) PAINEL (SOMENTE NO TOP WINDOW)
+  // =========================================================
 
   let panelHost, panelRoot;
 
-  // Cria o painel (Shadow DOM) uma vez.
-  function ensurePanel() {
-    if (panelRoot) return;
+  function ensurePanelTopOnly() {
+    if (!IS_TOP) return;
+
+    // Evita criar múltiplos painéis caso o script seja reinjetado.
+    const existing = document.getElementById("__vini_highlighter_panel_host__");
+    if (existing) {
+      panelHost = existing;
+      panelRoot = panelHost.shadowRoot;
+      return;
+    }
 
     panelHost = document.createElement("div");
+    panelHost.id = "__vini_highlighter_panel_host__";
     panelHost.style.position = "fixed";
     panelHost.style.zIndex = "2147483647";
     panelHost.style.top = "0";
@@ -561,122 +627,274 @@
       position: "fixed",
       right: "16px",
       bottom: "16px",
-      width: "380px",
-      maxHeight: "70vh",
+      width: "420px",
+      maxWidth: "calc(100vw - 32px)",
+      maxHeight: "72vh",
       overflow: "auto",
-      background: "#fdfdfd",
-      border: "1px solid #ccc",
-      borderRadius: "12px",
-      boxShadow: "0 6px 16px rgba(0, 0, 0, .12)",
-      padding: "12px",
+      borderRadius: "14px",
+      background: "rgba(255,255,255,.98)",
+      border: "1px solid rgba(0,0,0,.10)",
+      boxShadow: "0 18px 50px rgba(0,0,0,.18)",
+      padding: "14px",
       display: "none",
+      backdropFilter: "blur(6px)",
     });
 
-    // HTML do painel: lista termos e permite importar/exportar/configurar estilo.
+    // Layout conforme pedido.
     wrap.innerHTML = `
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-        <div style="font: 600 14px system-ui,-apple-system,sans-serif;">Destaques (globais)</div>
-        <button id="vini-close" style="cursor:pointer;border:none;background:transparent;font-size:14px;">✕</button>
+      <div class="hdr">
+        <div class="ttl">Destaques Globais</div>
+        <button id="vini-close" class="iconbtn" title="Fechar">✕</button>
       </div>
 
-      <div style="margin-top:10px; display:flex; gap:8px;">
-        <input id="vini-add-input" placeholder="Novo termo..." style="flex:1; padding:8px; border:1px solid #ddd; border-radius:8px;">
-        <button id="vini-add-btn" style="padding:8px 10px; border:1px solid #ddd; border-radius:8px; cursor:pointer;">Adicionar</button>
-      </div>
+      <div class="sec">
+        <div class="secTitle">Configs. Gerais</div>
 
-      <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
-        <button id="vini-add-sel-btn" style="padding:8px 10px; border:1px solid #ddd; border-radius:8px; cursor:pointer;">Adicionar + Seleção</button>
-        <button id="vini-remove-selected" style="padding:8px 10px; border:1px solid #ddd; border-radius:8px; cursor:pointer;">Remover selecionados</button>
-        <button id="vini-clear-all" style="padding:8px 10px; border:1px solid #ddd; border-radius:8px; cursor:pointer;">Limpar tudo</button>
-      </div>
+        <div class="row">
+          <input id="vini-add-input" class="inpt" placeholder="digite o novo termo" />
+          <button id="vini-add-btn" class="btn primary">Adicionar</button>
+        </div>
 
-      <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-        <button id="vini-export" style="padding:8px 10px; border:1px solid #ddd; border-radius:8px; cursor:pointer;">Exportar JSON</button>
-        <button id="vini-import" style="padding:8px 10px; border:1px solid #ddd; border-radius:8px; cursor:pointer;">Importar JSON</button>
-      </div>
+        <div class="row2">
+          <button id="vini-add-sel-btn" class="btn">Adicionar seleção</button>
+          <button id="vini-remove-selected" class="btn danger">Remover seleção</button>
+        </div>
 
-      <div id="vini-import-area" style="margin-top:10px; display:none;">
-        <textarea id="vini-import-text" style="width:100%; height:140px; padding:8px; border:1px solid #ddd; border-radius:8px;" placeholder='Cole um JSON: ["termo 1", "termo 2"]'></textarea>
-        <div style="margin-top:8px; display:flex; gap:8px; justify-content:flex-end;">
-          <button id="vini-import-apply" style="padding:8px 10px; border:1px solid #ddd; border-radius:8px; cursor:pointer;">Aplicar importação</button>
-          <button id="vini-import-cancel" style="padding:8px 10px; border:1px solid #ddd; border-radius:8px; cursor:pointer;">Cancelar</button>
+        <div class="row2">
+          <button id="vini-export" class="btn">Exportar JSON</button>
+          <button id="vini-import" class="btn">Importar JSON</button>
+        </div>
+
+        <div id="vini-import-area" class="importArea" style="display:none;">
+          <textarea id="vini-import-text" class="ta" placeholder='Cole um JSON: ["termo 1", "termo 2"]'></textarea>
+          <div class="row2 right">
+            <button id="vini-import-apply" class="btn primary">Aplicar</button>
+            <button id="vini-import-cancel" class="btn">Cancelar</button>
+          </div>
         </div>
       </div>
 
-      <div style="margin-top:12px; padding-top:10px; border-top:1px solid #eee;">
-        <div style="font: 600 13px system-ui,-apple-system,sans-serif; margin-bottom:6px;">Personalização</div>
-        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-          <label style="font: 12px system-ui,-apple-system,sans-serif;">Cor destaque:
-            <input id="vini-hl-color" type="color" />
-          </label>
-          <label style="font: 12px system-ui,-apple-system,sans-serif;">Cor do texto:
-            <input id="vini-text-color" type="color" />
-          </label>
-          <label style="font: 12px system-ui,-apple-system,sans-serif;">Negrito
-            <input id="vini-bold-toggle" type="checkbox" />
-          </label>
+      <div class="sec">
+        <div class="secTitle">Personalização</div>
+
+        <div class="grid">
+          <div class="field">
+            <div class="lbl">Cor destaque</div>
+            <div class="ctl">
+              <input id="vini-hl-color" type="color" class="color" />
+              <div id="vini-hl-preview" class="swatch" title="Cor atual"></div>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="lbl">Cor do texto</div>
+            <div class="ctl">
+              <input id="vini-text-color" type="color" class="color" />
+              <div id="vini-tx-preview" class="swatch" title="Cor atual"></div>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="lbl">Itálico</div>
+            <label class="check">
+              <input id="vini-italic-toggle" type="checkbox" />
+              <span>Ativar</span>
+            </label>
+          </div>
+
+          <div class="field">
+            <div class="lbl">Negrito</div>
+            <label class="check">
+              <input id="vini-bold-toggle" type="checkbox" />
+              <span>Ativar</span>
+            </label>
+          </div>
         </div>
       </div>
 
-      <div style="margin-top:12px;">
-        <div id="vini-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+      <div class="sec">
+        <div class="secTitle">Lista de destaques</div>
+        <div id="vini-list" class="list"></div>
       </div>
     `;
 
-    // CSS interno do painel (no shadow root).
     const style = document.createElement("style");
     style.textContent = `
       :host { all: initial; }
-      #vini-list .item {
-        display:flex; align-items:center; gap:8px;
-        border:1px solid #ddd; border-radius:8px;
-        padding:6px 8px; background:#fafafa;
+
+      .hdr{
+        display:flex; align-items:center; justify-content:space-between;
+        margin-bottom:10px;
       }
-      #vini-list .item:hover { background:#f2f2f2; }
-      #vini-list .term { flex:1; font: 13px system-ui,-apple-system,sans-serif; }
-      #vini-list .rm { border:none; background:transparent; color:#c00; cursor:pointer }
-      #vini-list input[type="checkbox"] { width:16px; height:16px; }
-      button:hover { filter: brightness(0.96); }
+      .ttl{
+        font: 700 15px system-ui, -apple-system, Segoe UI, sans-serif;
+        letter-spacing: .2px;
+        color: #111;
+      }
+      .iconbtn{
+        border:none; background:transparent; cursor:pointer;
+        width:34px; height:34px; border-radius:10px;
+        display:flex; align-items:center; justify-content:center;
+        color:#333; font-size:14px;
+      }
+      .iconbtn:hover{ background: rgba(0,0,0,.06); }
+
+      .sec{ padding:10px 10px 12px; border:1px solid rgba(0,0,0,.06); border-radius:12px; background:rgba(250,250,250,.75); }
+      .sec + .sec{ margin-top:10px; }
+
+      .secTitle{
+        font: 700 12.5px system-ui, -apple-system, Segoe UI, sans-serif;
+        color:#222;
+        margin-bottom:8px;
+      }
+
+      .row{ display:flex; gap:8px; align-items:center; }
+      .row2{ display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+      .row2.right{ justify-content:flex-end; }
+
+      .inpt{
+        flex: 1;
+        padding: 10px 10px;
+        border: 1px solid rgba(0,0,0,.14);
+        border-radius: 10px;
+        outline: none;
+        font: 13px system-ui, -apple-system, Segoe UI, sans-serif;
+        background: rgba(255,255,255,.95);
+      }
+      .inpt:focus{ border-color: rgba(0,0,0,.30); }
+
+      .btn{
+        padding: 10px 12px;
+        border: 1px solid rgba(0,0,0,.14);
+        border-radius: 10px;
+        background: rgba(255,255,255,.95);
+        cursor:pointer;
+        font: 600 12.5px system-ui, -apple-system, Segoe UI, sans-serif;
+        color:#111;
+      }
+      .btn:hover{ filter: brightness(.98); }
+      .btn:active{ transform: translateY(1px); }
+
+      .btn.primary{
+        background: rgba(17,17,17,.92);
+        color:#fff;
+        border-color: rgba(17,17,17,.92);
+      }
+      .btn.danger{
+        background: rgba(255, 245, 245, .95);
+        color:#b00020;
+        border-color: rgba(176,0,32,.20);
+      }
+
+      .importArea{ margin-top:10px; }
+      .ta{
+        width: 100%;
+        height: 140px;
+        resize: vertical;
+        padding: 10px 10px;
+        border: 1px solid rgba(0,0,0,.14);
+        border-radius: 10px;
+        outline:none;
+        font: 12.5px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        background: rgba(255,255,255,.95);
+      }
+
+      .grid{
+        display:grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .field{
+        padding: 10px;
+        border: 1px solid rgba(0,0,0,.08);
+        border-radius: 12px;
+        background: rgba(255,255,255,.70);
+      }
+      .lbl{
+        font: 700 12px system-ui, -apple-system, Segoe UI, sans-serif;
+        margin-bottom: 8px;
+        color:#222;
+      }
+      .ctl{ display:flex; align-items:center; gap:10px; }
+      .color{ width: 44px; height: 32px; border:none; background:transparent; padding:0; cursor:pointer; }
+      .swatch{
+        width: 100%;
+        height: 32px;
+        border-radius: 10px;
+        border: 1px solid rgba(0,0,0,.10);
+        background: #fff;
+      }
+
+      .check{
+        display:flex; align-items:center; gap:10px;
+        font: 600 12.5px system-ui, -apple-system, Segoe UI, sans-serif;
+        color:#111;
+        user-select:none;
+      }
+      .check input{ width: 18px; height: 18px; }
+
+      .list{ display:flex; flex-direction:column; gap:8px; }
+      .item{
+        display:flex; align-items:center; gap:8px;
+        padding: 10px 10px;
+        border: 1px solid rgba(0,0,0,.10);
+        border-radius: 12px;
+        background: rgba(255,255,255,.92);
+      }
+      .item:hover{ background: rgba(255,255,255,1); }
+      .term{
+        flex:1;
+        font: 600 13px system-ui, -apple-system, Segoe UI, sans-serif;
+        color:#111;
+        word-break: break-word;
+      }
+      .rm{
+        border:none;
+        background: rgba(255,245,245,.95);
+        color:#b00020;
+        cursor:pointer;
+        padding: 8px 10px;
+        border-radius: 10px;
+        font: 700 12px system-ui, -apple-system, Segoe UI, sans-serif;
+        border: 1px solid rgba(176,0,32,.18);
+      }
+      .rm:hover{ filter: brightness(.98); }
     `;
 
     panelRoot.appendChild(style);
     panelRoot.appendChild(wrap);
 
-    // Helper para buscar elementos dentro do shadow root.
     const $ = (id) => panelRoot.getElementById(id);
+
     const listEl = $("vini-list");
     const addInput = $("vini-add-input");
 
-    // Fecha painel.
     $("vini-close").onclick = () => togglePanel(false);
 
-    // Adiciona termo pelo input.
     $("vini-add-btn").onclick = async () => {
       const value = addInput.value.trim();
-      if (value && value.length >= MIN_LEN) {
-        if (await addTerm(value)) {
-          addInput.value = "";
-          await refreshList();
-          await applyHighlights();
-          broadcastApply();
-        }
+      if (!value || value.length < MIN_LEN) return;
+
+      if (await addTerm(value)) {
+        addInput.value = "";
+        await refreshList();
+        await applyHighlights();
+        broadcastApply();
       }
     };
 
-    // Adiciona o termo a partir da seleção atual.
     $("vini-add-sel-btn").onclick = async () => {
       const sel = window.getSelection && window.getSelection();
       const text = sel ? String(sel.toString()).trim() : "";
-      if (text && text.length >= MIN_LEN) {
-        if (await addTerm(text)) {
-          await refreshList();
-          await applyHighlights();
-          broadcastApply();
-        }
+      if (!text || charCount(text) < MIN_LEN) return;
+
+      if (await addTerm(text)) {
+        await refreshList();
+        await applyHighlights();
+        broadcastApply();
       }
     };
 
-    // Remove termos marcados (checkbox) na lista.
     $("vini-remove-selected").onclick = async () => {
       const checks = listEl.querySelectorAll('input[type="checkbox"]:checked');
       if (!checks.length) return;
@@ -691,15 +909,6 @@
       broadcastApply();
     };
 
-    // Limpa todos os termos.
-    $("vini-clear-all").onclick = async () => {
-      await saveTerms([]);
-      await refreshList();
-      await applyHighlights();
-      broadcastApply();
-    };
-
-    // Exporta lista como JSON (download).
     $("vini-export").onclick = async () => {
       const terms = await loadTerms();
       const data = JSON.stringify(terms, null, 2);
@@ -715,18 +924,15 @@
       setTimeout(() => URL.revokeObjectURL(url), 2000);
     };
 
-    // Abre área de importação.
     $("vini-import").onclick = () => {
       $("vini-import-area").style.display = "block";
     };
 
-    // Cancela importação.
     $("vini-import-cancel").onclick = () => {
       $("vini-import-text").value = "";
       $("vini-import-area").style.display = "none";
     };
 
-    // Aplica importação JSON.
     $("vini-import-apply").onclick = async () => {
       try {
         const txt = $("vini-import-text").value.trim();
@@ -746,38 +952,55 @@
       }
     };
 
-    // Controles de personalização: cor do destaque, cor do texto e negrito.
+    // Personalização: inputs + swatches (visualização).
     const hlInput = $("vini-hl-color");
-    const txtInput = $("vini-text-color");
+    const hlPrev = $("vini-hl-preview");
+    const txInput = $("vini-text-color");
+    const txPrev = $("vini-tx-preview");
+    const italicInput = $("vini-italic-toggle");
     const boldInput = $("vini-bold-toggle");
+
+    function syncSwatches() {
+      if (hlPrev) hlPrev.style.background = cssColorFromHexRgba(highlightColor);
+      if (txPrev) txPrev.style.background = textColor || DEFAULT_TEXT_COLOR;
+    }
 
     if (hlInput) {
       try {
         hlInput.value = (highlightColor || DEFAULT_HIGHLIGHT_COLOR).slice(0, 7);
       } catch {}
-
       hlInput.addEventListener("input", async (ev) => {
         const val = ev.target.value;
-
-        // Mantém alpha (se existir) e troca a cor base.
-        const alpha = highlightColor && highlightColor.length > 7 ? highlightColor.slice(7) : "";
+        const alpha = highlightColor && highlightColor.length > 7 ? highlightColor.slice(7) : "FF";
         highlightColor = val + alpha;
 
         await GM.setValue(KEY_HIGHLIGHT_COLOR, highlightColor);
+        syncSwatches();
         await applyHighlights();
         broadcastApply();
       });
     }
 
-    if (txtInput) {
+    if (txInput) {
       try {
-        txtInput.value = (textColor || DEFAULT_TEXT_COLOR).slice(0, 7);
+        txInput.value = (textColor || DEFAULT_TEXT_COLOR).slice(0, 7);
       } catch {}
-
-      txtInput.addEventListener("input", async (ev) => {
+      txInput.addEventListener("input", async (ev) => {
         textColor = ev.target.value;
 
         await GM.setValue(KEY_TEXT_COLOR, textColor);
+        syncSwatches();
+        await applyHighlights();
+        broadcastApply();
+      });
+    }
+
+    if (italicInput) {
+      italicInput.checked = !!textItalic;
+      italicInput.addEventListener("change", async (ev) => {
+        textItalic = !!ev.target.checked;
+
+        await GM.setValue(KEY_ITALIC, textItalic);
         await applyHighlights();
         broadcastApply();
       });
@@ -785,7 +1008,6 @@
 
     if (boldInput) {
       boldInput.checked = !!textBold;
-
       boldInput.addEventListener("change", async (ev) => {
         textBold = !!ev.target.checked;
 
@@ -795,7 +1017,6 @@
       });
     }
 
-    // Renderiza a lista de termos no painel.
     async function refreshList() {
       const terms = await loadTerms();
       listEl.innerHTML = "";
@@ -830,25 +1051,30 @@
       }
     }
 
-    // Expõe refreshList para o togglePanel.
     wrap._refreshList = refreshList;
+    wrap._syncSwatches = syncSwatches;
   }
 
-  // Abre/fecha painel e sincroniza UI.
   async function togglePanel(on) {
-    ensurePanel();
+    if (!IS_TOP) return;
+    ensurePanelTopOnly();
+
     const panel = panelRoot.getElementById("vini-panel");
+    if (!panel) return;
 
     if (on) {
       await panel._refreshList();
-
-      // Re-sincroniza controles de UI ao abrir.
       try {
+        panel._syncSwatches();
+
         const hlInput = panelRoot.getElementById("vini-hl-color");
         if (hlInput) hlInput.value = (highlightColor || DEFAULT_HIGHLIGHT_COLOR).slice(0, 7);
 
-        const txtInput = panelRoot.getElementById("vini-text-color");
-        if (txtInput) txtInput.value = (textColor || DEFAULT_TEXT_COLOR).slice(0, 7);
+        const txInput = panelRoot.getElementById("vini-text-color");
+        if (txInput) txInput.value = (textColor || DEFAULT_TEXT_COLOR).slice(0, 7);
+
+        const italicInput = panelRoot.getElementById("vini-italic-toggle");
+        if (italicInput) italicInput.checked = !!textItalic;
 
         const boldInput = panelRoot.getElementById("vini-bold-toggle");
         if (boldInput) boldInput.checked = !!textBold;
@@ -862,41 +1088,55 @@
     }
   }
 
-  // =========================
-  // 10) Menu da extensão (abre/fecha painel)
-  // =========================
+  // “Safe toggle”: evita múltiplas aberturas simultâneas quando o menu dispara em frames.
+  function togglePanelSafe() {
+    if (!IS_TOP) return;
 
-  // Registra item no menu do gerenciador de userscripts:
-  // - Violentmonkey/Tampermonkey modernos: GM.registerMenuCommand
-  // - Tampermonkey antigo: GM_registerMenuCommand
+    const k = "__vini_highlighter_toggle_lock__";
+    const now = Date.now();
+
+    try {
+      const last = window[k] || 0;
+      if (now - last < 250) return;
+      window[k] = now;
+    } catch {}
+
+    togglePanel(!panelOpen);
+  }
+
+  // =========================================================
+  // 10) MENU DA EXTENSÃO (ABRE/FECHA O PAINEL)
+  // =========================================================
+
   function registerExtensionMenu() {
-    const fn = () => togglePanel(!panelOpen);
+    // A ação sempre pede ao TOP para alternar.
+    const fn = () => {
+      try {
+        window.top.postMessage({ type: "VINI_TOGGLE_PANEL_REQUEST" }, "*");
+      } catch {
+        if (IS_TOP) togglePanelSafe();
+      }
+    };
 
     if (typeof GM !== "undefined" && typeof GM.registerMenuCommand === "function") {
-      GM.registerMenuCommand("Abrir/Fechar painel (Highlighter)", fn);
+      GM.registerMenuCommand("Abrir/Fechar Painel", fn);
       return;
     }
-
     if (typeof GM_registerMenuCommand === "function") {
-      GM_registerMenuCommand("Abrir/Fechar painel (Highlighter)", fn);
+      GM_registerMenuCommand("Abrir/Fechar painel", fn);
     }
   }
 
-  // =========================
-  // 11) Boot + observadores
-  // =========================
+  // =========================================================
+  // 11) BOOT + OBSERVADORES
+  // =========================================================
 
   (async function init() {
-    // Carrega preferências antes de aplicar destaques.
     await loadSettings();
-
-    // Aplica destaques inicialmente.
     await applyHighlights();
-
-    // Registra o item no menu da extensão.
     registerExtensionMenu();
 
-    // Observa mudanças de DOM (Projudi é muito dinâmico) e reaplica.
+    // Observa mudanças de DOM e reaplica (Projudi é dinâmico).
     const mo = new MutationObserver(() => {
       if (mo._pending) return;
       mo._pending = true;
@@ -912,7 +1152,7 @@
       characterData: true,
     });
 
-    // Detecta navegação SPA (pushState/replaceState/popstate) e reaplica.
+    // Detecta navegação SPA e reaplica.
     const push = history.pushState,
       replace = history.replaceState;
 
@@ -921,7 +1161,6 @@
       window.dispatchEvent(new Event("vini-spa-change"));
       return ret;
     };
-
     history.replaceState = function () {
       const ret = replace.apply(this, arguments);
       window.dispatchEvent(new Event("vini-spa-change"));
@@ -932,5 +1171,8 @@
     window.addEventListener("vini-spa-change", async () => {
       await applyHighlights();
     });
+
+    // Se for TOP, prepara o painel (mas não abre).
+    if (IS_TOP) ensurePanelTopOnly();
   })();
 })();
