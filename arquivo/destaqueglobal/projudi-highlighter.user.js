@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Projudi - Highlighter Global
 // @namespace    projudi-highlighter.user.js
-// @version      3.6
+// @version      3.7
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaque global, com painel configurável (Ctrl+Shift+H).
 // @author       lourencosv (GPT)
@@ -1119,11 +1119,11 @@
     };
 
     if (typeof GM !== "undefined" && typeof GM.registerMenuCommand === "function") {
-      GM.registerMenuCommand("Abrir Painel", fn);
+      GM.registerMenuCommand("Highlighter Global: Abrir Painel", fn);
       return;
     }
     if (typeof GM_registerMenuCommand === "function") {
-      GM_registerMenuCommand("Abrir Painel", fn);
+      GM_registerMenuCommand("Highlighter Global: Abrir Painel", fn);
     }
   }
 
