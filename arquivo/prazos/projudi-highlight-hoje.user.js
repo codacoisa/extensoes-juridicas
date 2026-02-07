@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Projudi - Highlight Hoje
 // @namespace    projudi-highlight-hoje.user.js
-// @version      2.4
+// @version      2.5
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Realça possíveis vencimentos no projudi, com cores definidas.
 // @author       louencosv (GPT)
@@ -765,10 +765,17 @@
     }
   }
 
-  // Registra SOMENTE o comando de abrir painel, e apenas no TOP (evita duplicação por iframe).
-  if (IS_TOP && typeof GM_registerMenuCommand === "function") {
+  // Registra o menu uma única vez, mesmo se o script rodar dentro de iframe.
+  if (typeof GM_registerMenuCommand === "function") {
+  let topWin;
+  try { topWin = window.top; } catch { topWin = window; }
+
+  // Flag no topo para evitar duplicação
+  if (!topWin.__tm_hl7d_menu_registered) {
+    topWin.__tm_hl7d_menu_registered = true;
     GM_registerMenuCommand("Highlight Hoje: Abrir Painel", openPanel);
   }
+}
 
   // ============================================================
   // INIT (executa no topo e no iframe)
