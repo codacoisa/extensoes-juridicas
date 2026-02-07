@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Projudi - Highlight Hoje
+// @name         Projudi - Highlight Prazos
 // @namespace    projudi-highlight-hoje.user.js
 // @version      2.7
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
