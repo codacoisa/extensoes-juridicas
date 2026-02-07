@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Projudi - Highlight Hoje
 // @namespace    projudi-highlight-hoje.user.js
-// @version      2.2
+// @version      2.3
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Realça possíveis vencimentos no projudi, com cores definidas.
 // @author       louencosv (GPT)
