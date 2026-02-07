@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Projudi - Highlight Hoje
 // @namespace    projudi-highlight-hoje.user.js
-// @version      2.6
+// @version      2.7
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Realça possíveis vencimentos no projudi, com cores definidas.
 // @author       louencosv (GPT)
@@ -776,7 +776,7 @@
   // Flag no topo para evitar duplicação
   if (!topWin.__tm_hl7d_menu_registered) {
     topWin.__tm_hl7d_menu_registered = true;
-    GM_registerMenuCommand("Highlight Hoje: Abrir Painel", openPanel);
+    GM_registerMenuCommand("Abrir Painel", openPanel);
   }
 }
 
