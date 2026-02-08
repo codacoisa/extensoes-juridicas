@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Destaques Global
+// @name         Destaque Global
 // @namespace    projudi-highlighter.user.js
-// @version      3.9
+// @version      4.0
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaque global, com painel configurável (Ctrl+Shift+H).
 // @author       lourencosv (GPT)
@@ -643,7 +643,7 @@
     // Layout conforme pedido.
     wrap.innerHTML = `
       <div class="hdr">
-        <div class="ttl">Destaques Globais</div>
+        <div class="ttl">Destaque Global</div>
         <button id="vini-close" class="iconbtn" title="Fechar">✕</button>
       </div>
 
