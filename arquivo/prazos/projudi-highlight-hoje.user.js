@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Destaques de Prazos
+// @name         Destaque de Prazos
 // @namespace    projudi-highlight-hoje.user.js
-// @version      2.8
+// @version      2.9
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Realça possíveis vencimentos no projudi, com cores definidas.
 // @author       louencosv (GPT)
