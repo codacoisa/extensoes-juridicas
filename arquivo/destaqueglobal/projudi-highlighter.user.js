@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Projudi - Highlighter Global
+// @name         Destaques Global
 // @namespace    projudi-highlighter.user.js
-// @version      3.8
+// @version      3.9
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaque global, com painel configurável (Ctrl+Shift+H).
 // @author       lourencosv (GPT)
