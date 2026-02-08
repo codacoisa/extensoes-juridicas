@@ -1,15 +1,14 @@
-
 // ==UserScript==
-// @name         Projudi - To-do local
+// @name         To-do local
 // @namespace    projudi-tarefas-locais.user.js
-// @version      1.1
+// @version      1.2
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  To-do local por processo e visão geral na página inicial com tarefas globais.
 // @author       louencosv (GPT)
 // @license      CC BY-NC 4.0
 // @updateURL    https://gist.githubusercontent.com/lourencosv/99fd4d691bae5a921bd33fe7eb4c1885/raw/projudi-tarefas-locais.user.js
 // @downloadURL  https://gist.githubusercontent.com/lourencosv/99fd4d691bae5a921bd33fe7eb4c1885/raw/projudi-tarefas-locais.user.js
-// @match        https://projudi.tjgo.jus.br/*
+// @match        *://projudi.tjgo.jus.br/*
 // @run-at       document-end
 // @grant        GM_getValue
 // @grant        GM_setValue
