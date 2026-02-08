@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         Projudi - Highlight Movimentações
 // @namespace    projudi-highlight-movimentacoes.user.js
-// @version      1.2
+// @version      1.3
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
-// @description  Destaca as movimentações no Projudi, com painel configurável (Ctrl+Shift+M).
+// @description  Destaca as movimentações processuais em cores definidas.
 // @author       lourencosv (GPT)
 // @license      CC BY-NC 4.0
 // @updateURL    https://gist.githubusercontent.com/lourencosv/5ffde04a50de4c905c398bee2b9ae2ed/raw/projudi-highlight-movimentacoes.user.js
@@ -12,6 +12,7 @@
 // @include      *projudi*
 // @run-at       document-end
 // @grant        GM_addStyle
+// @grant        GM_registerMenuCommand
 // ==/UserScript==
 
 (function () {
