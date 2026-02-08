@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Projudi - Highlight Movimentações
+// @name         Destaque de Movimentações
 // @namespace    projudi-highlight-movimentacoes.user.js
 // @version      1.3
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
