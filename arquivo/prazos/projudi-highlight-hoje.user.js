@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque de Prazos
 // @namespace    projudi-highlight-hoje.user.js
-// @version      2.9
+// @version      3.0
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Realça possíveis vencimentos no projudi, com cores definidas.
 // @author       louencosv (GPT)
@@ -20,50 +20,42 @@
   "use strict";
 
   // ============================================================
-  // CONFIGURAÇÕES PRINCIPAIS
+  // CONFIGURACOES PRINCIPAIS
   // ============================================================
-  // Janela de destaque: hoje + próximos (WINDOW_DAYS - 1) dias.
-  // Ex.: WINDOW_DAYS = 7 => hoje + próximos 6 (total 7 datas).
+  // Janela de destaque: hoje + proximos (WINDOW_DAYS - 1) dias.
+  // Ex.: WINDOW_DAYS = 7 => hoje + proximos 6 (total 7 datas).
   const WINDOW_DAYS = 7;
 
-  // O Projudi tem várias tabelas. Para evitar falsos positivos, a gente só realça
-  // datas que estejam nas colunas cujo cabeçalho contenha (case-insensitive):
-  // "Data limite" ou "Possível data limite".
+  // O Projudi tem varias tabelas. Para evitar falsos positivos, a gente so realca
+  // datas que estejam nas colunas cujo cabecalho contenha (case-insensitive):
+  // "Data limite" ou "Possivel data limite".
   const TARGET_HEADERS = [
     "data limite",
-    "possível data limite",
     "possivel data limite",
+    "possível data limite",
   ];
 
-  // Chave onde guardamos a "data fixa" (persistente), em formato "YYYY-MM-DD".
-  // Essa data é definida pelo painel e permanece até o usuário resetar.
+  // Chaves de storage
   const FIXED_DATE_KEY = "projudi_highlight_fixed_date_v1";
+  const FILTER_DATE_KEY = "projudi_highlight_filter_date_v1";
+  const FILTER_ENABLED_KEY = "projudi_highlight_filter_enabled_v1";
 
   // ============================================================
   // CONTEXTO: TOPO vs IFRAME
   // ============================================================
-  // O Projudi usa iframe. Se o userscript rodar no topo e dentro do iframe,
-  // ele pode registrar menu e injetar painel duas vezes.
-  // A estratégia é:
-  // - O realce (highlight) roda em QUALQUER contexto (topo e iframe).
-  // - O painel/menu do Tampermonkey só registra no TOPO.
   const IS_TOP = (() => {
     try {
       return window.top === window.self;
     } catch {
-      // Se não puder comparar por restrição, assume topo.
       return true;
     }
   })();
 
-  // Para abrir o painel sempre "por cima de tudo", criamos/injetamos o overlay
-  // no document do topo, não no document do iframe.
   function getTopDocumentSafe() {
     if (IS_TOP) return document;
     try {
       return window.top.document;
     } catch {
-      // Fallback: se não tiver acesso ao top.document, usa o document atual.
       return document;
     }
   }
@@ -71,66 +63,94 @@
   // ============================================================
   // GM_* HELPERS (Tampermonkey) COM FALLBACK (localStorage)
   // ============================================================
-  // Em alguns ambientes, GM_* pode não existir (ou você pode migrar de manager).
-  // Então mantemos fallback para localStorage.
   function hasGM() {
     return typeof GM_getValue === "function" && typeof GM_setValue === "function";
   }
 
-  function getStoredFixedDate() {
+  function getStored(key, fallback = "") {
     try {
-      if (hasGM()) return GM_getValue(FIXED_DATE_KEY, "");
-      return localStorage.getItem(FIXED_DATE_KEY) || "";
+      if (hasGM()) return GM_getValue(key, fallback);
+      const v = localStorage.getItem(key);
+      return v === null ? fallback : v;
     } catch {
-      return "";
+      return fallback;
     }
   }
 
-  function setStoredFixedDate(yyyy_mm_dd) {
+  function setStored(key, value) {
     try {
-      if (hasGM()) GM_setValue(FIXED_DATE_KEY, yyyy_mm_dd);
-      else localStorage.setItem(FIXED_DATE_KEY, yyyy_mm_dd);
-    } catch {
-      // silêncio proposital: o script segue sem data fixa se storage falhar
-    }
-  }
-
-  function clearStoredFixedDate() {
-    try {
-      if (hasGM()) GM_deleteValue(FIXED_DATE_KEY);
-      else localStorage.removeItem(FIXED_DATE_KEY);
+      if (hasGM()) GM_setValue(key, value);
+      else localStorage.setItem(key, String(value));
     } catch {
       // noop
     }
   }
 
+  function clearStored(key) {
+    try {
+      if (hasGM()) GM_deleteValue(key);
+      else localStorage.removeItem(key);
+    } catch {
+      // noop
+    }
+  }
+
+  function getStoredFixedDate() {
+    return String(getStored(FIXED_DATE_KEY, "") || "");
+  }
+
+  function setStoredFixedDate(yyyy_mm_dd) {
+    setStored(FIXED_DATE_KEY, yyyy_mm_dd);
+  }
+
+  function clearStoredFixedDate() {
+    clearStored(FIXED_DATE_KEY);
+  }
+
+  function getStoredFilterDate() {
+    return String(getStored(FILTER_DATE_KEY, "") || "");
+  }
+
+  function setStoredFilterDate(yyyy_mm_dd) {
+    setStored(FILTER_DATE_KEY, yyyy_mm_dd);
+  }
+
+  function clearStoredFilterDate() {
+    clearStored(FILTER_DATE_KEY);
+  }
+
+  function getStoredFilterEnabled() {
+    const raw = getStored(FILTER_ENABLED_KEY, false);
+    return raw === true || raw === "true" || raw === 1 || raw === "1";
+  }
+
+  function setStoredFilterEnabled(enabled) {
+    setStored(FILTER_ENABLED_KEY, !!enabled);
+  }
+
   // ============================================================
-  // UTILITÁRIOS DE DATA
+  // UTILITARIOS DE DATA
   // ============================================================
   const pad2 = (n) => (n < 10 ? "0" + n : "" + n);
 
-  // Aceita dia/mês com ou sem zero à esquerda (ex.: 7 ou 07).
-  // Ex.: alt(7) => "07|7" ; alt(12) => "12"
+  // Aceita dia/mes com ou sem zero a esquerda
   const alt = (num) => {
     const s = pad2(num);
     const n = String(num);
     return s === n ? s : `${s}|${n}`;
   };
 
-  // Weekend = sábado (6) ou domingo (0)
   function isWeekend(d) {
     const day = d.getDay();
     return day === 0 || day === 6;
   }
 
-  // Normaliza para meia-noite (evita bugs de comparação/virada de dia)
   function cloneDate(d) {
     const x = new Date(d.getTime());
     x.setHours(0, 0, 0, 0);
     return x;
   }
 
-  // Soma dias com normalização
   function addDays(d, days) {
     const x = new Date(d.getTime());
     x.setDate(x.getDate() + days);
@@ -138,7 +158,6 @@
     return x;
   }
 
-  // Converte "YYYY-MM-DD" em Date (validando coerência)
   function ymdToDate(ymd) {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
     if (!m) return null;
@@ -150,15 +169,10 @@
     const d = new Date(yyyy, mm - 1, dd);
     d.setHours(0, 0, 0, 0);
 
-    // valida se o JS não "corrigiu" uma data inválida (ex.: 2026-02-31)
     if (d.getFullYear() !== yyyy || d.getMonth() !== mm - 1 || d.getDate() !== dd) return null;
     return d;
   }
 
-  // Cria regex para capturar a data do dia em formatos comuns do Projudi:
-  // - separador "/" ou "-"
-  // - ano com 4 ou 2 dígitos
-  // Exemplos: 07/02/2026, 7-2-26, etc.
   function makeDateInfo(date) {
     const d = date.getDate();
     const m = date.getMonth() + 1;
@@ -176,41 +190,39 @@
       m,
       yyyy,
       regex: new RegExp(pattern, "g"),
-      // filtro rápido: se o texto não contém nem "07" nem "7", não vale varrer regex
       quickStrings: [pad2(d), String(d)],
     };
   }
 
-  // Curto PT-BR (para tooltip)
   function weekdayShortPT(d) {
-    const map = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+    const map = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
     return map[d.getDay()];
+  }
+
+  function dateMatchesTextByInfo(dateInfo, text) {
+    if (!dateInfo || !text) return false;
+    dateInfo.regex.lastIndex = 0;
+    return dateInfo.regex.test(text);
   }
 
   // ============================================================
   // ESQUEMA DE CORES
   // ============================================================
-  // - Dias úteis: gradiente quente -> frio.
-  //   Importante: a posição do gradiente é calculada APENAS considerando dias úteis
-  //   dentro da janela (segunda a sexta).
-  // - Sábado/domingo: cor fixa (alerta de fim de semana).
-  // - Data fixa: cor própria (para não confundir com o gradiente).
   const CLASS_PREFIX = "tm-hl7d";
   const CLASS_WEEKEND = `${CLASS_PREFIX}-weekend`;
   const CLASS_FIXED = `${CLASS_PREFIX}-fixed`;
+  const FILTER_HIDDEN_ATTR = "data-tm-filter-hidden";
 
-  // Paleta base (5 passos). Quando a janela tiver menos/more dias úteis,
-  // interpolamos entre esses passos.
   const WEEKDAY_PALETTE = [
-    { bg: "rgba(255,205,210,1)", fg: "rgba(183,28,28,1)" },   // vermelho (mais quente)
-    { bg: "rgba(255,224,178,1)", fg: "rgba(191,54,12,1)" },   // laranja
-    { bg: "rgba(255,249,196,1)", fg: "rgba(245,127,23,1)" },  // amarelo
-    { bg: "rgba(220,237,200,1)", fg: "rgba(51,105,30,1)" },   // verde claro
-    { bg: "rgba(200,230,201,1)", fg: "rgba(27,94,32,1)" },    // verde (mais frio)
+    { bg: "rgba(255,205,210,1)", fg: "rgba(183,28,28,1)" },
+    { bg: "rgba(255,224,178,1)", fg: "rgba(191,54,12,1)" },
+    { bg: "rgba(255,249,196,1)", fg: "rgba(245,127,23,1)" },
+    { bg: "rgba(220,237,200,1)", fg: "rgba(51,105,30,1)" },
+    { bg: "rgba(200,230,201,1)", fg: "rgba(27,94,32,1)" },
   ];
 
-  const WEEKEND_COLOR = { bg: "rgba(227,242,253,1)", fg: "rgba(13,71,161,1)" }; // azul
-  const FIXED_COLOR   = { bg: "rgba(243,229,245,1)", fg: "rgba(74,20,140,1)" }; // roxo
+  const WEEKEND_COLOR = { bg: "rgba(227,242,253,1)", fg: "rgba(13,71,161,1)" };
+  const FIXED_COLOR = { bg: "rgba(243,229,245,1)", fg: "rgba(74,20,140,1)" };
 
   function lerp(a, b, t) {
     return a + (b - a) * t;
@@ -226,12 +238,10 @@
     return `rgba(${Math.round(c.r)},${Math.round(c.g)},${Math.round(c.b)},${c.a})`;
   }
 
-  // Interpola entre a paleta em função de (idx/total)
-  // idx in [0..total-1]
   function interpolatePalette(palette, idx, total) {
     if (total <= 1) return palette[0];
 
-    const t = idx / (total - 1); // 0..1
+    const t = idx / (total - 1);
     const segs = palette.length - 1;
     const x = t * segs;
     const i = Math.floor(x);
@@ -251,29 +261,23 @@
   }
 
   // ============================================================
-  // CONSTRUÇÃO DAS CONFIGS (janela + data fixa)
+  // CONSTRUCAO DAS CONFIGS (janela + data fixa)
   // ============================================================
-  // Gera uma lista de "configs" de datas que serão realçadas (cada uma com regex, classe e tooltip).
-  // Ordem importa: data fixa vem primeiro, para prevalecer sobre uma data da janela.
   function buildConfigs() {
     const today = cloneDate(new Date());
 
-    // Cria a janela de datas
     const windowDates = [];
     for (let i = 0; i < WINDOW_DAYS; i++) windowDates.push(addDays(today, i));
 
-    // Lista só com os offsets úteis (para calcular gradiente sem considerar fim de semana)
     const weekdayOffsets = windowDates
       .map((d, i) => ({ d, i }))
       .filter((x) => !isWeekend(x.d));
 
     const weekdayCount = weekdayOffsets.length;
 
-    // Configs para cada dia da janela
     const windowConfigs = windowDates.map((d, offset) => {
       const info = makeDateInfo(d);
 
-      // Sábado/Domingo: cor única + tooltip diferente
       if (isWeekend(d)) {
         return {
           kind: "window",
@@ -284,7 +288,6 @@
         };
       }
 
-      // Dias úteis: posição no "ranking" de úteis dentro da janela, para cor quente->fria
       const wkPos = weekdayOffsets.findIndex((x) => x.i === offset);
       const col = interpolatePalette(WEEKDAY_PALETTE, Math.max(0, wkPos), Math.max(1, weekdayCount));
       const className = `${CLASS_PREFIX}-wd-${wkPos}`;
@@ -296,11 +299,10 @@
         className,
         weekdayPos: wkPos,
         weekdayColor: col,
-        tooltip: `Possível vencimento em ${offset === 0 ? "HOJE" : `${offset} dia(s)`} • ${weekdayShortPT(d)} • ${pad2(info.d)}/${pad2(info.m)}/${info.yyyy}`,
+        tooltip: `Possivel vencimento em ${offset === 0 ? "HOJE" : `${offset} dia(s)`} • ${weekdayShortPT(d)} • ${pad2(info.d)}/${pad2(info.m)}/${info.yyyy}`,
       };
     });
 
-    // Config opcional de data fixa (vinda do painel)
     const fixedYMD = getStoredFixedDate();
     const fixedDate = fixedYMD ? ymdToDate(fixedYMD) : null;
 
@@ -314,10 +316,8 @@
         }
       : null;
 
-    // Prioridade: FIXED primeiro
     const all = fixedConfig ? [fixedConfig, ...windowConfigs] : windowConfigs;
 
-    // quickStrings: usado pra filtrar textos que "não têm chance" de conter datas relevantes
     const quick = new Set();
     for (const cfg of all) for (const qs of cfg.info.quickStrings) quick.add(qs);
 
@@ -325,10 +325,8 @@
   }
 
   // ============================================================
-  // CSS: realce + tooltip + painel (com contraste garantido)
+  // CSS: realce + tooltip + painel
   // ============================================================
-  // Importante: no Projudi, CSS global pode deixar botões "apagados".
-  // Por isso os estilos do painel usam !important.
   const style = document.createElement("style");
   style.textContent = `
 .${CLASS_PREFIX}-base {
@@ -394,36 +392,67 @@
   justify-content: center;
 }
 #${CLASS_PREFIX}-panel {
-  width: 420px;
+  width: 500px;
   max-width: calc(100vw - 24px);
   background: #fff;
-  border-radius: 10px;
+  border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0,0,0,.25);
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  padding: 14px 14px 12px;
+  padding: 0;
+  overflow: hidden;
+}
+#${CLASS_PREFIX}-panel .panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(0,0,0,.08);
+  background: #fafafa;
 }
 #${CLASS_PREFIX}-panel h3 {
-  margin: 0 0 10px 0;
-  font-size: 14px;
+  margin: 0;
+  font-size: 15px;
   font-weight: 700;
 }
-
+#${CLASS_PREFIX}-panel button.icon-close {
+  width: 28px !important;
+  height: 28px !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  font-size: 18px !important;
+}
+#${CLASS_PREFIX}-panel .panel-body {
+  padding: 14px;
+}
+#${CLASS_PREFIX}-panel .section {
+  border: 1px solid rgba(0,0,0,.1);
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+#${CLASS_PREFIX}-panel h4 {
+  margin: 0 0 4px 0;
+  font-size: 13px;
+}
 #${CLASS_PREFIX}-panel .row {
   display: flex;
   gap: 8px;
   align-items: center;
-  margin: 8px 0;
+  margin: 6px 0;
+}
+#${CLASS_PREFIX}-panel .row.wrap {
+  flex-wrap: wrap;
 }
 #${CLASS_PREFIX}-panel input[type="date"] {
   flex: 1;
+  min-width: 170px;
   padding: 8px !important;
   border: 1px solid rgba(0,0,0,.2) !important;
   border-radius: 8px !important;
   color: #111 !important;
   background: #fff !important;
 }
-
-/* Contraste forçado dos botões */
 #${CLASS_PREFIX}-panel button {
   padding: 8px 10px !important;
   border: 1px solid rgba(0,0,0,.18) !important;
@@ -449,16 +478,15 @@
 
 #${CLASS_PREFIX}-panel .status {
   font-size: 12px;
-  margin-top: 6px;
+  margin-top: 8px;
   color: rgba(0,0,0,.8);
 }
 
-/* Texto da dica justificado */
 #${CLASS_PREFIX}-panel .hint {
   font-size: 12px;
   color: rgba(0,0,0,.7);
   line-height: 1.35;
-  margin-top: 8px;
+  margin-top: 4px;
   text-align: justify;
   text-justify: inter-word;
 }
@@ -468,57 +496,58 @@
   // ============================================================
   // ENGINE DE HIGHLIGHT
   // ============================================================
-  // Para não quebrar o DOM, não mexemos em <input>, <script>, etc, nem
-  // reprocessamos nodes que já são nossos spans de highlight.
   const SKIP_TAGS = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEXTAREA", "INPUT"]);
   const HIGHLIGHT_SELECTOR = `span.${CLASS_PREFIX}-base`;
   const isSkippable = (node) =>
     node &&
     (SKIP_TAGS.has(node.nodeName) || node.closest?.(`${HIGHLIGHT_SELECTOR}, script, style, noscript, textarea, input`));
 
-  // Pega o índice da coluna (TD) dentro do TR
   function getColumnIndex(td) {
     const tr = td?.parentElement;
     if (!tr) return -1;
     return Array.prototype.indexOf.call(tr.children, td);
   }
 
-  // Confere se um TD está numa coluna cujo cabeçalho é um dos alvos
+  function getTargetColumnIndexes(table) {
+    if (!table) return new Set();
+    const thead = table.querySelector("thead");
+    if (!thead) return new Set();
+
+    const headerRows = Array.from(thead.querySelectorAll("tr"));
+    if (headerRows.length === 0) return new Set();
+
+    // Usa a ultima linha de cabecalho como base visual de colunas.
+    const row = headerRows[headerRows.length - 1];
+    const idxs = new Set();
+
+    let idx = 0;
+    for (const cell of row.children) {
+      const span = parseInt(cell.getAttribute("colspan") || "1", 10) || 1;
+      const text = (cell.textContent || "").trim().toLowerCase();
+      const isTarget = TARGET_HEADERS.some((h) => text.includes(h));
+      if (isTarget) {
+        for (let i = 0; i < span; i++) idxs.add(idx + i);
+      }
+      idx += span;
+    }
+
+    return idxs;
+  }
+
+  function tableHasTargetHeaders(table) {
+    return getTargetColumnIndexes(table).size > 0;
+  }
+
   function isTargetColumn(td) {
     if (!td) return false;
     const table = td.closest?.("table");
     if (!table) return false;
-
-    const thead = table.querySelector("thead");
-    if (!thead) return false;
-
-    const headerRows = Array.from(thead.querySelectorAll("tr"));
-    if (headerRows.length === 0) return false;
-
     const colIndex = getColumnIndex(td);
     if (colIndex < 0) return false;
-
-    // Caminha de baixo pra cima no thead para achar o cabeçalho "real"
-    // e respeitar colspan.
-    for (let r = headerRows.length - 1; r >= 0; r--) {
-      const row = headerRows[r];
-      let idx = 0;
-
-      for (const cell of row.children) {
-        const span = parseInt(cell.getAttribute("colspan")) || 1;
-
-        // Se a coluna está dentro do intervalo desse TH
-        if (idx <= colIndex && colIndex < idx + span) {
-          const text = (cell.textContent || "").trim().toLowerCase();
-          return TARGET_HEADERS.some((h) => text.includes(h));
-        }
-        idx += span;
-      }
-    }
-    return false;
+    const targetCols = getTargetColumnIndexes(table);
+    return targetCols.has(colIndex);
   }
 
-  // Sobe no DOM até encontrar o TD pai e verifica se é uma coluna alvo
   function isInTargetCell(textNode) {
     let el = textNode?.parentElement;
     while (el && el !== document.body && el.nodeName !== "TD") el = el.parentElement;
@@ -526,11 +555,8 @@
     return isTargetColumn(el);
   }
 
-  // Estado atual (configs+regex) do highlight (depende do dia e da data fixa)
   let STATE = buildConfigs();
 
-  // Injeta classes dinâmicas dos dias úteis (wd-0..wd-N) com cores calculadas.
-  // Isso evita hardcode de "7 cores" e mantém coerente perto de finais de semana.
   function ensureWeekdayDynamicClasses() {
     const existing = document.getElementById(`${CLASS_PREFIX}-dyn`);
     if (existing) existing.remove();
@@ -556,8 +582,6 @@
     document.documentElement.appendChild(dyn);
   }
 
-  // Remove todos os highlights (volta o texto ao normal).
-  // Usado quando a data fixa muda, ou quando vira o dia.
   function unwrapAllHighlights(root) {
     const spans = root.querySelectorAll(`span.${CLASS_PREFIX}-base`);
     for (const sp of spans) {
@@ -566,17 +590,14 @@
     }
   }
 
-  // Realça datas dentro de um único TextNode (se estiver em coluna alvo).
   function highlightInTextNode(textNode) {
     if (!isInTargetCell(textNode)) return;
 
     const text = textNode.nodeValue;
     if (!text) return;
 
-    // Reset do lastIndex por regex (porque usamos /g)
     for (const cfg of STATE.configs) cfg.info.regex.lastIndex = 0;
 
-    // Coleta matches de TODAS as datas alvo
     const matches = [];
     for (const cfg of STATE.configs) {
       const { regex } = cfg.info;
@@ -594,8 +615,6 @@
     }
     if (matches.length === 0) return;
 
-    // Ordena e remove sobreposições.
-    // Regra: se empatar, FIXED tem prioridade (kind="fixed").
     matches.sort((a, b) => {
       if (a.start !== b.start) return a.start - b.start;
       if (a.end !== b.end) return b.end - a.end;
@@ -612,7 +631,6 @@
       }
     }
 
-    // Reconstrói o node como fragment: texto normal + spans destacados
     const frag = document.createDocumentFragment();
     let lastIndex = 0;
 
@@ -637,10 +655,6 @@
     textNode.parentNode.replaceChild(frag, textNode);
   }
 
-  // Varre o DOM (ou um subtree) e tenta realçar TextNodes candidatos.
-  // Otimizações:
-  // - só aceita nodes que contenham "/" ou "-"
-  // - usa quickStrings pra filtrar antes do regex
   function walkAndHighlight(root) {
     const walker = document.createTreeWalker(
       root,
@@ -675,22 +689,96 @@
     for (const tn of nodes) highlightInTextNode(tn);
   }
 
-  // Recalcula configs (ex.: mudou data fixa ou virou o dia) e reprocessa a página.
+  // ============================================================
+  // FILTRO DE LINHAS (somente vencendo em data escolhida)
+  // ============================================================
+  function getEffectiveFilterDate() {
+    const stored = getStoredFilterDate();
+    const d = stored ? ymdToDate(stored) : null;
+    return d || cloneDate(new Date());
+  }
+
+  function rowMatchesDeadlineDate(tr, targetCols, dateInfo) {
+    if (!tr || !targetCols || targetCols.size === 0) return false;
+
+    const tds = Array.from(tr.children).filter((x) => x.nodeName === "TD");
+    if (tds.length === 0) return false;
+
+    for (let col = 0; col < tds.length; col++) {
+      if (!targetCols.has(col)) continue;
+      const txt = (tds[col].textContent || "").trim();
+      if (!txt) continue;
+      if (dateMatchesTextByInfo(dateInfo, txt)) return true;
+    }
+
+    return false;
+  }
+
+  function hideRow(tr) {
+    tr.style.setProperty("display", "none", "important");
+    tr.setAttribute(FILTER_HIDDEN_ATTR, "1");
+  }
+
+  function showRow(tr) {
+    if (tr.hasAttribute(FILTER_HIDDEN_ATTR)) {
+      tr.style.removeProperty("display");
+      tr.removeAttribute(FILTER_HIDDEN_ATTR);
+    }
+  }
+
+  function getTablesFromRoot(root) {
+    if (!root) return [];
+    const tables = [];
+    if (root.nodeType === Node.ELEMENT_NODE && root.nodeName === "TABLE") tables.push(root);
+    if (root.querySelectorAll) tables.push(...root.querySelectorAll("table"));
+    return tables;
+  }
+
+  function clearFilterInRoot(root) {
+    const rows = root.querySelectorAll(`tr[${FILTER_HIDDEN_ATTR}="1"]`);
+    for (const tr of rows) showRow(tr);
+  }
+
+  function applyDeadlineFilter(root = document) {
+    const enabled = getStoredFilterEnabled();
+
+    if (!enabled) {
+      clearFilterInRoot(root);
+      return;
+    }
+
+    const filterDate = getEffectiveFilterDate();
+    const filterInfo = makeDateInfo(filterDate);
+    const tables = getTablesFromRoot(root);
+
+    for (const table of tables) {
+      if (!tableHasTargetHeaders(table)) continue;
+      const targetCols = getTargetColumnIndexes(table);
+      if (targetCols.size === 0) continue;
+
+      const tbodyRows = table.querySelectorAll("tbody tr");
+      for (const tr of tbodyRows) {
+        const match = rowMatchesDeadlineDate(tr, targetCols, filterInfo);
+        if (match) showRow(tr);
+        else hideRow(tr);
+      }
+    }
+  }
+
   function rebuildStateAndRehighlight() {
     STATE = buildConfigs();
     ensureWeekdayDynamicClasses();
     unwrapAllHighlights(document.body);
     walkAndHighlight(document.body);
+    applyDeadlineFilter(document);
   }
 
   // ============================================================
   // PAINEL (SOMENTE NO TOPO)
   // ============================================================
-  // O painel é acessado APENAS via menu do Tampermonkey (sem atalho).
   function openPanel() {
     const topDoc = getTopDocumentSafe();
 
-    // Evita abrir duas vezes: checa no document do topo
     if (topDoc.getElementById(`${CLASS_PREFIX}-panel-overlay`)) return;
 
     const overlay = topDoc.createElement("div");
@@ -700,26 +788,45 @@
     panel.id = `${CLASS_PREFIX}-panel`;
 
     const fixed = getStoredFixedDate();
+    const filterDateStored = getStoredFilterDate();
+    const filterDateInitial = filterDateStored || fixed || `${new Date().getFullYear()}-${pad2(new Date().getMonth() + 1)}-${pad2(new Date().getDate())}`;
 
     panel.innerHTML = `
-      <h3>PROJUDI • DATA FIXA (REALCE PERSISTENTE)</h3>
-
-      <div class="row">
-        <input id="${CLASS_PREFIX}-date-input" type="date" value="${fixed ? fixed : ""}" />
-        <button class="primary" id="${CLASS_PREFIX}-save">Salvar</button>
+      <div class="panel-head">
+        <h3>PROJUDI • PRAZOS</h3>
+        <button class="icon-close" id="${CLASS_PREFIX}-close" title="Fechar painel" aria-label="Fechar painel">×</button>
       </div>
 
-      <div class="row">
-        <button id="${CLASS_PREFIX}-reset">Resetar data fixa</button>
-        <button id="${CLASS_PREFIX}-close">Fechar</button>
-      </div>
+      <div class="panel-body">
+        <div class="section">
+          <h4>Data fixa (realce persistente)</h4>
+          <div class="hint">
+            Mantem uma data sempre destacada nas tabelas, inclusive retroativa, sem depender da janela de hoje + ${WINDOW_DAYS - 1} dias.
+          </div>
+          <div class="row wrap">
+            <input id="${CLASS_PREFIX}-date-input" type="date" value="${fixed ? fixed : ""}" />
+            <button class="primary" id="${CLASS_PREFIX}-save">Salvar data fixa</button>
+            <button id="${CLASS_PREFIX}-reset">Limpar</button>
+          </div>
+        </div>
 
-      <div class="status" id="${CLASS_PREFIX}-status"></div>
+        <div class="section">
+          <h4>Filtro da tabela (somente vencendo na data)</h4>
+          <div class="hint">
+            Mostra apenas as linhas cuja coluna "Data Limite" ou "Possivel Data Limite" seja exatamente a data escolhida.
+            Ao aplicar, o filtro fica ativo ate voce limpar.
+          </div>
+          <div class="row wrap">
+            <input id="${CLASS_PREFIX}-filter-date" type="date" value="${filterDateInitial}" />
+            <button class="primary" id="${CLASS_PREFIX}-filter-apply">Aplicar filtro</button>
+            <button id="${CLASS_PREFIX}-filter-clear">Limpar filtro</button>
+          </div>
+        </div>
 
-      <div class="hint">
-        O script destaca: hoje + próximos ${WINDOW_DAYS - 1} dias (total ${WINDOW_DAYS}).
-        Dias úteis usam gradiente “quente → frio”. Sábado e domingo aparecem com cor específica.
-        A “data fixa” fica destacada sempre (inclusive datas passadas) até você resetar aqui.
+        <div class="status" id="${CLASS_PREFIX}-status"></div>
+        <div class="hint">
+          Destaque automatico: hoje + proximos ${WINDOW_DAYS - 1} dias (total ${WINDOW_DAYS}).
+        </div>
       </div>
     `;
 
@@ -728,65 +835,98 @@
 
     const $ = (id) => topDoc.getElementById(id);
     const statusEl = $(`${CLASS_PREFIX}-status`);
-    const setStatus = (msg) => { if (statusEl) statusEl.textContent = msg || ""; };
+    const setStatus = (msg) => {
+      if (statusEl) statusEl.textContent = msg || "";
+    };
 
-    // Fechar pelo botão
+    function refreshStatus() {
+      const fixedY = getStoredFixedDate();
+      const fixedD = fixedY ? ymdToDate(fixedY) : null;
+      const fEnabled = getStoredFilterEnabled();
+      const fY = getStoredFilterDate();
+      const fD = fY ? ymdToDate(fY) : null;
+
+      const parts = [];
+      if (fixedD) parts.push(`Data fixa: ${pad2(fixedD.getDate())}/${pad2(fixedD.getMonth() + 1)}/${fixedD.getFullYear()}`);
+      else parts.push("Data fixa: desativada");
+
+      if (fEnabled && fD) parts.push(`Filtro: ativo em ${pad2(fD.getDate())}/${pad2(fD.getMonth() + 1)}/${fD.getFullYear()}`);
+      else parts.push("Filtro: desativado");
+
+      setStatus(parts.join(" | "));
+    }
+
     $(`${CLASS_PREFIX}-close`).addEventListener("click", () => overlay.remove());
 
-    // Fechar clicando fora do painel
     overlay.addEventListener("click", (e) => {
       if (e.target === overlay) overlay.remove();
     });
 
-    // Salvar data fixa
     $(`${CLASS_PREFIX}-save`).addEventListener("click", () => {
       const v = $(`${CLASS_PREFIX}-date-input`).value || "";
       const d = v ? ymdToDate(v) : null;
       if (!d) {
-        setStatus("Data inválida. Use o seletor de data.");
+        setStatus("Data fixa invalida. Use o seletor de data.");
         return;
       }
       setStoredFixedDate(v);
-      setStatus(`Data fixa salva: ${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}.`);
       rebuildStateAndRehighlight();
+      refreshStatus();
     });
 
-    // Resetar data fixa (remove do storage)
     $(`${CLASS_PREFIX}-reset`).addEventListener("click", () => {
       clearStoredFixedDate();
       $(`${CLASS_PREFIX}-date-input`).value = "";
-      setStatus("Data fixa removida.");
       rebuildStateAndRehighlight();
+      refreshStatus();
     });
 
-    // Status inicial
-    if (fixed) {
-      const d = ymdToDate(fixed);
-      if (d) setStatus(`Ativa: ${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}.`);
-    } else {
-      setStatus("Nenhuma data fixa ativa.");
+    $(`${CLASS_PREFIX}-filter-apply`).addEventListener("click", () => {
+      const ymd = $(`${CLASS_PREFIX}-filter-date`).value || "";
+      const d = ymdToDate(ymd);
+
+      if (!d) {
+        setStatus("Filtro: selecione uma data valida.");
+        return;
+      }
+
+      setStoredFilterDate(ymd);
+      setStoredFilterEnabled(true);
+      applyDeadlineFilter(document);
+      refreshStatus();
+    });
+
+    $(`${CLASS_PREFIX}-filter-clear`).addEventListener("click", () => {
+      setStoredFilterEnabled(false);
+      clearStoredFilterDate();
+      applyDeadlineFilter(document);
+      refreshStatus();
+    });
+
+    refreshStatus();
+  }
+
+  if (typeof GM_registerMenuCommand === "function") {
+    let topWin;
+    try {
+      topWin = window.top;
+    } catch {
+      topWin = window;
+    }
+
+    if (!topWin.__tm_hl7d_menu_registered) {
+      topWin.__tm_hl7d_menu_registered = true;
+      GM_registerMenuCommand("Abrir Painel", openPanel);
     }
   }
-
-  // Registra o menu uma única vez, mesmo se o script rodar dentro de iframe.
-  if (typeof GM_registerMenuCommand === "function") {
-  let topWin;
-  try { topWin = window.top; } catch { topWin = window; }
-
-  // Flag no topo para evitar duplicação
-  if (!topWin.__tm_hl7d_menu_registered) {
-    topWin.__tm_hl7d_menu_registered = true;
-    GM_registerMenuCommand("Abrir Painel", openPanel);
-  }
-}
 
   // ============================================================
   // INIT (executa no topo e no iframe)
   // ============================================================
   ensureWeekdayDynamicClasses();
   walkAndHighlight(document.body);
+  applyDeadlineFilter(document);
 
-  // Observa mudanças no DOM (Projudi injeta conteúdo dinamicamente)
   const mo = new MutationObserver((mutations) => {
     for (const m of mutations) {
       for (const node of m.addedNodes) {
@@ -794,23 +934,47 @@
           const p = node.parentNode;
           if (!isSkippable(p)) highlightInTextNode(node);
         } else if (node.nodeType === Node.ELEMENT_NODE) {
-          if (!isSkippable(node)) walkAndHighlight(node);
+          if (!isSkippable(node)) {
+            walkAndHighlight(node);
+            applyDeadlineFilter(node);
+          }
         }
       }
     }
   });
   mo.observe(document.body, { childList: true, subtree: true });
 
-  // Revalida mudança de dia com a página aberta:
-  // - quando vira o dia, muda a janela e as cores.
-  // Checamos a cada 5 minutos, custo baixo e suficiente.
+  // Revalida mudanca de dia (janela de destaque)
   let lastYMD = `${new Date().getFullYear()}-${pad2(new Date().getMonth() + 1)}-${pad2(new Date().getDate())}`;
+
+  // Sincroniza alteracoes salvas no storage entre topo/iframe
+  let lastSnapshot = JSON.stringify({
+    fixed: getStoredFixedDate(),
+    filterDate: getStoredFilterDate(),
+    filterEnabled: getStoredFilterEnabled(),
+  });
+
   setInterval(() => {
     const now = new Date();
     const ymd = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
-    if (ymd !== lastYMD) {
+
+    const snapshot = JSON.stringify({
+      fixed: getStoredFixedDate(),
+      filterDate: getStoredFilterDate(),
+      filterEnabled: getStoredFilterEnabled(),
+    });
+
+    const dayChanged = ymd !== lastYMD;
+    const settingsChanged = snapshot !== lastSnapshot;
+
+    if (dayChanged) {
       lastYMD = ymd;
       rebuildStateAndRehighlight();
+    } else if (settingsChanged) {
+      applyDeadlineFilter(document);
+      rebuildStateAndRehighlight();
     }
-  }, 5 * 60 * 1000);
+
+    lastSnapshot = snapshot;
+  }, 5 * 1000);
 })();
