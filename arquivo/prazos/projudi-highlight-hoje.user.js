@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque de Prazos
 // @namespace    projudi-highlight-hoje.user.js
-// @version      3.1
+// @version      3.2
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Realça possíveis vencimentos no projudi, com cores definidas.
 // @author       louencosv (GPT)
@@ -884,8 +884,6 @@
     refreshStatus();
   }
 
-  // Correção: registra o menu apenas no frame principal (top),
-  // evitando perda intermitente quando iframes recarregam.
   if (typeof GM_registerMenuCommand === "function" && IS_TOP) {
     GM_registerMenuCommand("Abrir Painel", openPanel);
   }
