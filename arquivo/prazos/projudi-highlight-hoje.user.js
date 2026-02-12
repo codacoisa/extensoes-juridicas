@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque de Prazos
 // @namespace    projudi-highlight-hoje.user.js
-// @version      3.0
+// @version      3.1
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Realça possíveis vencimentos no projudi, com cores definidas.
 // @author       louencosv (GPT)
@@ -19,30 +19,12 @@
 (function () {
   "use strict";
 
-  // ============================================================
-  // CONFIGURACOES PRINCIPAIS
-  // ============================================================
-  // Janela de destaque: hoje + proximos (WINDOW_DAYS - 1) dias.
-  // Ex.: WINDOW_DAYS = 7 => hoje + proximos 6 (total 7 datas).
   const WINDOW_DAYS = 7;
-
-  // O Projudi tem varias tabelas. Para evitar falsos positivos, a gente so realca
-  // datas que estejam nas colunas cujo cabecalho contenha (case-insensitive):
-  // "Data limite" ou "Possivel data limite".
-  const TARGET_HEADERS = [
-    "data limite",
-    "possivel data limite",
-    "possível data limite",
-  ];
-
-  // Chaves de storage
+  const TARGET_HEADERS = ["data limite", "possivel data limite", "possível data limite"];
   const FIXED_DATE_KEY = "projudi_highlight_fixed_date_v1";
   const FILTER_DATE_KEY = "projudi_highlight_filter_date_v1";
   const FILTER_ENABLED_KEY = "projudi_highlight_filter_enabled_v1";
 
-  // ============================================================
-  // CONTEXTO: TOPO vs IFRAME
-  // ============================================================
   const IS_TOP = (() => {
     try {
       return window.top === window.self;
@@ -60,9 +42,6 @@
     }
   }
 
-  // ============================================================
-  // GM_* HELPERS (Tampermonkey) COM FALLBACK (localStorage)
-  // ============================================================
   function hasGM() {
     return typeof GM_getValue === "function" && typeof GM_setValue === "function";
   }
@@ -81,18 +60,14 @@
     try {
       if (hasGM()) GM_setValue(key, value);
       else localStorage.setItem(key, String(value));
-    } catch {
-      // noop
-    }
+    } catch {}
   }
 
   function clearStored(key) {
     try {
       if (hasGM()) GM_deleteValue(key);
       else localStorage.removeItem(key);
-    } catch {
-      // noop
-    }
+    } catch {}
   }
 
   function getStoredFixedDate() {
@@ -128,12 +103,8 @@
     setStored(FILTER_ENABLED_KEY, !!enabled);
   }
 
-  // ============================================================
-  // UTILITARIOS DE DATA
-  // ============================================================
   const pad2 = (n) => (n < 10 ? "0" + n : "" + n);
 
-  // Aceita dia/mes com ou sem zero a esquerda
   const alt = (num) => {
     const s = pad2(num);
     const n = String(num);
@@ -205,9 +176,6 @@
     return dateInfo.regex.test(text);
   }
 
-  // ============================================================
-  // ESQUEMA DE CORES
-  // ============================================================
   const CLASS_PREFIX = "tm-hl7d";
   const CLASS_WEEKEND = `${CLASS_PREFIX}-weekend`;
   const CLASS_FIXED = `${CLASS_PREFIX}-fixed`;
@@ -250,8 +218,10 @@
     const c0 = palette[Math.min(i, palette.length - 1)];
     const c1 = palette[Math.min(i + 1, palette.length - 1)];
 
-    const bg0 = parseRGBA(c0.bg), bg1 = parseRGBA(c1.bg);
-    const fg0 = parseRGBA(c0.fg), fg1 = parseRGBA(c1.fg);
+    const bg0 = parseRGBA(c0.bg),
+      bg1 = parseRGBA(c1.bg);
+    const fg0 = parseRGBA(c0.fg),
+      fg1 = parseRGBA(c1.fg);
     if (!bg0 || !bg1 || !fg0 || !fg1) return palette[Math.min(idx, palette.length - 1)];
 
     const bg = { r: lerp(bg0.r, bg1.r, f), g: lerp(bg0.g, bg1.g, f), b: lerp(bg0.b, bg1.b, f), a: lerp(bg0.a, bg1.a, f) };
@@ -260,18 +230,13 @@
     return { bg: rgbaToString(bg), fg: rgbaToString(fg) };
   }
 
-  // ============================================================
-  // CONSTRUCAO DAS CONFIGS (janela + data fixa)
-  // ============================================================
   function buildConfigs() {
     const today = cloneDate(new Date());
 
     const windowDates = [];
     for (let i = 0; i < WINDOW_DAYS; i++) windowDates.push(addDays(today, i));
 
-    const weekdayOffsets = windowDates
-      .map((d, i) => ({ d, i }))
-      .filter((x) => !isWeekend(x.d));
+    const weekdayOffsets = windowDates.map((d, i) => ({ d, i })).filter((x) => !isWeekend(x.d));
 
     const weekdayCount = weekdayOffsets.length;
 
@@ -324,9 +289,6 @@
     return { configs: all, quickStrings: Array.from(quick), windowConfigs, fixedConfig };
   }
 
-  // ============================================================
-  // CSS: realce + tooltip + painel
-  // ============================================================
   const style = document.createElement("style");
   style.textContent = `
 .${CLASS_PREFIX}-base {
@@ -381,7 +343,6 @@
   box-shadow: inset 0 0 0 1px rgba(74,20,140,.25);
 }
 
-/* Painel */
 #${CLASS_PREFIX}-panel-overlay {
   position: fixed;
   inset: 0;
@@ -493,14 +454,10 @@
 `;
   document.documentElement.appendChild(style);
 
-  // ============================================================
-  // ENGINE DE HIGHLIGHT
-  // ============================================================
   const SKIP_TAGS = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEXTAREA", "INPUT"]);
   const HIGHLIGHT_SELECTOR = `span.${CLASS_PREFIX}-base`;
   const isSkippable = (node) =>
-    node &&
-    (SKIP_TAGS.has(node.nodeName) || node.closest?.(`${HIGHLIGHT_SELECTOR}, script, style, noscript, textarea, input`));
+    node && (SKIP_TAGS.has(node.nodeName) || node.closest?.(`${HIGHLIGHT_SELECTOR}, script, style, noscript, textarea, input`));
 
   function getColumnIndex(td) {
     const tr = td?.parentElement;
@@ -508,15 +465,26 @@
     return Array.prototype.indexOf.call(tr.children, td);
   }
 
+  const targetColsCache = new WeakMap();
+
   function getTargetColumnIndexes(table) {
     if (!table) return new Set();
+    if (targetColsCache.has(table)) return targetColsCache.get(table);
+
     const thead = table.querySelector("thead");
-    if (!thead) return new Set();
+    if (!thead) {
+      const empty = new Set();
+      targetColsCache.set(table, empty);
+      return empty;
+    }
 
     const headerRows = Array.from(thead.querySelectorAll("tr"));
-    if (headerRows.length === 0) return new Set();
+    if (headerRows.length === 0) {
+      const empty = new Set();
+      targetColsCache.set(table, empty);
+      return empty;
+    }
 
-    // Usa a ultima linha de cabecalho como base visual de colunas.
     const row = headerRows[headerRows.length - 1];
     const idxs = new Set();
 
@@ -531,6 +499,7 @@
       idx += span;
     }
 
+    targetColsCache.set(table, idxs);
     return idxs;
   }
 
@@ -689,9 +658,6 @@
     for (const tn of nodes) highlightInTextNode(tn);
   }
 
-  // ============================================================
-  // FILTRO DE LINHAS (somente vencendo em data escolhida)
-  // ============================================================
   function getEffectiveFilterDate() {
     const stored = getStoredFilterDate();
     const d = stored ? ymdToDate(stored) : null;
@@ -728,10 +694,24 @@
 
   function getTablesFromRoot(root) {
     if (!root) return [];
-    const tables = [];
-    if (root.nodeType === Node.ELEMENT_NODE && root.nodeName === "TABLE") tables.push(root);
-    if (root.querySelectorAll) tables.push(...root.querySelectorAll("table"));
-    return tables;
+    const out = new Set();
+
+    if (root === document) {
+      document.querySelectorAll("table").forEach((t) => out.add(t));
+      return Array.from(out);
+    }
+
+    if (root.nodeType === Node.ELEMENT_NODE) {
+      const el = root;
+      if (el.nodeName === "TABLE") out.add(el);
+
+      const parentTable = el.closest?.("table");
+      if (parentTable) out.add(parentTable);
+
+      el.querySelectorAll?.("table").forEach((t) => out.add(t));
+    }
+
+    return Array.from(out);
   }
 
   function clearFilterInRoot(root) {
@@ -773,9 +753,6 @@
     applyDeadlineFilter(document);
   }
 
-  // ============================================================
-  // PAINEL (SOMENTE NO TOPO)
-  // ============================================================
   function openPanel() {
     const topDoc = getTopDocumentSafe();
 
@@ -789,7 +766,8 @@
 
     const fixed = getStoredFixedDate();
     const filterDateStored = getStoredFilterDate();
-    const filterDateInitial = filterDateStored || fixed || `${new Date().getFullYear()}-${pad2(new Date().getMonth() + 1)}-${pad2(new Date().getDate())}`;
+    const filterDateInitial =
+      filterDateStored || fixed || `${new Date().getFullYear()}-${pad2(new Date().getMonth() + 1)}-${pad2(new Date().getDate())}`;
 
     panel.innerHTML = `
       <div class="panel-head">
@@ -920,34 +898,56 @@
     }
   }
 
-  // ============================================================
-  // INIT (executa no topo e no iframe)
-  // ============================================================
+  let BULK_LOADING = false;
+  window.addEventListener("projudi:bulk-load-start", () => {
+    BULK_LOADING = true;
+  });
+  window.addEventListener("projudi:bulk-load-end", () => {
+    BULK_LOADING = false;
+    rebuildStateAndRehighlight();
+  });
+
   ensureWeekdayDynamicClasses();
   walkAndHighlight(document.body);
   applyDeadlineFilter(document);
+
+  const pendingRoots = new Set();
+  let flushTimer = 0;
+
+  function scheduleProcess(root) {
+    if (BULK_LOADING) return;
+
+    const effectiveRoot = root && root.nodeType === Node.ELEMENT_NODE ? root : document.body;
+    pendingRoots.add(effectiveRoot);
+
+    if (flushTimer) return;
+    flushTimer = window.setTimeout(() => {
+      flushTimer = 0;
+      const roots = Array.from(pendingRoots);
+      pendingRoots.clear();
+
+      for (const r of roots) {
+        walkAndHighlight(r);
+        applyDeadlineFilter(r);
+      }
+    }, 80);
+  }
 
   const mo = new MutationObserver((mutations) => {
     for (const m of mutations) {
       for (const node of m.addedNodes) {
         if (node.nodeType === Node.TEXT_NODE) {
           const p = node.parentNode;
-          if (!isSkippable(p)) highlightInTextNode(node);
+          if (!isSkippable(p)) scheduleProcess(p);
         } else if (node.nodeType === Node.ELEMENT_NODE) {
-          if (!isSkippable(node)) {
-            walkAndHighlight(node);
-            applyDeadlineFilter(node);
-          }
+          if (!isSkippable(node)) scheduleProcess(node);
         }
       }
     }
   });
   mo.observe(document.body, { childList: true, subtree: true });
 
-  // Revalida mudanca de dia (janela de destaque)
   let lastYMD = `${new Date().getFullYear()}-${pad2(new Date().getMonth() + 1)}-${pad2(new Date().getDate())}`;
-
-  // Sincroniza alteracoes salvas no storage entre topo/iframe
   let lastSnapshot = JSON.stringify({
     fixed: getStoredFixedDate(),
     filterDate: getStoredFilterDate(),
@@ -967,11 +967,8 @@
     const dayChanged = ymd !== lastYMD;
     const settingsChanged = snapshot !== lastSnapshot;
 
-    if (dayChanged) {
+    if (dayChanged || settingsChanged) {
       lastYMD = ymd;
-      rebuildStateAndRehighlight();
-    } else if (settingsChanged) {
-      applyDeadlineFilter(document);
       rebuildStateAndRehighlight();
     }
 
