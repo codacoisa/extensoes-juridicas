@@ -884,18 +884,10 @@
     refreshStatus();
   }
 
-  if (typeof GM_registerMenuCommand === "function") {
-    let topWin;
-    try {
-      topWin = window.top;
-    } catch {
-      topWin = window;
-    }
-
-    if (!topWin.__tm_hl7d_menu_registered) {
-      topWin.__tm_hl7d_menu_registered = true;
-      GM_registerMenuCommand("Abrir Painel", openPanel);
-    }
+  // Correção: registra o menu apenas no frame principal (top),
+  // evitando perda intermitente quando iframes recarregam.
+  if (typeof GM_registerMenuCommand === "function" && IS_TOP) {
+    GM_registerMenuCommand("Abrir Painel", openPanel);
   }
 
   let BULK_LOADING = false;
