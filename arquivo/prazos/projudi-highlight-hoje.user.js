@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque de Prazos
 // @namespace    projudi-highlight-hoje.user.js
-// @version      3.2
+// @version      3.3
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Realça possíveis vencimentos no projudi, com cores definidas.
 // @author       louencosv (GPT)
@@ -11,6 +11,7 @@
 // @match        *://projudi.tjgo.jus.br/*
 // @run-at       document-idle
 // @grant        GM_registerMenuCommand
+// @grant        GM_unregisterMenuCommand
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_deleteValue
@@ -884,8 +885,44 @@
     refreshStatus();
   }
 
-  if (typeof GM_registerMenuCommand === "function" && IS_TOP) {
-    GM_registerMenuCommand("Abrir Painel", openPanel);
+  const MENU_STATE_KEY = "__tm_hl7d_menu_state_v2";
+
+  function getTopWindowSafe() {
+    try {
+      return window.top || window;
+    } catch {
+      return window;
+    }
+  }
+
+  function ensureMenuCommand() {
+    if (!IS_TOP) return;
+    if (typeof GM_registerMenuCommand !== "function") return;
+
+    const topWin = getTopWindowSafe();
+    const state = (topWin[MENU_STATE_KEY] ||= { id: null });
+
+    try {
+      if (state.id !== null && typeof GM_unregisterMenuCommand === "function") {
+        GM_unregisterMenuCommand(state.id);
+      }
+    } catch {}
+
+    try {
+      state.id = GM_registerMenuCommand("Abrir Painel", openPanel);
+    } catch {}
+  }
+
+  if (IS_TOP) {
+    ensureMenuCommand();
+    window.addEventListener("pageshow", ensureMenuCommand);
+    window.addEventListener("focus", ensureMenuCommand);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) ensureMenuCommand();
+    });
+    setInterval(() => {
+      if (!document.hidden) ensureMenuCommand();
+    }, 15000);
   }
 
   let BULK_LOADING = false;
