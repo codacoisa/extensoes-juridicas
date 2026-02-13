@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque de Movimentações
 // @namespace    projudi-highlight-movimentacoes.user.js
-// @version      1.4
+// @version      1.5
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca as movimentações processuais em cores definidas.
 // @author       lourencosv (GPT)
@@ -12,6 +12,7 @@
 // @run-at       document-end
 // @grant        GM_addStyle
 // @grant        GM_registerMenuCommand
+// @grant        GM_unregisterMenuCommand
 // ==/UserScript==
 
 (function () {
@@ -60,6 +61,8 @@
 
   const STORAGE_KEY = 'projudi_highlight_movs_cfg_v25';
   const DOC_STYLE_ID = 'phm-doc-style-v25';
+  const MENU_LABEL = 'Abrir Painel';
+  let menuCommandId = null;
 
   function deepMerge(base, add) {
     for (const k in add) {
@@ -591,6 +594,20 @@
     else ensurePanel();
   }
 
+  function registerMenu(force = false) {
+    try {
+      if (force && menuCommandId !== null && typeof GM_unregisterMenuCommand === 'function') {
+        GM_unregisterMenuCommand(menuCommandId);
+        menuCommandId = null;
+      }
+    } catch {}
+
+    if (menuCommandId !== null) return;
+    try {
+      menuCommandId = GM_registerMenuCommand(MENU_LABEL, togglePanel);
+    } catch {}
+  }
+
   const docObservers = new WeakMap();
   const frameListeners = new WeakSet();
   let processRaf = 0;
@@ -625,10 +642,21 @@
     });
   }
 
+  function reviveAfterReturn() {
+    registerMenu(true);
+    scheduleProcess();
+  }
+
   function boot() {
-    GM_registerMenuCommand('Abrir Painel', togglePanel);
+    registerMenu(false);
     ensureObservers();
     scheduleProcess();
+
+    window.addEventListener('pageshow', reviveAfterReturn, true);
+    window.addEventListener('focus', reviveAfterReturn, true);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) reviveAfterReturn();
+    });
   }
 
   if (document.readyState === 'loading') {
