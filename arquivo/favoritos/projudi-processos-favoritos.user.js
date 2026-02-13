@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Processos Favoritos
 // @namespace    projudi-processos-favoritos.user.js
-// @version      0.5
+// @version      0.6
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca processos favoritos, permite adicionar/remover no detalhe e gerenciar via painel.
 // @author       lourencosv (GPT)
@@ -11,6 +11,7 @@
 // @match        *://projudi.tjgo.jus.br/*
 // @run-at       document-idle
 // @grant        GM_registerMenuCommand
+// @grant        GM_unregisterMenuCommand
 // ==/UserScript==
 
 (function () {
@@ -22,6 +23,10 @@
   const PANEL_ID = 'lp-panel-root';
   const STYLE_ID = 'lp-style-favoritos';
   const BTN_ID = 'lp-toggle-proc-btn';
+  const MENU_LABEL = 'Abrir Painel';
+
+  let menuCommandId = null;
+  let menuRegistered = false;
 
   function supportsMenuCommand() {
     return typeof GM_registerMenuCommand === 'function';
@@ -431,7 +436,6 @@
     btn.classList.add('fa-star');
     btn.classList.toggle('fa-solid', on);
     btn.classList.toggle('fa-regular', !on);
-
   }
 
   function alignToggleWithCopyIcons(doc) {
@@ -660,6 +664,28 @@
     buildPanel(window.document);
   }
 
+  function registerMenu(force = false) {
+    if (!supportsMenuCommand()) return;
+
+    if (force) {
+      try {
+        if (menuRegistered && menuCommandId !== null && typeof GM_unregisterMenuCommand === 'function') {
+          GM_unregisterMenuCommand(menuCommandId);
+        }
+      } catch {}
+      menuCommandId = null;
+      menuRegistered = false;
+    }
+
+    if (menuRegistered) return;
+
+    try {
+      const id = GM_registerMenuCommand(MENU_LABEL, openPanel);
+      menuCommandId = id == null ? null : id;
+      menuRegistered = true;
+    } catch {}
+  }
+
   function refreshDoc(doc) {
     highlightLinksInDoc(doc);
     ensureToggleButton(doc);
@@ -730,21 +756,26 @@
     }
   }
 
-  function initMenuCommand() {
-    if (supportsMenuCommand()) {
-      GM_registerMenuCommand('Abrir Painel', openPanel);
-    }
+  function reviveAfterReturn() {
+    registerMenu(true);
+    refreshAll();
   }
 
   function init() {
     injectStyles(document);
-    initMenuCommand();
+    registerMenu(false);
     refreshAll();
     observeDoc(document);
     initMainFrameHook();
 
     window.addEventListener('storage', function (e) {
       if (e.key === STORAGE_KEY) refreshAll();
+    });
+
+    window.addEventListener('pageshow', reviveAfterReturn, true);
+    window.addEventListener('focus', reviveAfterReturn, true);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) reviveAfterReturn();
     });
   }
 
