@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque de Movimentações
 // @namespace    projudi-highlight-movimentacoes.user.js
-// @version      1.6
+// @version      1.7
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca as movimentações processuais em cores definidas.
 // @author       lourencosv (GPT)
@@ -78,6 +78,7 @@
   const DOC_STYLE_ID = 'phm-doc-style-v26';
   const MENU_LABEL = 'Abrir Painel';
   let menuCommandId = null;
+  let previousBodyOverflow = '';
 
   function deepMerge(base, add) {
     for (const k in add) {
@@ -118,137 +119,173 @@
     .phm-overlay {
       position: fixed;
       inset: 0;
-      z-index: 2147483646;
-      background: rgba(2, 6, 23, 0.45);
-      backdrop-filter: blur(2px);
+      z-index: 2147483647;
+      background: rgba(11, 18, 32, .5);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 16px;
+      padding: 18px;
     }
 
     .phm-panel {
-      width: min(840px, calc(100vw - 24px));
-      max-height: min(86vh, 720px);
-      border: 1px solid #d8dee8;
+      width: min(980px, calc(100vw - 24px));
+      max-height: min(88vh, 760px);
       border-radius: 14px;
+      border: 1px solid #dbe3ef;
       background: #ffffff;
-      box-shadow: 0 24px 64px rgba(15, 23, 42, 0.24);
-      font: 13px/1.35 'Segoe UI', 'SF Pro Text', -apple-system, BlinkMacSystemFont, Roboto, Ubuntu, sans-serif;
-      color: #0f172a;
+      box-shadow: 0 24px 70px rgba(2, 6, 23, .30);
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      transform: translateY(0);
-      animation: phm-pop-in 0.14s ease-out;
+      color: #0f172a;
+      font: 14px/1.35 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      transform: translateY(6px) scale(.985);
+      opacity: .96;
+      animation: phm-pop-in .16s ease forwards;
     }
 
     @keyframes phm-pop-in {
-      from { opacity: 0; transform: translateY(6px) scale(.985); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
+      from { transform: translateY(6px) scale(.985); opacity: .96; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
     }
 
-    .phm-panel * { box-sizing: border-box; }
+    .phm-panel *,
+    .phm-panel *::before,
+    .phm-panel *::after {
+      box-sizing: border-box;
+    }
+
+    .phm-overlay button,
+    .phm-overlay input,
+    .phm-overlay label,
+    .phm-overlay span {
+      text-indent: 0 !important;
+      letter-spacing: normal !important;
+      text-transform: none !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif !important;
+    }
 
     .phm-head {
       flex: 0 0 auto;
+      padding: 14px 16px;
+      color: #ffffff;
+      background: linear-gradient(135deg, #0f3e75, #1f5ca4);
+      border-bottom: 1px solid #dbe3ef;
+    }
+
+    .phm-head-bar {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 12px 14px;
-      border-bottom: 1px solid #e2e8f0;
-      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+      gap: 10px;
     }
 
     .phm-title-wrap {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
+      min-width: 0;
     }
 
     .phm-title {
       margin: 0;
-      color: #0f172a;
       font-size: 16px;
-      font-weight: 800;
-      letter-spacing: 0.2px;
+      font-weight: 700;
+      line-height: 1.2;
+      color: #ffffff !important;
+      text-transform: none !important;
+      text-decoration: none !important;
+      border: 0 !important;
+      border-bottom: 0 !important;
+      padding: 0 !important;
     }
 
     .phm-subtitle {
-      margin: 0;
-      color: #475569;
+      margin: 2px 0 0;
       font-size: 12px;
-      font-weight: 500;
+      opacity: .92;
+      color: #ffffff !important;
+      text-transform: none !important;
+      text-decoration: none !important;
+      border: 0 !important;
+      border-bottom: 0 !important;
+      padding: 0 !important;
     }
 
     .phm-close {
-      border: 1px solid #d1d5db;
-      width: 30px;
-      height: 30px;
-      border-radius: 8px;
-      background: #ffffff;
-      color: #0f172a;
-      font-size: 20px;
-      line-height: 1;
+      border: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .2);
+      color: #ffffff;
       cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
     }
 
-    .phm-close:hover { background: #f1f5f9; }
+    .phm-close:hover {
+      background: rgba(255, 255, 255, .3);
+    }
 
     .phm-body {
       flex: 1 1 auto;
       min-height: 0;
-      overflow-y: auto;
-      overflow-x: hidden;
-      padding: 10px 12px;
+      overflow: auto;
+      padding: 12px 14px;
       background: #f8fafc;
     }
 
     .phm-grid-head,
     .phm-row {
       display: grid;
-      grid-template-columns: minmax(190px, 1.2fr) 68px 68px 104px 88px 88px;
+      grid-template-columns: minmax(240px, 1.4fr) 78px 78px 116px 104px 104px;
       align-items: center;
       gap: 10px;
     }
 
     .phm-grid-head {
-      position: relative;
-      top: auto;
-      z-index: auto;
+      padding: 9px 12px;
       margin-bottom: 8px;
-      padding: 8px 10px;
-      border: 1px solid #dbe3ef;
-      border-radius: 9px;
-      background: #eff6ff;
+      border: 1px solid #d3dce8;
+      border-radius: 10px;
+      background: #e2e8f0;
       color: #334155;
       font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: .25px;
+      letter-spacing: .35px;
     }
 
     .phm-row {
-      margin-bottom: 8px;
-      padding: 8px 10px;
-      border: 1px solid #e2e8f0;
-      border-radius: 9px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
       background: #ffffff;
     }
 
     .phm-type {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       min-width: 0;
-      font-weight: 600;
-      color: #1e293b;
+    }
+
+    .phm-type input[type='checkbox'] {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      cursor: pointer;
     }
 
     .phm-type span {
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
+      font-weight: 600;
+      color: #1e293b;
+      font-size: 14px;
+      line-height: 1.2;
     }
 
     .phm-center {
@@ -260,36 +297,44 @@
 
     .phm-center input[type='color'] {
       width: 56px;
-      height: 30px;
-      border: 1px solid #d1d5db;
+      height: 34px;
+      border: 1px solid #cbd5e1;
       border-radius: 999px;
-      padding: 2px;
-      background: transparent;
+      padding: 3px;
+      background: #fff;
       cursor: pointer;
     }
 
     .phm-center label {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      font-weight: 600;
+      gap: 8px;
       color: #334155;
+      font-size: 14px;
+      font-weight: 600;
       white-space: nowrap;
-      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .phm-center label input[type='checkbox'] {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      cursor: pointer;
     }
 
     .phm-chip {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 74px;
-      height: 30px;
-      border-radius: 999px;
+      min-width: 92px;
+      height: 34px;
       border: 1px solid #cbd5e1;
-      font-size: 12px;
-      font-weight: 600;
-      color: #0f172a;
-      padding: 0 8px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #111827;
+      padding: 0 10px;
     }
 
     .phm-foot {
@@ -297,42 +342,56 @@
       display: flex;
       justify-content: flex-end;
       gap: 8px;
-      padding: 10px 12px 12px;
-      border-top: 1px solid #e2e8f0;
-      background: #ffffff;
+      padding: 12px 16px;
+      border-top: 1px solid #e5e7eb;
+      background: #f8fafc;
     }
 
     .phm-btn {
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      background: #ffffff;
-      color: #0f172a;
-      font-weight: 700;
-      font-size: 12px;
+      min-width: 86px;
       padding: 7px 11px;
+      border-radius: 8px;
       cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.2;
+      color: #1e293b;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
     }
 
-    .phm-btn:hover { background: #f8fafc; }
+    .phm-btn:hover {
+      background: #f8fafc;
+    }
 
     .phm-btn-save {
-      border-color: #1d4ed8;
-      background: #2563eb;
       color: #ffffff;
+      background: #0f3e75;
+      border-color: #0f3e75;
+      font-weight: 600;
     }
 
-    .phm-btn-save:hover { background: #1d4ed8; }
+    .phm-btn-save:hover {
+      background: #0d3562;
+    }
 
-    @media (max-width: 920px) {
-      .phm-overlay { padding: 10px; }
-      .phm-panel { width: 100%; max-height: 90vh; }
-      .phm-grid-head { display: none; }
+    @media (max-width: 1040px) {
+      .phm-grid-head {
+        display: none;
+      }
+
       .phm-row {
         grid-template-columns: 1fr 1fr;
         gap: 8px;
       }
-      .phm-type { grid-column: 1 / -1; }
-      .phm-center { justify-content: flex-start; }
+
+      .phm-type {
+        grid-column: 1 / -1;
+      }
+
+      .phm-center {
+        justify-content: flex-start;
+      }
     }
   `);
 
@@ -559,11 +618,13 @@
 
     return `
       <div class="phm-head">
-        <div class="phm-title-wrap">
-          <h3 class="phm-title">Movimentações</h3>
-          <p class="phm-subtitle">Configuração visual dos destaques</p>
+        <div class="phm-head-bar">
+          <div class="phm-title-wrap">
+            <h3 class="phm-title">Ajuste de Movimentações</h3>
+            <p class="phm-subtitle">Configurações visuais do Projudi</p>
+          </div>
+          <button class="phm-close" data-phm-action="close" title="Fechar">×</button>
         </div>
-        <button class="phm-close" data-phm-action="close" title="Fechar">×</button>
       </div>
       <div class="phm-body">
         <div class="phm-grid-head">
@@ -577,7 +638,8 @@
         ${items}
       </div>
       <div class="phm-foot">
-        <button class="phm-btn" data-phm-action="reset">Resetar</button>
+        <button class="phm-btn" data-phm-action="reset">Padrão</button>
+        <button class="phm-btn" data-phm-action="cancel">Fechar</button>
         <button class="phm-btn phm-btn-save" data-phm-action="save">Salvar</button>
       </div>
     `;
@@ -601,6 +663,7 @@
   function closePanel() {
     const overlay = document.querySelector('.phm-overlay');
     if (overlay) overlay.remove();
+    if (document.body) document.body.style.overflow = previousBodyOverflow;
   }
 
   function ensurePanel() {
@@ -609,6 +672,7 @@
     const overlay = document.createElement('div');
     overlay.className = 'phm-overlay';
     overlay.innerHTML = `<div class="phm-panel" role="dialog" aria-modal="true">${panelHtml()}</div>`;
+    previousBodyOverflow = document.body ? document.body.style.overflow : '';
 
     overlay.addEventListener('click', (ev) => {
       if (ev.target === overlay) closePanel();
@@ -629,6 +693,11 @@
       const action = btn.getAttribute('data-phm-action');
 
       if (action === 'close') {
+        closePanel();
+        return;
+      }
+
+      if (action === 'cancel') {
         closePanel();
         return;
       }
@@ -670,6 +739,7 @@
     });
 
     document.body.appendChild(overlay);
+    if (document.body) document.body.style.overflow = 'hidden';
     refreshPanelPreviews(overlay);
   }
 
