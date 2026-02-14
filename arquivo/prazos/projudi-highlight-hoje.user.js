@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque de Prazos
 // @namespace    projudi-highlight-hoje.user.js
-// @version      3.3
+// @version      3.4
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Realça possíveis vencimentos no projudi, com cores definidas.
 // @author       louencosv (GPT)
@@ -343,115 +343,6 @@
   color: ${FIXED_COLOR.fg} !important;
   box-shadow: inset 0 0 0 1px rgba(74,20,140,.25);
 }
-
-#${CLASS_PREFIX}-panel-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.35);
-  z-index: 2147483647;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-#${CLASS_PREFIX}-panel {
-  width: 500px;
-  max-width: calc(100vw - 24px);
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.25);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  padding: 0;
-  overflow: hidden;
-}
-#${CLASS_PREFIX}-panel .panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px;
-  border-bottom: 1px solid rgba(0,0,0,.08);
-  background: #fafafa;
-}
-#${CLASS_PREFIX}-panel h3 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-}
-#${CLASS_PREFIX}-panel button.icon-close {
-  width: 28px !important;
-  height: 28px !important;
-  line-height: 1 !important;
-  padding: 0 !important;
-  border-radius: 999px !important;
-  font-size: 18px !important;
-}
-#${CLASS_PREFIX}-panel .panel-body {
-  padding: 14px;
-}
-#${CLASS_PREFIX}-panel .section {
-  border: 1px solid rgba(0,0,0,.1);
-  border-radius: 10px;
-  padding: 10px;
-  margin-bottom: 10px;
-}
-#${CLASS_PREFIX}-panel h4 {
-  margin: 0 0 4px 0;
-  font-size: 13px;
-}
-#${CLASS_PREFIX}-panel .row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin: 6px 0;
-}
-#${CLASS_PREFIX}-panel .row.wrap {
-  flex-wrap: wrap;
-}
-#${CLASS_PREFIX}-panel input[type="date"] {
-  flex: 1;
-  min-width: 170px;
-  padding: 8px !important;
-  border: 1px solid rgba(0,0,0,.2) !important;
-  border-radius: 8px !important;
-  color: #111 !important;
-  background: #fff !important;
-}
-#${CLASS_PREFIX}-panel button {
-  padding: 8px 10px !important;
-  border: 1px solid rgba(0,0,0,.18) !important;
-  border-radius: 8px !important;
-  background: #f7f7f7 !important;
-  color: #111 !important;
-  font-weight: 600 !important;
-  cursor: pointer !important;
-  opacity: 1 !important;
-  filter: none !important;
-}
-#${CLASS_PREFIX}-panel button.primary {
-  background: #111 !important;
-  color: #fff !important;
-  border-color: #111 !important;
-}
-#${CLASS_PREFIX}-panel button:disabled {
-  background: #eee !important;
-  color: rgba(0,0,0,.55) !important;
-  border-color: rgba(0,0,0,.15) !important;
-  cursor: not-allowed !important;
-}
-
-#${CLASS_PREFIX}-panel .status {
-  font-size: 12px;
-  margin-top: 8px;
-  color: rgba(0,0,0,.8);
-}
-
-#${CLASS_PREFIX}-panel .hint {
-  font-size: 12px;
-  color: rgba(0,0,0,.7);
-  line-height: 1.35;
-  margin-top: 4px;
-  text-align: justify;
-  text-justify: inter-word;
-}
 `;
   document.documentElement.appendChild(style);
 
@@ -756,61 +647,161 @@
 
   function openPanel() {
     const topDoc = getTopDocumentSafe();
-
     if (topDoc.getElementById(`${CLASS_PREFIX}-panel-overlay`)) return;
 
+    const overlayId = `${CLASS_PREFIX}-panel-overlay`;
+    const panelId = `${CLASS_PREFIX}-panel`;
+
+    const previousBodyOverflow = topDoc.body.style.overflow;
+
     const overlay = topDoc.createElement("div");
-    overlay.id = `${CLASS_PREFIX}-panel-overlay`;
+    overlay.id = overlayId;
+    overlay.style.cssText = `
+      position: fixed; inset: 0; z-index: 2147483647;
+      background: rgba(11, 18, 32, .50);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 18px;
+    `;
 
     const panel = topDoc.createElement("div");
-    panel.id = `${CLASS_PREFIX}-panel`;
+    panel.id = panelId;
+    panel.style.cssText = `
+      width: 540px; max-width: calc(100vw - 24px);
+      background: #ffffff; color: #0f172a;
+      border-radius: 14px;
+      box-shadow: 0 24px 70px rgba(2, 6, 23, .30);
+      border: 1px solid #dbe3ef;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      transform: translateY(6px) scale(.985);
+      opacity: .96;
+      transition: transform .16s ease, opacity .16s ease;
+    `;
+
+    const scopedStyle = topDoc.createElement("style");
+    scopedStyle.textContent = `
+      #${overlayId} button,
+      #${overlayId} input,
+      #${overlayId} label,
+      #${overlayId} span,
+      #${overlayId} div {
+        text-indent: 0 !important;
+        letter-spacing: normal !important;
+        text-transform: none !important;
+        line-height: 1.25 !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
+      }
+
+      #${overlayId} button {
+        cursor: pointer;
+        border-radius: 8px;
+        font-size: 14px !important;
+        font-weight: 500 !important;
+        padding: 7px 11px;
+        min-width: 86px;
+      }
+
+      #${overlayId} .btn-ghost {
+        color: #1e293b !important;
+        background: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+      }
+
+      #${overlayId} .btn-primary {
+        color: #ffffff !important;
+        background: #0f3e75 !important;
+        border: 1px solid #0f3e75 !important;
+        font-weight: 600 !important;
+      }
+
+      #${overlayId} .btn-icon {
+        border: 0 !important;
+        background: rgba(255,255,255,.2) !important;
+        color: #fff !important;
+        width: 28px !important;
+        height: 28px !important;
+        min-width: 28px !important;
+        border-radius: 999px !important;
+        font-size: 16px !important;
+        line-height: 1 !important;
+        padding: 0 !important;
+      }
+
+      #${overlayId} input[type="date"] {
+        width: 100%;
+        padding: 8px 10px !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 8px !important;
+        color: #0f172a !important;
+        background: #fff !important;
+        font-size: 14px !important;
+      }
+    `;
 
     const fixed = getStoredFixedDate();
     const filterDateStored = getStoredFilterDate();
-    const filterDateInitial =
-      filterDateStored || fixed || `${new Date().getFullYear()}-${pad2(new Date().getMonth() + 1)}-${pad2(new Date().getDate())}`;
+    const today = new Date();
+    const todayYMD = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
+    const filterDateInitial = filterDateStored || fixed || todayYMD;
 
     panel.innerHTML = `
-      <div class="panel-head">
-        <h3>PROJUDI • PRAZOS</h3>
-        <button class="icon-close" id="${CLASS_PREFIX}-close" title="Fechar painel" aria-label="Fechar painel">×</button>
+      <div style="padding:14px 16px; background:linear-gradient(135deg,#0f3e75,#1f5ca4); color:#fff;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <div>
+            <div style="font-size:16px; font-weight:700; line-height:1.2;">Prazos do Projudi</div>
+            <div style="font-size:12px; opacity:.9; margin-top:2px;">Destaque e filtro de vencimentos</div>
+          </div>
+          <button id="${CLASS_PREFIX}-close-top" class="btn-icon" aria-label="Fechar">×</button>
+        </div>
       </div>
 
-      <div class="panel-body">
-        <div class="section">
-          <h4>Data fixa (realce persistente)</h4>
-          <div class="hint">
-            Mantem uma data sempre destacada nas tabelas, inclusive retroativa, sem depender da janela de hoje + ${WINDOW_DAYS - 1} dias.
+      <div style="padding:16px; background:#fff;">
+        <label style="display:block; padding:12px; border:1px solid #e5e7eb; border-radius:10px; margin-bottom:10px;">
+          <div style="font-weight:600; color:#0f172a;">Data fixa (realce persistente)</div>
+          <div style="font-size:12px; color:#64748b; margin-top:2px;">
+            Mantem essa data sempre destacada, independentemente da janela de ${WINDOW_DAYS} dias.
           </div>
-          <div class="row wrap">
-            <input id="${CLASS_PREFIX}-date-input" type="date" value="${fixed ? fixed : ""}" />
-            <button class="primary" id="${CLASS_PREFIX}-save">Salvar data fixa</button>
-            <button id="${CLASS_PREFIX}-reset">Limpar</button>
+          <div style="display:flex; gap:8px; align-items:center; margin-top:10px;">
+            <input id="${CLASS_PREFIX}-date-input" type="date" value="${fixed || ""}" />
+            <button id="${CLASS_PREFIX}-save-fixed" class="btn-primary">Salvar</button>
+            <button id="${CLASS_PREFIX}-clear-fixed" class="btn-ghost">Limpar</button>
           </div>
-        </div>
+        </label>
 
-        <div class="section">
-          <h4>Filtro da tabela (somente vencendo na data)</h4>
-          <div class="hint">
-            Mostra apenas as linhas cuja coluna "Data Limite" ou "Possivel Data Limite" seja exatamente a data escolhida.
-            Ao aplicar, o filtro fica ativo ate voce limpar.
+        <label style="display:block; padding:12px; border:1px solid #e5e7eb; border-radius:10px;">
+          <div style="font-weight:600; color:#0f172a;">Filtro da tabela (data exata)</div>
+          <div style="font-size:12px; color:#64748b; margin-top:2px;">
+            Exibe apenas linhas com "Data Limite" ou "Possivel Data Limite" na data escolhida.
           </div>
-          <div class="row wrap">
+          <div style="display:flex; gap:8px; align-items:center; margin-top:10px;">
             <input id="${CLASS_PREFIX}-filter-date" type="date" value="${filterDateInitial}" />
-            <button class="primary" id="${CLASS_PREFIX}-filter-apply">Aplicar filtro</button>
-            <button id="${CLASS_PREFIX}-filter-clear">Limpar filtro</button>
+            <button id="${CLASS_PREFIX}-apply-filter" class="btn-primary">Aplicar</button>
+            <button id="${CLASS_PREFIX}-clear-filter" class="btn-ghost">Limpar</button>
           </div>
-        </div>
+        </label>
 
-        <div class="status" id="${CLASS_PREFIX}-status"></div>
-        <div class="hint">
-          Destaque automatico: hoje + proximos ${WINDOW_DAYS - 1} dias (total ${WINDOW_DAYS}).
+        <div id="${CLASS_PREFIX}-status" style="font-size:12px; color:#334155; margin-top:12px;"></div>
+        <div style="font-size:12px; color:#64748b; margin-top:6px;">
+          O destaque automatico continua em hoje + proximos ${WINDOW_DAYS - 1} dias.
         </div>
+      </div>
+
+      <div style="display:flex; gap:8px; justify-content:flex-end; padding:12px 16px; border-top:1px solid #e5e7eb; background:#f8fafc;">
+        <button id="${CLASS_PREFIX}-close-bottom" class="btn-ghost">Fechar</button>
       </div>
     `;
 
+    overlay.appendChild(scopedStyle);
     overlay.appendChild(panel);
     topDoc.body.appendChild(overlay);
+    topDoc.body.style.overflow = "hidden";
+
+    requestAnimationFrame(() => {
+      panel.style.transform = "translateY(0) scale(1)";
+      panel.style.opacity = "1";
+    });
 
     const $ = (id) => topDoc.getElementById(id);
     const statusEl = $(`${CLASS_PREFIX}-status`);
@@ -826,62 +817,71 @@
       const fD = fY ? ymdToDate(fY) : null;
 
       const parts = [];
-      if (fixedD) parts.push(`Data fixa: ${pad2(fixedD.getDate())}/${pad2(fixedD.getMonth() + 1)}/${fixedD.getFullYear()}`);
-      else parts.push("Data fixa: desativada");
-
-      if (fEnabled && fD) parts.push(`Filtro: ativo em ${pad2(fD.getDate())}/${pad2(fD.getMonth() + 1)}/${fD.getFullYear()}`);
-      else parts.push("Filtro: desativado");
+      parts.push(
+        fixedD
+          ? `Data fixa: ${pad2(fixedD.getDate())}/${pad2(fixedD.getMonth() + 1)}/${fixedD.getFullYear()}`
+          : "Data fixa: desativada"
+      );
+      parts.push(
+        fEnabled && fD
+          ? `Filtro: ativo em ${pad2(fD.getDate())}/${pad2(fD.getMonth() + 1)}/${fD.getFullYear()}`
+          : "Filtro: desativado"
+      );
 
       setStatus(parts.join(" | "));
     }
 
-    $(`${CLASS_PREFIX}-close`).addEventListener("click", () => overlay.remove());
+    const escClose = (ev) => {
+      if (ev.key === "Escape") closePanel();
+    };
 
-    overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) overlay.remove();
-    });
+    function closePanel() {
+      topDoc.removeEventListener("keydown", escClose);
+      topDoc.body.style.overflow = previousBodyOverflow;
+      overlay.remove();
+    }
 
-    $(`${CLASS_PREFIX}-save`).addEventListener("click", () => {
+    $(`${CLASS_PREFIX}-close-top`).addEventListener("click", closePanel);
+    $(`${CLASS_PREFIX}-close-bottom`).addEventListener("click", closePanel);
+
+    $(`${CLASS_PREFIX}-save-fixed`).addEventListener("click", () => {
       const v = $(`${CLASS_PREFIX}-date-input`).value || "";
       const d = v ? ymdToDate(v) : null;
-      if (!d) {
-        setStatus("Data fixa invalida. Use o seletor de data.");
-        return;
-      }
+      if (!d) return setStatus("Data fixa invalida. Use o seletor de data.");
       setStoredFixedDate(v);
       rebuildStateAndRehighlight();
       refreshStatus();
     });
 
-    $(`${CLASS_PREFIX}-reset`).addEventListener("click", () => {
+    $(`${CLASS_PREFIX}-clear-fixed`).addEventListener("click", () => {
       clearStoredFixedDate();
       $(`${CLASS_PREFIX}-date-input`).value = "";
       rebuildStateAndRehighlight();
       refreshStatus();
     });
 
-    $(`${CLASS_PREFIX}-filter-apply`).addEventListener("click", () => {
+    $(`${CLASS_PREFIX}-apply-filter`).addEventListener("click", () => {
       const ymd = $(`${CLASS_PREFIX}-filter-date`).value || "";
       const d = ymdToDate(ymd);
-
-      if (!d) {
-        setStatus("Filtro: selecione uma data valida.");
-        return;
-      }
-
+      if (!d) return setStatus("Filtro: selecione uma data valida.");
       setStoredFilterDate(ymd);
       setStoredFilterEnabled(true);
       applyDeadlineFilter(document);
       refreshStatus();
     });
 
-    $(`${CLASS_PREFIX}-filter-clear`).addEventListener("click", () => {
+    $(`${CLASS_PREFIX}-clear-filter`).addEventListener("click", () => {
       setStoredFilterEnabled(false);
       clearStoredFilterDate();
       applyDeadlineFilter(document);
       refreshStatus();
     });
 
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closePanel();
+    });
+
+    topDoc.addEventListener("keydown", escClose);
     refreshStatus();
   }
 
