@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque de Movimentações
 // @namespace    projudi-highlight-movimentacoes.user.js
-// @version      1.5
+// @version      1.6
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca as movimentações processuais em cores definidas.
 // @author       lourencosv (GPT)
@@ -32,11 +32,13 @@
     'Petição Enviada',
     'Recebido',
     'Despacho Autos ao Contador',
-    'Relatório'
+    'Relatório',
+    'Juntada Documento Histórico Processo Físico'
   ];
 
   const DISPLAY_NAMES = {
-    'Despacho Autos ao Contador': 'Autos ao Contador'
+    'Despacho Autos ao Contador': 'Autos ao Contador',
+    'Juntada Documento Histórico Processo Físico': 'Histórico Proc. Físico'
   };
 
   const DEFAULTS = {
@@ -51,16 +53,29 @@
       'Petição Enviada': '#d1effc',
       'Recebido': '#d1effc',
       'Despacho Autos ao Contador': '#eedbdb',
-      'Relatório': '#eedbdb'
+      'Relatório': '#eedbdb',
+      'Juntada Documento Histórico Processo Físico': '#d1effc'
     },
-    textColors: TYPES_ORDER.reduce((acc, k) => (acc[k] = '#111827', acc), {}),
-    enabledTypes: TYPES_ORDER.reduce((acc, k) => (acc[k] = true, acc), {}),
-    noBackgroundTypes: TYPES_ORDER.reduce((acc, k) => (acc[k] = false, acc), {}),
-    boldTypes: TYPES_ORDER.reduce((acc, k) => (acc[k] = true, acc), {})
+    textColors: TYPES_ORDER.reduce((acc, k) => {
+      acc[k] = '#111827';
+      return acc;
+    }, {}),
+    enabledTypes: TYPES_ORDER.reduce((acc, k) => {
+      acc[k] = true;
+      return acc;
+    }, {}),
+    noBackgroundTypes: TYPES_ORDER.reduce((acc, k) => {
+      acc[k] = false;
+      return acc;
+    }, {}),
+    boldTypes: TYPES_ORDER.reduce((acc, k) => {
+      acc[k] = true;
+      return acc;
+    }, {})
   };
 
-  const STORAGE_KEY = 'projudi_highlight_movs_cfg_v25';
-  const DOC_STYLE_ID = 'phm-doc-style-v25';
+  const STORAGE_KEY = 'projudi_highlight_movs_cfg_v26';
+  const DOC_STYLE_ID = 'phm-doc-style-v26';
   const MENU_LABEL = 'Abrir Painel';
   let menuCommandId = null;
 
@@ -94,180 +109,227 @@
     const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/i.exec(any || '');
     if (!m) return '#111827';
     const [r, g, b] = [parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10)];
-    return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+    return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
   }
 
   let CFG = readCfg();
 
   GM_addStyle(`
-    .phm-panel {
+    .phm-overlay {
       position: fixed;
-      right: 8px;
-      bottom: 8px;
-      z-index: 2147483647;
-      width: min(640px, calc(100vw - 16px));
-      height: min(62vh, 560px);
-      max-height: calc(100vh - 16px);
+      inset: 0;
+      z-index: 2147483646;
+      background: rgba(2, 6, 23, 0.45);
+      backdrop-filter: blur(2px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .phm-panel {
+      width: min(840px, calc(100vw - 24px));
+      max-height: min(86vh, 720px);
       border: 1px solid #d8dee8;
-      border-radius: 10px;
+      border-radius: 14px;
       background: #ffffff;
-      box-shadow: 0 14px 30px rgba(17, 24, 39, .18);
-      font: 13px/1.3 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
-      color: #111827;
+      box-shadow: 0 24px 64px rgba(15, 23, 42, 0.24);
+      font: 13px/1.35 'Segoe UI', 'SF Pro Text', -apple-system, BlinkMacSystemFont, Roboto, Ubuntu, sans-serif;
+      color: #0f172a;
       overflow: hidden;
       display: flex;
       flex-direction: column;
+      transform: translateY(0);
+      animation: phm-pop-in 0.14s ease-out;
     }
+
+    @keyframes phm-pop-in {
+      from { opacity: 0; transform: translateY(6px) scale(.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
     .phm-panel * { box-sizing: border-box; }
+
     .phm-head {
       flex: 0 0 auto;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 9px 11px;
-      border-bottom: 1px solid #e5e7eb;
-      background: #f8fafc;
+      padding: 12px 14px;
+      border-bottom: 1px solid #e2e8f0;
+      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
     }
+
+    .phm-title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
     .phm-title {
       margin: 0;
-      color: #1d4ed8;
+      color: #0f172a;
       font-size: 16px;
       font-weight: 800;
-      letter-spacing: .2px;
+      letter-spacing: 0.2px;
     }
+
+    .phm-subtitle {
+      margin: 0;
+      color: #475569;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
     .phm-close {
-      border: 0;
-      width: 26px;
-      height: 26px;
-      border-radius: 7px;
-      background: transparent;
-      color: #1f2937;
+      border: 1px solid #d1d5db;
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #0f172a;
       font-size: 20px;
       line-height: 1;
       cursor: pointer;
     }
-    .phm-close:hover { background: #e5e7eb; }
+
+    .phm-close:hover { background: #f1f5f9; }
+
     .phm-body {
       flex: 1 1 auto;
       min-height: 0;
       overflow-y: auto;
       overflow-x: hidden;
-      padding: 8px 10px;
-      background: #f9fafb;
+      padding: 10px 12px;
+      background: #f8fafc;
     }
-    .phm-grid-head, .phm-row {
+
+    .phm-grid-head,
+    .phm-row {
       display: grid;
-      grid-template-columns: minmax(145px, 1fr) 64px 64px 100px 90px 86px;
+      grid-template-columns: minmax(190px, 1.2fr) 68px 68px 104px 88px 88px;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
+
     .phm-grid-head {
-      position: sticky;
-      top: 0;
-      z-index: 1;
-      margin-bottom: 6px;
-      padding: 6px 8px;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      background: #f1f5f9;
+      position: relative;
+      top: auto;
+      z-index: auto;
+      margin-bottom: 8px;
+      padding: 8px 10px;
+      border: 1px solid #dbe3ef;
+      border-radius: 9px;
+      background: #eff6ff;
       color: #334155;
       font-size: 11px;
       font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .25px;
     }
+
     .phm-row {
-      margin-bottom: 6px;
-      padding: 7px 8px;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
+      margin-bottom: 8px;
+      padding: 8px 10px;
+      border: 1px solid #e2e8f0;
+      border-radius: 9px;
       background: #ffffff;
     }
+
     .phm-type {
       display: flex;
       align-items: center;
-      gap: 7px;
+      gap: 8px;
       min-width: 0;
       font-weight: 600;
-      color: #1f2937;
+      color: #1e293b;
     }
+
     .phm-type span {
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
     }
+
     .phm-center {
       display: flex;
       justify-content: center;
       align-items: center;
       min-width: 0;
     }
-    .phm-center input[type="color"] {
-      width: 54px;
-      height: 28px;
+
+    .phm-center input[type='color'] {
+      width: 56px;
+      height: 30px;
       border: 1px solid #d1d5db;
       border-radius: 999px;
       padding: 2px;
       background: transparent;
       cursor: pointer;
     }
+
     .phm-center label {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
       font-weight: 600;
-      color: #374151;
+      color: #334155;
       white-space: nowrap;
       font-size: 12px;
     }
+
     .phm-chip {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 72px;
+      min-width: 74px;
       height: 30px;
       border-radius: 999px;
-      border: 1px solid #d1d5db;
+      border: 1px solid #cbd5e1;
       font-size: 12px;
       font-weight: 600;
-      color: #111827;
+      color: #0f172a;
       padding: 0 8px;
     }
+
     .phm-foot {
       flex: 0 0 auto;
       display: flex;
       justify-content: flex-end;
-      gap: 7px;
-      padding: 8px 10px 10px;
-      border-top: 1px solid #e5e7eb;
+      gap: 8px;
+      padding: 10px 12px 12px;
+      border-top: 1px solid #e2e8f0;
       background: #ffffff;
     }
+
     .phm-btn {
-      border: 1px solid #d1d5db;
-      border-radius: 7px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
       background: #ffffff;
-      color: #111827;
+      color: #0f172a;
       font-weight: 700;
       font-size: 12px;
-      padding: 6px 10px;
+      padding: 7px 11px;
       cursor: pointer;
     }
-    .phm-btn:hover { background: #f3f4f6; }
+
+    .phm-btn:hover { background: #f8fafc; }
+
     .phm-btn-save {
       border-color: #1d4ed8;
       background: #2563eb;
       color: #ffffff;
     }
+
     .phm-btn-save:hover { background: #1d4ed8; }
-    @media (max-width: 820px) {
-      .phm-panel {
-        right: 6px;
-        bottom: 6px;
-        width: calc(100vw - 12px);
-        height: min(70vh, 560px);
-      }
+
+    @media (max-width: 920px) {
+      .phm-overlay { padding: 10px; }
+      .phm-panel { width: 100%; max-height: 90vh; }
       .phm-grid-head { display: none; }
       .phm-row {
         grid-template-columns: 1fr 1fr;
-        gap: 7px 8px;
+        gap: 8px;
       }
       .phm-type { grid-column: 1 / -1; }
       .phm-center { justify-content: flex-start; }
@@ -286,6 +348,10 @@
   }
 
   const PADROES_MOV = [
+    {
+      key: 'Juntada Documento Histórico Processo Físico',
+      re: /^\s*Juntada\s+de\s+Documento\s*(?:\r?\n|\s+)\s*Hist[óo]rico\s+Processo\s+F[ií]sico\b/iu
+    },
     { key: 'Despacho', re: new RegExp('^\\s*Despacho\\s*' + ARROW_STR, 'iu') },
     { key: 'Decisão', re: new RegExp('^\\s*Decis[aã]o\\s*' + ARROW_STR, 'iu') },
     { key: 'Julgamento', re: new RegExp('^\\s*Julgamento\\s*' + ARROW_STR, 'iu') },
@@ -407,6 +473,7 @@
 
   function walkDocuments(callback) {
     const visited = new Set();
+
     function walk(win) {
       if (!win || visited.has(win)) return;
       visited.add(win);
@@ -428,12 +495,14 @@
         } catch {}
       });
     }
+
     walk(window);
   }
 
   function processDoc(doc) {
     if (!CFG.enabled) return;
     ensureDocStyle(doc);
+
     const rows = doc.querySelectorAll('table tr, .tabelaLista tr, tr');
 
     rows.forEach((tr) => {
@@ -479,18 +548,21 @@
             <input type="checkbox" data-phm-enabled="${key}" ${enabled}>
             <span>${label}</span>
           </div>
-          <div class="phm-center"><input type="color" value="${bg}" data-phm-color-bg="${key}"></div>
-          <div class="phm-center"><input type="color" value="${fg}" data-phm-color-fg="${key}"></div>
+          <div class="phm-center"><input type="color" value="${bg}" data-phm-color-bg="${key}" title="Cor de fundo"></div>
+          <div class="phm-center"><input type="color" value="${fg}" data-phm-color-fg="${key}" title="Cor do texto"></div>
           <div class="phm-center"><label><input type="checkbox" data-phm-nobg="${key}" ${noBg}> Sem fundo</label></div>
           <div class="phm-center"><label><input type="checkbox" data-phm-bold="${key}" ${bold}> Negrito</label></div>
-          <div class="phm-center"><span class="phm-chip" data-phm-chip="${key}">Exemplo</span></div>
+          <div class="phm-center"><span class="phm-chip" data-phm-chip="${key}">Prévia</span></div>
         </div>
       `;
     }).join('');
 
     return `
       <div class="phm-head">
-        <h3 class="phm-title">MOVIMENTAÇÕES</h3>
+        <div class="phm-title-wrap">
+          <h3 class="phm-title">Movimentações</h3>
+          <p class="phm-subtitle">Configuração visual dos destaques</p>
+        </div>
         <button class="phm-close" data-phm-action="close" title="Fechar">×</button>
       </div>
       <div class="phm-body">
@@ -511,16 +583,13 @@
     `;
   }
 
-  function refreshPanelPreviews() {
-    const panel = document.querySelector('.phm-panel');
-    if (!panel) return;
-
+  function refreshPanelPreviews(root) {
     TYPES_ORDER.forEach((key) => {
-      const chip = panel.querySelector(`[data-phm-chip="${CSS.escape(key)}"]`);
-      const bgInput = panel.querySelector(`[data-phm-color-bg="${CSS.escape(key)}"]`);
-      const fgInput = panel.querySelector(`[data-phm-color-fg="${CSS.escape(key)}"]`);
-      const noBgInput = panel.querySelector(`[data-phm-nobg="${CSS.escape(key)}"]`);
-      const boldInput = panel.querySelector(`[data-phm-bold="${CSS.escape(key)}"]`);
+      const chip = root.querySelector(`[data-phm-chip="${CSS.escape(key)}"]`);
+      const bgInput = root.querySelector(`[data-phm-color-bg="${CSS.escape(key)}"]`);
+      const fgInput = root.querySelector(`[data-phm-color-fg="${CSS.escape(key)}"]`);
+      const noBgInput = root.querySelector(`[data-phm-nobg="${CSS.escape(key)}"]`);
+      const boldInput = root.querySelector(`[data-phm-bold="${CSS.escape(key)}"]`);
       if (!chip || !bgInput || !fgInput || !noBgInput || !boldInput) return;
 
       chip.style.background = noBgInput.checked ? 'transparent' : bgInput.value;
@@ -529,68 +598,84 @@
     });
   }
 
+  function closePanel() {
+    const overlay = document.querySelector('.phm-overlay');
+    if (overlay) overlay.remove();
+  }
+
   function ensurePanel() {
-    if (document.querySelector('.phm-panel')) return;
+    if (document.querySelector('.phm-overlay')) return;
 
-    const panel = document.createElement('div');
-    panel.className = 'phm-panel';
-    panel.innerHTML = panelHtml();
+    const overlay = document.createElement('div');
+    overlay.className = 'phm-overlay';
+    overlay.innerHTML = `<div class="phm-panel" role="dialog" aria-modal="true">${panelHtml()}</div>`;
 
-    panel.addEventListener('input', (ev) => {
+    overlay.addEventListener('click', (ev) => {
+      if (ev.target === overlay) closePanel();
+    });
+
+    overlay.addEventListener('input', (ev) => {
       const t = ev.target;
-      if (t.matches('[data-phm-color-bg], [data-phm-color-fg], [data-phm-nobg], [data-phm-bold]')) {
-        refreshPanelPreviews();
+      if (
+        t.matches('[data-phm-color-bg], [data-phm-color-fg], [data-phm-nobg], [data-phm-bold]')
+      ) {
+        refreshPanelPreviews(overlay);
       }
     });
 
-    panel.addEventListener('click', (ev) => {
+    overlay.addEventListener('click', (ev) => {
       const btn = ev.target.closest('[data-phm-action]');
       if (!btn) return;
       const action = btn.getAttribute('data-phm-action');
 
       if (action === 'close') {
-        panel.remove();
+        closePanel();
         return;
       }
 
       if (action === 'reset') {
         CFG = deepClone(DEFAULTS);
         saveCfg(CFG);
-        panel.remove();
+        closePanel();
         ensurePanel();
         reapply();
         return;
       }
 
       if (action === 'save') {
-        panel.querySelectorAll('[data-phm-enabled]').forEach((inp) => {
+        overlay.querySelectorAll('[data-phm-enabled]').forEach((inp) => {
           CFG.enabledTypes[inp.getAttribute('data-phm-enabled')] = inp.checked;
         });
-        panel.querySelectorAll('[data-phm-color-bg]').forEach((inp) => {
+
+        overlay.querySelectorAll('[data-phm-color-bg]').forEach((inp) => {
           CFG.colors[inp.getAttribute('data-phm-color-bg')] = inp.value;
         });
-        panel.querySelectorAll('[data-phm-color-fg]').forEach((inp) => {
+
+        overlay.querySelectorAll('[data-phm-color-fg]').forEach((inp) => {
           CFG.textColors[inp.getAttribute('data-phm-color-fg')] = inp.value;
         });
-        panel.querySelectorAll('[data-phm-nobg]').forEach((inp) => {
+
+        overlay.querySelectorAll('[data-phm-nobg]').forEach((inp) => {
           CFG.noBackgroundTypes[inp.getAttribute('data-phm-nobg')] = inp.checked;
         });
-        panel.querySelectorAll('[data-phm-bold]').forEach((inp) => {
+
+        overlay.querySelectorAll('[data-phm-bold]').forEach((inp) => {
           CFG.boldTypes[inp.getAttribute('data-phm-bold')] = inp.checked;
         });
 
         saveCfg(CFG);
         reapply();
+        closePanel();
       }
     });
 
-    document.body.appendChild(panel);
-    refreshPanelPreviews();
+    document.body.appendChild(overlay);
+    refreshPanelPreviews(overlay);
   }
 
   function togglePanel() {
-    const panel = document.querySelector('.phm-panel');
-    if (panel) panel.remove();
+    const overlay = document.querySelector('.phm-overlay');
+    if (overlay) closePanel();
     else ensurePanel();
   }
 
@@ -657,6 +742,10 @@
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) reviveAfterReturn();
     });
+
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape') closePanel();
+    }, true);
   }
 
   if (document.readyState === 'loading') {
