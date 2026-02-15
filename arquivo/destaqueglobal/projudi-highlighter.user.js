@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque Global
 // @namespace    projudi-highlighter.user.js
-// @version      4.0
+// @version      4.1
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaque global, com painel configurável (Ctrl+Shift+H).
 // @author       lourencosv (GPT)
@@ -21,37 +21,27 @@
 (function () {
   "use strict";
 
-  // =========================================================
-  // 1) CONFIG GERAL
-  // =========================================================
 
-  // Classe aplicada nos spans destacados para localizar/remover depois.
   const HIGHLIGHT_CLASS = "__vini_domain_highlight__";
 
-  // Chaves de persistência (armazenadas pelo gerenciador de userscripts).
   const KEY_GLOBAL = "hl:global_terms";
   const KEY_HIGHLIGHT_COLOR = "hl:highlight_color";
   const KEY_TEXT_COLOR = "hl:text_color";
   const KEY_BOLD = "hl:text_bold";
   const KEY_ITALIC = "hl:text_italic";
 
-  // Tamanho mínimo de termo.
   const MIN_LEN = 3;
 
-  // Defaults.
   const DEFAULT_HIGHLIGHT_COLOR = "#C5E1A5FF"; // RGBA em hex (alpha no final)
   const DEFAULT_TEXT_COLOR = "#111111";
 
-  // Preferências carregadas do storage.
   let highlightColor = DEFAULT_HIGHLIGHT_COLOR;
   let textColor = DEFAULT_TEXT_COLOR;
   let textBold = false;
   let textItalic = false;
 
-  // Estado do painel (somente no top window).
   let panelOpen = false;
 
-  // Flags de execução
   const IS_TOP = (() => {
     try {
       return window.top === window;
@@ -60,15 +50,10 @@
     }
   })();
 
-  // =========================================================
-  // 2) UTILITÁRIOS DE TEXTO
-  // =========================================================
 
-  // Remove pontuação periférica.
   const stripPeripheralPunct = (s) =>
     s.replace(/^[\s'".,;:!?()\[\]{}-]+|[\s'".,;:!?()\[\]{}-]+$/g, "");
 
-  // Remove diacríticos para comparação canônica.
   const toNoDiacritics = (s) => {
     try {
       return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -77,19 +62,15 @@
     }
   };
 
-  // Colapsa múltiplos espaços.
   const collapseSpaces = (s) => String(s || "").replace(/\s+/g, " ").trim();
 
-  // Normalização “canônica” para dedup e comparação.
   const norm = (s) =>
     toNoDiacritics(collapseSpaces(stripPeripheralPunct(String(s || "")))).toLowerCase();
 
   const charCount = (s) => collapseSpaces(String(s || "")).length;
 
-  // Escapa para RegExp.
   const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-  // Converte #RRGGBBAA para rgba() CSS.
   function cssColorFromHexRgba(hex) {
     const h = String(hex || "").trim();
     if (!/^#[0-9a-fA-F]{8}$/.test(h)) return h || DEFAULT_HIGHLIGHT_COLOR;
@@ -100,9 +81,6 @@
     return `rgba(${r}, ${g}, ${b}, ${a.toFixed(3)})`;
   }
 
-  // =========================================================
-  // 3) STORAGE: TERMOS GLOBAIS
-  // =========================================================
 
   async function loadTerms() {
     try {
@@ -178,9 +156,6 @@
     return out;
   }
 
-  // =========================================================
-  // 4) STORAGE: PREFERÊNCIAS (COR/ESTILO)
-  // =========================================================
 
   async function loadSettings() {
     try {
@@ -203,9 +178,6 @@
     }
   }
 
-  // =========================================================
-  // 5) MOTOR DE DESTAQUE (HIGHLIGHT)
-  // =========================================================
 
   function shouldSkip(node) {
     const skippable = /^(SCRIPT|STYLE|NOSCRIPT|IFRAME|TEXTAREA|INPUT|SVG)$/i;
@@ -257,19 +229,16 @@
         span.className = HIGHLIGHT_CLASS;
         span.textContent = match;
 
-        // Preferências do usuário.
         span.style.backgroundColor = cssColorFromHexRgba(highlightColor);
         span.style.color = textColor || DEFAULT_TEXT_COLOR;
         span.style.fontWeight = textBold ? "700" : "400";
         span.style.fontStyle = textItalic ? "italic" : "normal";
 
-        // Ajustes visuais.
         span.style.borderRadius = "3px";
         span.style.padding = "0 1px";
         span.style.margin = "0";
         span.style.cursor = "pointer";
 
-        // Guarda o termo original (para remoção por clique).
         span.dataset.term = term;
 
         frag.appendChild(span);
@@ -287,29 +256,22 @@
     clearExistingHighlights();
     if (!terms.length) return;
 
-    // Ordena por tamanho (evita termos menores “atrapalharem” os maiores).
     const ordered = [...terms].sort((a, b) => b.length - a.length);
     for (const t of ordered) highlightSingleTerm(t);
   }
 
-  // =========================================================
-  // 6) SYNC ENTRE FRAMES
-  // =========================================================
 
-  // Pede para todos os frames reaplicarem.
   const broadcastApply = () => {
     try {
       window.top.postMessage({ type: "VINI_APPLY_HIGHLIGHTS" }, "*");
     } catch {}
   };
 
-  // Reaplica no frame que receber a mensagem.
   window.addEventListener("message", (e) => {
     const d = e && e.data;
     if (d && d.type === "VINI_APPLY_HIGHLIGHTS") applyHighlights();
   });
 
-  // Comando de abrir/fechar painel (manda para o TOP).
   window.addEventListener("message", (e) => {
     const d = e && e.data;
     if (!d) return;
@@ -318,13 +280,9 @@
     }
   });
 
-  // =========================================================
-  // 7) TOOLBAR "DESTACAR" (por seleção)
-  // =========================================================
 
   let toolbar, toolbarRoot;
 
-  // Cache do último texto selecionado válido (evita perder seleção ao clicar no botão).
   let lastSelectionText = "";
   let lastSelectionRangeRect = null;
 
@@ -358,7 +316,6 @@
       userSelect: "none",
     });
 
-    // Evita que o clique “roube” a seleção.
     btn.addEventListener("mousedown", (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -368,7 +325,6 @@
       e.preventDefault();
       e.stopPropagation();
 
-      // Usa o cache (a seleção pode colapsar no clique).
       const text = String(lastSelectionText || "").trim();
 
       if (text && charCount(text) >= MIN_LEN) {
@@ -451,7 +407,6 @@
 
   document.addEventListener("selectionchange", positionToolbarNearSelection);
 
-  // Mostra imediatamente ao “terminar” a seleção (sem depender de scroll/movimento).
   document.addEventListener(
     "mouseup",
     () => {
@@ -462,7 +417,6 @@
     { passive: true }
   );
 
-  // Quando a seleção é feita via teclado (Shift+setas), também reposiciona.
   document.addEventListener(
     "keyup",
     (e) => {
@@ -484,9 +438,6 @@
     { passive: true }
   );
 
-  // =========================================================
-  // 8) POPOVER "REMOVER" (clique no destaque)
-  // =========================================================
 
   let pop, popRoot, currentCanonical = null;
 
@@ -592,286 +543,424 @@
     true
   );
 
-  // =========================================================
-  // 9) PAINEL (SOMENTE NO TOP WINDOW)
-  // =========================================================
 
-  let panelHost, panelRoot;
+  const PANEL_OVERLAY_ID = "projudi-highlighter-panel-overlay";
+  let panelCleanup = null;
+  let previousBodyOverflow = "";
 
-  function ensurePanelTopOnly() {
+  function getPanelOverlay() {
+    return document.getElementById(PANEL_OVERLAY_ID);
+  }
+
+  function closePanel() {
     if (!IS_TOP) return;
-
-    // Evita criar múltiplos painéis caso o script seja reinjetado.
-    const existing = document.getElementById("__vini_highlighter_panel_host__");
-    if (existing) {
-      panelHost = existing;
-      panelRoot = panelHost.shadowRoot;
+    const overlay = getPanelOverlay();
+    if (!overlay) {
+      panelOpen = false;
       return;
     }
 
-    panelHost = document.createElement("div");
-    panelHost.id = "__vini_highlighter_panel_host__";
-    panelHost.style.position = "fixed";
-    panelHost.style.zIndex = "2147483647";
-    panelHost.style.top = "0";
-    panelHost.style.left = "0";
-    panelHost.style.pointerEvents = "none";
-    document.documentElement.appendChild(panelHost);
+    if (typeof panelCleanup === "function") panelCleanup();
+    panelCleanup = null;
+    overlay.remove();
+    document.body.style.overflow = previousBodyOverflow;
+    panelOpen = false;
+  }
 
-    panelRoot = panelHost.attachShadow({ mode: "open" });
+  async function openPanel() {
+    if (!IS_TOP) return;
+    if (getPanelOverlay()) {
+      panelOpen = true;
+      return;
+    }
 
-    const wrap = document.createElement("div");
-    wrap.id = "vini-panel";
-    Object.assign(wrap.style, {
-      pointerEvents: "auto",
-      position: "fixed",
-      right: "16px",
-      bottom: "16px",
-      width: "420px",
-      maxWidth: "calc(100vw - 32px)",
-      maxHeight: "72vh",
-      overflow: "auto",
-      borderRadius: "14px",
-      background: "rgba(255,255,255,.98)",
-      border: "1px solid rgba(0,0,0,.10)",
-      boxShadow: "0 18px 50px rgba(0,0,0,.18)",
-      padding: "14px",
-      display: "none",
-      backdropFilter: "blur(6px)",
-    });
+    previousBodyOverflow = document.body.style.overflow;
 
-    // Layout conforme pedido.
-    wrap.innerHTML = `
-      <div class="hdr">
-        <div class="ttl">Destaque Global</div>
-        <button id="vini-close" class="iconbtn" title="Fechar">✕</button>
-      </div>
-
-      <div class="sec">
-        <div class="secTitle">Configs. Gerais</div>
-
-        <div class="row">
-          <input id="vini-add-input" class="inpt" placeholder="digite o novo termo" />
-          <button id="vini-add-btn" class="btn primary">Adicionar</button>
-        </div>
-
-        <div class="row2">
-          <button id="vini-add-sel-btn" class="btn">Adicionar seleção</button>
-          <button id="vini-remove-selected" class="btn danger">Remover seleção</button>
-        </div>
-
-        <div class="row2">
-          <button id="vini-export" class="btn">Exportar JSON</button>
-          <button id="vini-import" class="btn">Importar JSON</button>
-        </div>
-
-        <div id="vini-import-area" class="importArea" style="display:none;">
-          <textarea id="vini-import-text" class="ta" placeholder='Cole um JSON: ["termo 1", "termo 2"]'></textarea>
-          <div class="row2 right">
-            <button id="vini-import-apply" class="btn primary">Aplicar</button>
-            <button id="vini-import-cancel" class="btn">Cancelar</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="sec">
-        <div class="secTitle">Personalização</div>
-
-        <div class="grid">
-          <div class="field">
-            <div class="lbl">Cor destaque</div>
-            <div class="ctl">
-              <input id="vini-hl-color" type="color" class="color" />
-              <div id="vini-hl-preview" class="swatch" title="Cor atual"></div>
-            </div>
-          </div>
-
-          <div class="field">
-            <div class="lbl">Cor do texto</div>
-            <div class="ctl">
-              <input id="vini-text-color" type="color" class="color" />
-              <div id="vini-tx-preview" class="swatch" title="Cor atual"></div>
-            </div>
-          </div>
-
-          <div class="field">
-            <div class="lbl">Itálico</div>
-            <label class="check">
-              <input id="vini-italic-toggle" type="checkbox" />
-              <span>Ativar</span>
-            </label>
-          </div>
-
-          <div class="field">
-            <div class="lbl">Negrito</div>
-            <label class="check">
-              <input id="vini-bold-toggle" type="checkbox" />
-              <span>Ativar</span>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <div class="sec">
-        <div class="secTitle">Lista de destaques</div>
-        <div id="vini-list" class="list"></div>
-      </div>
+    const overlay = document.createElement("div");
+    overlay.id = PANEL_OVERLAY_ID;
+    overlay.style.cssText = `
+      position: fixed;
+      inset: 0;
+      z-index: 2147483647;
+      background: rgba(11, 18, 32, .50);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
     `;
 
-    const style = document.createElement("style");
-    style.textContent = `
-      :host { all: initial; }
+    const panel = document.createElement("div");
+    panel.style.cssText = `
+      width: min(760px, calc(100vw - 24px));
+      max-height: min(88vh, 760px);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      background: #ffffff;
+      color: #0f172a;
+      border-radius: 14px;
+      box-shadow: 0 24px 70px rgba(2, 6, 23, .30);
+      border: 1px solid #dbe3ef;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      transform: translateY(6px) scale(.985);
+      opacity: .96;
+      transition: transform .16s ease, opacity .16s ease;
+    `;
 
-      .hdr{
-        display:flex; align-items:center; justify-content:space-between;
-        margin-bottom:10px;
+    const scopedStyle = document.createElement("style");
+    scopedStyle.textContent = `
+      #${PANEL_OVERLAY_ID} *,
+      #${PANEL_OVERLAY_ID} *::before,
+      #${PANEL_OVERLAY_ID} *::after { box-sizing: border-box; }
+
+      #${PANEL_OVERLAY_ID} #vhp-close,
+      #${PANEL_OVERLAY_ID} #vhp-cancel,
+      #${PANEL_OVERLAY_ID} #vhp-apply,
+      #${PANEL_OVERLAY_ID} #vhp-add,
+      #${PANEL_OVERLAY_ID} #vhp-add-selection,
+      #${PANEL_OVERLAY_ID} #vhp-remove-selected,
+      #${PANEL_OVERLAY_ID} #vhp-export,
+      #${PANEL_OVERLAY_ID} #vhp-import,
+      #${PANEL_OVERLAY_ID} #vhp-import-apply,
+      #${PANEL_OVERLAY_ID} #vhp-import-cancel,
+      #${PANEL_OVERLAY_ID} .vhp-rm {
+        text-indent: 0 !important;
+        letter-spacing: normal !important;
+        text-transform: none !important;
+        line-height: 1.2 !important;
+        white-space: nowrap !important;
       }
-      .ttl{
-        font: 700 15px system-ui, -apple-system, Segoe UI, sans-serif;
-        letter-spacing: .2px;
-        color: #111;
-      }
-      .iconbtn{
-        border:none; background:transparent; cursor:pointer;
-        width:34px; height:34px; border-radius:10px;
-        display:flex; align-items:center; justify-content:center;
-        color:#333; font-size:14px;
-      }
-      .iconbtn:hover{ background: rgba(0,0,0,.06); }
 
-      .sec{ padding:10px 10px 12px; border:1px solid rgba(0,0,0,.06); border-radius:12px; background:rgba(250,250,250,.75); }
-      .sec + .sec{ margin-top:10px; }
-
-      .secTitle{
-        font: 700 12.5px system-ui, -apple-system, Segoe UI, sans-serif;
-        color:#222;
-        margin-bottom:8px;
+      #${PANEL_OVERLAY_ID} .vhp-sec {
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 12px;
+        background: #ffffff;
       }
 
-      .row{ display:flex; gap:8px; align-items:center; }
-      .row2{ display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }
-      .row2.right{ justify-content:flex-end; }
+      #${PANEL_OVERLAY_ID} .vhp-sec + .vhp-sec { margin-top: 10px; }
+      #${PANEL_OVERLAY_ID} .vhp-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 8px;
+      }
 
-      .inpt{
+      #${PANEL_OVERLAY_ID} .vhp-row { display: flex; gap: 8px; align-items: center; }
+      #${PANEL_OVERLAY_ID} .vhp-row + .vhp-row { margin-top: 8px; }
+
+      #${PANEL_OVERLAY_ID} .vhp-inpt {
         flex: 1;
-        padding: 10px 10px;
-        border: 1px solid rgba(0,0,0,.14);
-        border-radius: 10px;
+        padding: 9px 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
         outline: none;
-        font: 13px system-ui, -apple-system, Segoe UI, sans-serif;
-        background: rgba(255,255,255,.95);
-      }
-      .inpt:focus{ border-color: rgba(0,0,0,.30); }
-
-      .btn{
-        padding: 10px 12px;
-        border: 1px solid rgba(0,0,0,.14);
-        border-radius: 10px;
-        background: rgba(255,255,255,.95);
-        cursor:pointer;
-        font: 600 12.5px system-ui, -apple-system, Segoe UI, sans-serif;
-        color:#111;
-      }
-      .btn:hover{ filter: brightness(.98); }
-      .btn:active{ transform: translateY(1px); }
-
-      .btn.primary{
-        background: rgba(17,17,17,.92);
-        color:#fff;
-        border-color: rgba(17,17,17,.92);
-      }
-      .btn.danger{
-        background: rgba(255, 245, 245, .95);
-        color:#b00020;
-        border-color: rgba(176,0,32,.20);
+        font-size: 13px;
       }
 
-      .importArea{ margin-top:10px; }
-      .ta{
-        width: 100%;
-        height: 140px;
-        resize: vertical;
-        padding: 10px 10px;
-        border: 1px solid rgba(0,0,0,.14);
-        border-radius: 10px;
-        outline:none;
-        font: 12.5px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        background: rgba(255,255,255,.95);
+      #${PANEL_OVERLAY_ID} .vhp-btn {
+        padding: 8px 11px;
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        color: #1e293b;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
       }
 
-      .grid{
-        display:grid;
+      #${PANEL_OVERLAY_ID} .vhp-btn:hover { filter: brightness(.98); }
+      #${PANEL_OVERLAY_ID} .vhp-btn.primary {
+        background: #0f3e75;
+        color: #ffffff;
+        border-color: #0f3e75;
+      }
+
+      #${PANEL_OVERLAY_ID} .vhp-btn.danger {
+        background: #fff7f7;
+        color: #b00020;
+        border-color: #efc8d1;
+      }
+
+      #${PANEL_OVERLAY_ID} .vhp-grid {
+        display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 10px;
       }
-      .field{
-        padding: 10px;
-        border: 1px solid rgba(0,0,0,.08);
-        border-radius: 12px;
-        background: rgba(255,255,255,.70);
-      }
-      .lbl{
-        font: 700 12px system-ui, -apple-system, Segoe UI, sans-serif;
-        margin-bottom: 8px;
-        color:#222;
-      }
-      .ctl{ display:flex; align-items:center; gap:10px; }
-      .color{ width: 44px; height: 32px; border:none; background:transparent; padding:0; cursor:pointer; }
-      .swatch{
-        width: 100%;
-        height: 32px;
+
+      #${PANEL_OVERLAY_ID} .vhp-field {
+        border: 1px solid #e5e7eb;
         border-radius: 10px;
-        border: 1px solid rgba(0,0,0,.10);
-        background: #fff;
+        padding: 10px;
       }
 
-      .check{
-        display:flex; align-items:center; gap:10px;
-        font: 600 12.5px system-ui, -apple-system, Segoe UI, sans-serif;
-        color:#111;
-        user-select:none;
+      #${PANEL_OVERLAY_ID} .vhp-label {
+        font-size: 12px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 8px;
       }
-      .check input{ width: 18px; height: 18px; }
 
-      .list{ display:flex; flex-direction:column; gap:8px; }
-      .item{
-        display:flex; align-items:center; gap:8px;
-        padding: 10px 10px;
-        border: 1px solid rgba(0,0,0,.10);
-        border-radius: 12px;
-        background: rgba(255,255,255,.92);
+      #${PANEL_OVERLAY_ID} .vhp-check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: #1e293b;
       }
-      .item:hover{ background: rgba(255,255,255,1); }
-      .term{
-        flex:1;
-        font: 600 13px system-ui, -apple-system, Segoe UI, sans-serif;
-        color:#111;
+
+      #${PANEL_OVERLAY_ID} .vhp-check input {
+        width: 18px;
+        height: 18px;
+      }
+
+      #${PANEL_OVERLAY_ID} .vhp-color-wrap {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      #${PANEL_OVERLAY_ID} .vhp-color {
+        width: 44px;
+        height: 32px;
+        border: none;
+        background: transparent;
+        padding: 0;
+        cursor: pointer;
+      }
+
+      #${PANEL_OVERLAY_ID} .vhp-swatch {
+        flex: 1;
+        height: 32px;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+      }
+
+      #${PANEL_OVERLAY_ID} .vhp-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      #${PANEL_OVERLAY_ID} .vhp-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 9px 10px;
+        background: #ffffff;
+      }
+
+      #${PANEL_OVERLAY_ID} .vhp-term {
+        flex: 1;
+        font-size: 13px;
+        font-weight: 600;
+        color: #0f172a;
         word-break: break-word;
       }
-      .rm{
-        border:none;
-        background: rgba(255,245,245,.95);
-        color:#b00020;
-        cursor:pointer;
-        padding: 8px 10px;
-        border-radius: 10px;
-        font: 700 12px system-ui, -apple-system, Segoe UI, sans-serif;
-        border: 1px solid rgba(176,0,32,.18);
+
+      #${PANEL_OVERLAY_ID} .vhp-rm {
+        border: 1px solid #efc8d1;
+        background: #fff7f7;
+        color: #b00020;
+        border-radius: 8px;
+        cursor: pointer;
+        padding: 6px 9px;
+        font-size: 12px;
+        font-weight: 700;
       }
-      .rm:hover{ filter: brightness(.98); }
+
+      #${PANEL_OVERLAY_ID} #vhp-import-area {
+        margin-top: 8px;
+        display: none;
+      }
+
+      #${PANEL_OVERLAY_ID} #vhp-import-text {
+        width: 100%;
+        min-height: 110px;
+        resize: vertical;
+        padding: 9px 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 12px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      }
+
+      #${PANEL_OVERLAY_ID} #vhp-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: auto;
+        padding: 16px;
+        background: #f8fafc;
+      }
+
+      #${PANEL_OVERLAY_ID} #vhp-content {
+        padding: 16px;
+        background: #f8fafc;
+      }
+
+      #${PANEL_OVERLAY_ID} #vhp-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 12px 16px;
+        border-top: 1px solid #e5e7eb;
+        background: #f1f5f9;
+      }
+
+      @media (max-width: 760px) {
+        #${PANEL_OVERLAY_ID} .vhp-grid { grid-template-columns: 1fr; }
+        #${PANEL_OVERLAY_ID} .vhp-row { flex-wrap: wrap; }
+      }
     `;
 
-    panelRoot.appendChild(style);
-    panelRoot.appendChild(wrap);
+    panel.innerHTML = `
+      <div style="flex:0 0 auto; padding:14px 16px; background:linear-gradient(135deg,#0f3e75,#1f5ca4); color:#fff; border-bottom:1px solid #dbe3ef;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <div>
+            <div style="font-size:16px; font-weight:700; line-height:1.2;">Destaque Global</div>
+            <div style="font-size:12px; opacity:.9; margin-top:2px;">Gerencie termos e personalização dos destaques</div>
+          </div>
+          <button id="vhp-close" class="vhp-btn" style="border:0; background:rgba(255,255,255,.2); color:#fff; width:28px; height:28px; border-radius:999px; cursor:pointer; font-size:16px; line-height:1;">×</button>
+        </div>
+      </div>
 
-    const $ = (id) => panelRoot.getElementById(id);
+      <div id="vhp-body">
+        <div id="vhp-content">
+        <div class="vhp-sec">
+          <div class="vhp-title">Termos</div>
+          <div class="vhp-row">
+            <input id="vhp-add-input" class="vhp-inpt" placeholder="Digite o novo termo" />
+            <button id="vhp-add" class="vhp-btn primary">Adicionar</button>
+          </div>
+          <div class="vhp-row">
+            <button id="vhp-add-selection" class="vhp-btn">Adicionar seleção</button>
+            <button id="vhp-remove-selected" class="vhp-btn danger">Remover seleção</button>
+            <button id="vhp-export" class="vhp-btn">Exportar JSON</button>
+            <button id="vhp-import" class="vhp-btn">Importar JSON</button>
+          </div>
+          <div id="vhp-import-area">
+            <textarea id="vhp-import-text" placeholder='Cole um JSON: ["termo 1", "termo 2"]'></textarea>
+            <div class="vhp-row" style="justify-content:flex-end; margin-top:8px;">
+              <button id="vhp-import-cancel" class="vhp-btn">Cancelar</button>
+              <button id="vhp-import-apply" class="vhp-btn primary">Aplicar</button>
+            </div>
+          </div>
+        </div>
 
-    const listEl = $("vini-list");
-    const addInput = $("vini-add-input");
+        <div class="vhp-sec">
+          <div class="vhp-title">Personalização</div>
+          <div class="vhp-grid">
+            <div class="vhp-field">
+              <div class="vhp-label">Cor destaque</div>
+              <div class="vhp-color-wrap">
+                <input id="vhp-hl-color" type="color" class="vhp-color" />
+                <div id="vhp-hl-preview" class="vhp-swatch" title="Cor atual"></div>
+              </div>
+            </div>
+            <div class="vhp-field">
+              <div class="vhp-label">Cor do texto</div>
+              <div class="vhp-color-wrap">
+                <input id="vhp-text-color" type="color" class="vhp-color" />
+                <div id="vhp-tx-preview" class="vhp-swatch" title="Cor atual"></div>
+              </div>
+            </div>
+            <div class="vhp-field">
+              <div class="vhp-label">Itálico</div>
+              <label class="vhp-check">
+                <input id="vhp-italic-toggle" type="checkbox" />
+                <span>Ativar</span>
+              </label>
+            </div>
+            <div class="vhp-field">
+              <div class="vhp-label">Negrito</div>
+              <label class="vhp-check">
+                <input id="vhp-bold-toggle" type="checkbox" />
+                <span>Ativar</span>
+              </label>
+            </div>
+          </div>
+        </div>
 
-    $("vini-close").onclick = () => togglePanel(false);
+        <div class="vhp-sec">
+          <div class="vhp-title">Lista de destaques</div>
+          <div id="vhp-list" class="vhp-list"></div>
+        </div>
+        </div>
+      </div>
 
-    $("vini-add-btn").onclick = async () => {
+      <div id="vhp-footer" style="flex:0 0 auto;">
+        <button id="vhp-cancel" class="vhp-btn">Fechar</button>
+        <button id="vhp-apply" class="vhp-btn primary">Aplicar Agora</button>
+      </div>
+    `;
+
+    overlay.appendChild(scopedStyle);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+    document.body.style.overflow = "hidden";
+
+    requestAnimationFrame(() => {
+      panel.style.transform = "translateY(0) scale(1)";
+      panel.style.opacity = "1";
+    });
+
+    const $ = (id) => panel.querySelector(id);
+
+    const listEl = $("#vhp-list");
+    const addInput = $("#vhp-add-input");
+    const importArea = $("#vhp-import-area");
+    const importText = $("#vhp-import-text");
+    const hlInput = $("#vhp-hl-color");
+    const hlPrev = $("#vhp-hl-preview");
+    const txInput = $("#vhp-text-color");
+    const txPrev = $("#vhp-tx-preview");
+    const italicInput = $("#vhp-italic-toggle");
+    const boldInput = $("#vhp-bold-toggle");
+
+    function syncSwatches() {
+      if (hlPrev) hlPrev.style.background = cssColorFromHexRgba(highlightColor);
+      if (txPrev) txPrev.style.background = textColor || DEFAULT_TEXT_COLOR;
+    }
+
+    async function refreshList() {
+      const terms = await loadTerms();
+      listEl.innerHTML = "";
+
+      for (const t of terms) {
+        const row = document.createElement("div");
+        row.className = "vhp-item";
+
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.dataset.key = norm(t);
+
+        const span = document.createElement("div");
+        span.className = "vhp-term";
+        span.textContent = t;
+
+        const rm = document.createElement("button");
+        rm.className = "vhp-rm";
+        rm.textContent = "Remover";
+        rm.onclick = async () => {
+          if (await removeByCanonical(t)) {
+            await refreshList();
+            await applyHighlights();
+            broadcastApply();
+          }
+        };
+
+        row.appendChild(cb);
+        row.appendChild(span);
+        row.appendChild(rm);
+        listEl.appendChild(row);
+      }
+    }
+
+    $("#vhp-add").onclick = async () => {
       const value = addInput.value.trim();
       if (!value || value.length < MIN_LEN) return;
 
@@ -883,7 +972,7 @@
       }
     };
 
-    $("vini-add-sel-btn").onclick = async () => {
+    $("#vhp-add-selection").onclick = async () => {
       const sel = window.getSelection && window.getSelection();
       const text = sel ? String(sel.toString()).trim() : "";
       if (!text || charCount(text) < MIN_LEN) return;
@@ -895,7 +984,7 @@
       }
     };
 
-    $("vini-remove-selected").onclick = async () => {
+    $("#vhp-remove-selected").onclick = async () => {
       const checks = listEl.querySelectorAll('input[type="checkbox"]:checked');
       if (!checks.length) return;
 
@@ -909,7 +998,7 @@
       broadcastApply();
     };
 
-    $("vini-export").onclick = async () => {
+    $("#vhp-export").onclick = async () => {
       const terms = await loadTerms();
       const data = JSON.stringify(terms, null, 2);
 
@@ -924,25 +1013,24 @@
       setTimeout(() => URL.revokeObjectURL(url), 2000);
     };
 
-    $("vini-import").onclick = () => {
-      $("vini-import-area").style.display = "block";
+    $("#vhp-import").onclick = () => {
+      importArea.style.display = "block";
     };
 
-    $("vini-import-cancel").onclick = () => {
-      $("vini-import-text").value = "";
-      $("vini-import-area").style.display = "none";
+    $("#vhp-import-cancel").onclick = () => {
+      importText.value = "";
+      importArea.style.display = "none";
     };
 
-    $("vini-import-apply").onclick = async () => {
+    $("#vhp-import-apply").onclick = async () => {
       try {
-        const txt = $("vini-import-text").value.trim();
+        const txt = importText.value.trim();
         const arr = JSON.parse(txt);
         if (!Array.isArray(arr)) throw new Error("JSON deve ser um array de strings");
 
         await setBulkTerms(arr);
-
-        $("vini-import-text").value = "";
-        $("vini-import-area").style.display = "none";
+        importText.value = "";
+        importArea.style.display = "none";
 
         await refreshList();
         await applyHighlights();
@@ -951,19 +1039,6 @@
         alert("Importação falhou: " + (e && e.message ? e.message : e));
       }
     };
-
-    // Personalização: inputs + swatches (visualização).
-    const hlInput = $("vini-hl-color");
-    const hlPrev = $("vini-hl-preview");
-    const txInput = $("vini-text-color");
-    const txPrev = $("vini-tx-preview");
-    const italicInput = $("vini-italic-toggle");
-    const boldInput = $("vini-bold-toggle");
-
-    function syncSwatches() {
-      if (hlPrev) hlPrev.style.background = cssColorFromHexRgba(highlightColor);
-      if (txPrev) txPrev.style.background = textColor || DEFAULT_TEXT_COLOR;
-    }
 
     if (hlInput) {
       try {
@@ -1017,78 +1092,42 @@
       });
     }
 
-    async function refreshList() {
-      const terms = await loadTerms();
-      listEl.innerHTML = "";
+    $("#vhp-close").addEventListener("click", closePanel);
+    $("#vhp-cancel").addEventListener("click", closePanel);
+    $("#vhp-apply").addEventListener("click", async () => {
+      await applyHighlights();
+      broadcastApply();
+      closePanel();
+    });
 
-      for (const t of terms) {
-        const row = document.createElement("div");
-        row.className = "item";
+    const onEsc = (ev) => {
+      if (ev.key === "Escape") closePanel();
+    };
+    document.addEventListener("keydown", onEsc);
 
-        const cb = document.createElement("input");
-        cb.type = "checkbox";
-        cb.dataset.key = norm(t);
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closePanel();
+    });
 
-        const span = document.createElement("div");
-        span.className = "term";
-        span.textContent = t;
+    panelCleanup = () => {
+      document.removeEventListener("keydown", onEsc);
+    };
 
-        const rm = document.createElement("button");
-        rm.className = "rm";
-        rm.textContent = "Remover";
-        rm.onclick = async () => {
-          if (await removeByCanonical(t)) {
-            await refreshList();
-            await applyHighlights();
-            broadcastApply();
-          }
-        };
+    await refreshList();
+    syncSwatches();
 
-        row.appendChild(cb);
-        row.appendChild(span);
-        row.appendChild(rm);
-        listEl.appendChild(row);
-      }
-    }
-
-    wrap._refreshList = refreshList;
-    wrap._syncSwatches = syncSwatches;
+    panelOpen = true;
   }
 
   async function togglePanel(on) {
     if (!IS_TOP) return;
-    ensurePanelTopOnly();
-
-    const panel = panelRoot.getElementById("vini-panel");
-    if (!panel) return;
-
     if (on) {
-      await panel._refreshList();
-      try {
-        panel._syncSwatches();
-
-        const hlInput = panelRoot.getElementById("vini-hl-color");
-        if (hlInput) hlInput.value = (highlightColor || DEFAULT_HIGHLIGHT_COLOR).slice(0, 7);
-
-        const txInput = panelRoot.getElementById("vini-text-color");
-        if (txInput) txInput.value = (textColor || DEFAULT_TEXT_COLOR).slice(0, 7);
-
-        const italicInput = panelRoot.getElementById("vini-italic-toggle");
-        if (italicInput) italicInput.checked = !!textItalic;
-
-        const boldInput = panelRoot.getElementById("vini-bold-toggle");
-        if (boldInput) boldInput.checked = !!textBold;
-      } catch {}
-
-      panel.style.display = "block";
-      panelOpen = true;
+      await openPanel();
     } else {
-      panel.style.display = "none";
-      panelOpen = false;
+      closePanel();
     }
   }
 
-  // “Safe toggle”: evita múltiplas aberturas simultâneas quando o menu dispara em frames.
   function togglePanelSafe() {
     if (!IS_TOP) return;
 
@@ -1104,12 +1143,8 @@
     togglePanel(!panelOpen);
   }
 
-  // =========================================================
-  // 10) MENU DA EXTENSÃO (ABRE/FECHA O PAINEL)
-  // =========================================================
 
   function registerExtensionMenu() {
-    // A ação sempre pede ao TOP para alternar.
     const fn = () => {
       try {
         window.top.postMessage({ type: "VINI_TOGGLE_PANEL_REQUEST" }, "*");
@@ -1127,16 +1162,12 @@
     }
   }
 
-  // =========================================================
-  // 11) BOOT + OBSERVADORES
-  // =========================================================
 
   (async function init() {
     await loadSettings();
     await applyHighlights();
     registerExtensionMenu();
 
-    // Observa mudanças de DOM e reaplica (Projudi é dinâmico).
     const mo = new MutationObserver(() => {
       if (mo._pending) return;
       mo._pending = true;
@@ -1152,7 +1183,6 @@
       characterData: true,
     });
 
-    // Detecta navegação SPA e reaplica.
     const push = history.pushState,
       replace = history.replaceState;
 
@@ -1171,8 +1201,5 @@
     window.addEventListener("vini-spa-change", async () => {
       await applyHighlights();
     });
-
-    // Se for TOP, prepara o painel (mas não abre).
-    if (IS_TOP) ensurePanelTopOnly();
   })();
 })();
