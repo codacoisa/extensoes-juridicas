@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         To-do local
 // @namespace    projudi-tarefas-locais.user.js
-// @version      1.2
+// @version      1.3
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  To-do local por processo e visão geral na página inicial com tarefas globais.
 // @author       louencosv (GPT)
@@ -12,6 +12,7 @@
 // @run-at       document-end
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_listValues
 // @grant        GM_deleteValue
 // ==/UserScript==
 
@@ -26,6 +27,8 @@
   const KEY_GLOBAL_ITEMS = `${KEY_PREFIX}global::items`;
   const KEY_GLOBAL_UI = `${KEY_PREFIX}global::ui`;
   const DEFAULT_UI = { minimized: true, right: 12, top: 12 };
+  const EXPORT_SCHEMA = 'projudi-todo-export-v1';
+  const FA_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css';
 
   const state = { mounted: false, timer: null, mode: null, ctxKey: null };
 
@@ -86,7 +89,8 @@
   function processCtxFromDoc() {
     const cnj = getCNJFromDocument(document);
     if (!cnj) return null;
-    return { type: 'process', cnj, key: `cnj_${cnj}` };
+    const shortCnj = String(cnj).split('.')[0] || cnj;
+    return { type: 'process', cnj, shortCnj, key: `cnj_${cnj}` };
   }
 
   function todosKey(ctxKey) {
@@ -184,11 +188,119 @@
     storage.set(KEY_GLOBAL_UI, u);
   }
 
+  function getKnownTodoKeysFromIndex() {
+    const idx = loadIndex();
+    const keys = [KEY_INDEX, KEY_GLOBAL_ITEMS, KEY_GLOBAL_UI];
+    for (const entry of idx) {
+      if (!entry || !entry.key) continue;
+      keys.push(todosKey(entry.key));
+      keys.push(uiKey(entry.key));
+    }
+    return keys;
+  }
+
+  function listTodoKeys() {
+    try {
+      if (typeof GM_listValues === 'function') {
+        const keys = GM_listValues();
+        if (Array.isArray(keys)) return keys.filter(k => String(k).startsWith(KEY_PREFIX));
+      }
+    } catch (_) {}
+
+    const set = new Set(getKnownTodoKeysFromIndex());
+    try {
+      for (let i = 0; i < localStorage.length; i += 1) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(KEY_PREFIX)) set.add(k);
+      }
+    } catch (_) {}
+    return [...set];
+  }
+
+  function exportTodoData() {
+    const data = {};
+    const keys = listTodoKeys();
+
+    for (const key of keys) {
+      data[key] = storage.get(key, null);
+    }
+
+    const payload = {
+      schema: EXPORT_SCHEMA,
+      exportedAt: new Date().toISOString(),
+      data
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = el('a', {
+      href: url,
+      download: `projudi-todo-export-${Date.now()}.json`
+    });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function importTodoData() {
+    const fileInput = el('input', { type: 'file', accept: 'application/json' });
+
+    const file = await new Promise(resolve => {
+      fileInput.addEventListener('change', () => resolve(fileInput.files && fileInput.files[0] ? fileInput.files[0] : null), { once: true });
+      fileInput.click();
+    });
+
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const data = parsed && typeof parsed === 'object' && parsed.data && typeof parsed.data === 'object' ? parsed.data : parsed;
+
+      if (!data || typeof data !== 'object') {
+        alert('JSON inválido para importação.');
+        return;
+      }
+
+      const importedKeys = Object.keys(data).filter(k => k.startsWith(KEY_PREFIX));
+      if (!importedKeys.length) {
+        alert('Nenhuma chave de To-do encontrada no JSON.');
+        return;
+      }
+
+      if (!confirm('Importar vai substituir os dados atuais de To-do. Deseja continuar?')) return;
+
+      const existing = listTodoKeys();
+      for (const key of existing) storage.del(key);
+
+      for (const key of importedKeys) {
+        storage.set(key, data[key]);
+      }
+
+      alert('Importação concluída.');
+      unmount();
+      setTimeout(evaluate, 50);
+    } catch (_) {
+      alert('Falha ao importar JSON. Verifique o arquivo.');
+    }
+  }
+
   function el(tag, props = {}, children = []) {
     const node = document.createElement(tag);
     Object.assign(node, props);
     for (const c of children) node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
     return node;
+  }
+
+  function ensureFontAwesome() {
+    if (document.querySelector('link[data-pj-fa="1"]')) return;
+    const link = el('link', {
+      rel: 'stylesheet',
+      href: FA_CDN
+    });
+    link.setAttribute('data-pj-fa', '1');
+    document.head.appendChild(link);
   }
 
   function injectStyles() {
@@ -443,14 +555,24 @@
         right: 12px;
         top: 12px;
         z-index: ${Z_UI};
-        border: none;
-        border-radius: 999px;
-        background: #0b5ed7;
-        color: #fff;
-        font: 800 12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-        padding: 8px 11px;
+        width: 42px;
+        height: 42px;
+        border: 1px solid rgba(0,0,0,.22);
+        border-radius: 8px;
+        background: #fff;
+        color: #0b5ed7;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         cursor: pointer;
         box-shadow: 0 8px 24px rgba(0,0,0,.22);
+      }
+      #pj-todo-min:hover {
+        background: #f4f8ff;
+      }
+      #pj-todo-min i {
+        pointer-events: none;
+        font-size: 22px;
       }
     `;
     document.head.appendChild(style);
@@ -605,11 +727,13 @@
     state.ctxKey = null;
   }
 
-  function mountMinButton({ getUI, label, onOpen }) {
+  function mountMinButton({ getUI, onOpen }) {
     const existing = document.getElementById('pj-todo-min');
     if (existing) return;
+    ensureFontAwesome();
     const ui = getUI();
-    const btn = el('button', { id: 'pj-todo-min', title: 'Abrir To-do' }, [label || 'To-do']);
+    const icon = el('i', { className: 'fa-solid fa-list-check fa-1x', 'aria-hidden': 'true' });
+    const btn = el('button', { id: 'pj-todo-min', title: 'Abrir To-do', 'aria-label': 'Abrir To-do' }, [icon]);
     btn.style.right = `${ui.right}px`;
     btn.style.top = `${ui.top}px`;
     btn.addEventListener('click', () => {
@@ -617,6 +741,18 @@
       onOpen();
     });
     document.body.appendChild(btn);
+  }
+
+  function createHeaderActions({ onExport, onImport, onClose }) {
+    const exportBtn = el('button', { className: 'pj-todo-btn', title: 'Exportar JSON' }, ['↓']);
+    const importBtn = el('button', { className: 'pj-todo-btn', title: 'Importar JSON' }, ['↑']);
+    const closeBtn = el('button', { className: 'pj-todo-btn', title: 'Fechar' }, ['×']);
+
+    exportBtn.addEventListener('click', onExport);
+    importBtn.addEventListener('click', onImport);
+    closeBtn.addEventListener('click', onClose);
+
+    return el('div', { id: 'pj-todo-actions' }, [exportBtn, importBtn, closeBtn]);
   }
 
   function mountProcess(ctx) {
@@ -629,22 +765,29 @@
 
     mountMinButton({
       getUI,
-      label: 'To-do',
       onOpen: () => openProcessPanel(ctx)
     });
   }
 
   function openProcessPanel(ctx) {
-    const cnjLabel = ctx.cnj;
+    const cnjLabel = ctx.shortCnj || ctx.cnj;
     const getUI = () => loadUIByKey(ctx.key);
     const setUI = u => saveUIByKey(ctx.key, u);
 
     const chip = document.getElementById('pj-todo-min');
     if (chip) chip.remove();
 
+    const onClose = () => {
+      panel.remove();
+      mountMinButton({
+        getUI,
+        onOpen: () => openProcessPanel(ctx)
+      });
+    };
+
     const header = el('div', { id: 'pj-todo-header' }, [
-      el('div', { id: 'pj-todo-title', title: `To-do do processo ${cnjLabel}` }, [`To-do • ${cnjLabel}`]),
-      el('div', { id: 'pj-todo-actions' }, [el('button', { className: 'pj-todo-btn', title: 'Fechar' }, ['×'])])
+      el('div', { id: 'pj-todo-title', title: `To-do do processo ${ctx.cnj}` }, [`To-do • ${cnjLabel}`]),
+      createHeaderActions({ onExport: exportTodoData, onImport: importTodoData, onClose })
     ]);
 
     const section = el('div', { className: 'pj-section' }, []);
@@ -667,15 +810,6 @@
     const ui = getUI();
     panel.style.right = `${ui.right}px`;
     panel.style.top = `${ui.top}px`;
-
-    header.querySelector('.pj-todo-btn').addEventListener('click', () => {
-      panel.remove();
-      mountMinButton({
-        getUI,
-        label: 'To-do',
-        onOpen: () => openProcessPanel(ctx)
-      });
-    });
 
     function rerender() {
       const items = loadItemsByKey(ctx.key);
@@ -756,7 +890,6 @@
 
     mountMinButton({
       getUI,
-      label: 'To-do',
       onOpen: () => openHomePanel()
     });
   }
@@ -768,9 +901,17 @@
     const chip = document.getElementById('pj-todo-min');
     if (chip) chip.remove();
 
+    const onClose = () => {
+      panel.remove();
+      mountMinButton({
+        getUI,
+        onOpen: () => openHomePanel()
+      });
+    };
+
     const header = el('div', { id: 'pj-todo-header' }, [
       el('div', { id: 'pj-todo-title', title: 'Visão geral de tarefas' }, ['To-do • Visão geral']),
-      el('div', { id: 'pj-todo-actions' }, [el('button', { className: 'pj-todo-btn', title: 'Fechar' }, ['×'])])
+      createHeaderActions({ onExport: exportTodoData, onImport: importTodoData, onClose })
     ]);
 
     const globalSection = el('div', { className: 'pj-section pj-home-global' }, []);
@@ -802,15 +943,6 @@
     const ui = getUI();
     panel.style.right = `${ui.right}px`;
     panel.style.top = `${ui.top}px`;
-
-    header.querySelector('.pj-todo-btn').addEventListener('click', () => {
-      panel.remove();
-      mountMinButton({
-        getUI,
-        label: 'To-do',
-        onOpen: () => openHomePanel()
-      });
-    });
 
     function renderGlobal() {
       const items = loadGlobalItems();
@@ -958,6 +1090,7 @@
 
   function evaluate() {
     injectStyles();
+    ensureFontAwesome();
 
     if (!shouldRunInThisFrame()) {
       if (state.mounted) unmount();
