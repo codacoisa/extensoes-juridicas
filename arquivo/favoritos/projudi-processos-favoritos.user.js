@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Processos Favoritos
 // @namespace    projudi-processos-favoritos.user.js
-// @version      0.6
+// @version      0.7
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca processos favoritos, permite adicionar/remover no detalhe e gerenciar via painel.
 // @author       lourencosv (GPT)
@@ -20,10 +20,10 @@
   if (window.top !== window.self) return;
 
   const STORAGE_KEY = 'lp_procs_favoritos_v2';
-  const PANEL_ID = 'lp-panel-root';
   const STYLE_ID = 'lp-style-favoritos';
   const BTN_ID = 'lp-toggle-proc-btn';
   const MENU_LABEL = 'Abrir Painel';
+  const PANEL_OVERLAY_ID = 'lp-fav-panel-overlay';
 
   let menuCommandId = null;
   let menuRegistered = false;
@@ -143,11 +143,6 @@
         opacity: 0.85;
       }
 
-      @keyframes lpPulse {
-        0%, 100% { box-shadow: 0 0 0 1px rgba(194, 132, 0, 0.25), 0 2px 8px rgba(194, 132, 0, 0.16); }
-        50% { box-shadow: 0 0 0 1px rgba(194, 132, 0, 0.38), 0 4px 12px rgba(194, 132, 0, 0.24); }
-      }
-
       #${BTN_ID} {
         display: inline-block !important;
         width: 17px;
@@ -168,166 +163,207 @@
         filter: brightness(0.92);
       }
 
-      #${PANEL_ID} {
+      #${PANEL_OVERLAY_ID} {
         position: fixed;
-        top: 20px;
-        right: 20px;
-        width: min(520px, calc(100vw - 32px));
-        max-height: min(80vh, 760px);
-        background: #ffffff;
-        border: 1px solid #d8d8d8;
-        border-radius: 12px;
-        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.24);
+        inset: 0;
         z-index: 2147483647;
-        opacity: 1;
-        color: #222;
-        pointer-events: auto;
-        overflow: hidden;
-        font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif;
+        background: rgba(11, 18, 32, 0.5);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
       }
 
-      #${PANEL_ID},
-      #${PANEL_ID} * {
+      #${PANEL_OVERLAY_ID},
+      #${PANEL_OVERLAY_ID} * {
         box-sizing: border-box;
       }
 
-      #${PANEL_ID} .lp-head {
+      #${PANEL_OVERLAY_ID} .lp-panel {
+        width: 560px;
+        max-width: calc(100vw - 24px);
+        max-height: calc(100vh - 28px);
+        background: #ffffff;
+        color: #0f172a;
+        border-radius: 14px;
+        box-shadow: 0 24px 70px rgba(2, 6, 23, 0.3);
+        border: 1px solid #dbe3ef;
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        transform: translateY(6px) scale(0.985);
+        opacity: 0.96;
+        transition: transform 0.16s ease, opacity 0.16s ease;
+      }
+
+      #${PANEL_OVERLAY_ID} .lp-head {
+        padding: 14px 16px;
+        background: linear-gradient(135deg, #0f3e75, #1f5ca4);
+        color: #ffffff;
+      }
+
+      #${PANEL_OVERLAY_ID} .lp-head-row {
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        padding: 10px 12px;
-        background: #f8f8f8;
-        border-bottom: 1px solid #ececec;
-      }
-
-      #${PANEL_ID} .lp-title {
-        font-size: 14px;
-        font-weight: 700;
-        color: #222;
-      }
-
-      #${PANEL_ID} .lp-close {
-        border: none;
-        background: transparent;
-        font-size: 16px;
-        cursor: pointer;
-        color: #666;
-      }
-
-      #${PANEL_ID} .lp-body {
-        padding: 12px;
-      }
-
-      #${PANEL_ID} .lp-stack {
-        display: flex;
-        flex-direction: column;
+        justify-content: space-between;
         gap: 10px;
       }
 
-      #${PANEL_ID} .lp-row {
-        display: flex;
-        gap: 8px;
-      }
-
-      #${PANEL_ID} input[type="text"] {
-        all: unset;
-        flex: 1;
-        padding: 8px 10px;
-        border: 1px solid #cfcfcf;
-        border-radius: 8px;
-        font-size: 13px;
+      #${PANEL_OVERLAY_ID} .lp-title {
+        font-size: 16px;
+        font-weight: 700;
         line-height: 1.2;
-        color: #222;
-        background: #fff;
       }
 
-      #${PANEL_ID} input[type="text"]::placeholder {
-        color: #8a8a8a;
-        opacity: 1;
-      }
-
-      #${PANEL_ID} button {
-        all: unset;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border: 1px solid #bdbdbd;
-        border-radius: 8px;
-        background: #fff;
-        color: #2d2d2d;
-        padding: 8px 10px;
-        min-width: 88px;
+      #${PANEL_OVERLAY_ID} .lp-subtitle {
         font-size: 12px;
-        font-weight: 600;
-        line-height: 1.1;
+        opacity: 0.9;
+        margin-top: 2px;
+      }
+
+      #${PANEL_OVERLAY_ID} .lp-close {
+        border: 0;
+        background: rgba(255, 255, 255, 0.2);
+        color: #ffffff;
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
         cursor: pointer;
+        font-size: 16px;
+        line-height: 1;
       }
 
-      #${PANEL_ID} button.lp-add {
-        border-color: #9f844f;
-        background: #fef6e5;
-        color: #6b4e18;
+      #${PANEL_OVERLAY_ID} .lp-body {
+        padding: 16px;
       }
 
-      #${PANEL_ID} .lp-actions {
+      #${PANEL_OVERLAY_ID} .lp-row {
         display: flex;
         gap: 8px;
       }
 
-      #${PANEL_ID} .lp-actions button {
+      #${PANEL_OVERLAY_ID} .lp-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 12px;
+      }
+
+      #${PANEL_OVERLAY_ID} input[type="text"] {
+        width: 100%;
         min-width: 0;
+        padding: 9px 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        color: #0f172a;
+        background: #ffffff;
+        font-size: 13px;
+      }
+
+      #${PANEL_OVERLAY_ID} input[type="text"]:focus {
+        outline: 2px solid rgba(15, 62, 117, 0.2);
+        border-color: #0f3e75;
+      }
+
+      #${PANEL_OVERLAY_ID} .lp-btn {
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        color: #1e293b;
+        border-radius: 8px;
+        padding: 8px 11px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1.2;
+        white-space: nowrap;
+      }
+
+      #${PANEL_OVERLAY_ID} .lp-btn-primary {
+        background: #0f3e75;
+        border-color: #0f3e75;
+        color: #ffffff;
+      }
+
+      #${PANEL_OVERLAY_ID} .lp-btn-soft {
+        background: #f8fafc;
+      }
+
+      #${PANEL_OVERLAY_ID} .lp-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      #${PANEL_OVERLAY_ID} .lp-actions .lp-btn {
         flex: 1;
       }
 
-      #${PANEL_ID} .lp-status {
-        min-height: 18px;
-        padding: 0 2px;
+      #${PANEL_OVERLAY_ID} .lp-status {
+        min-height: 20px;
+        margin-top: 10px;
         font-size: 12px;
-        line-height: 1.3;
-        color: #667085;
+        color: #64748b;
       }
 
-      #${PANEL_ID} .lp-status.ok {
-        color: #126a39;
+      #${PANEL_OVERLAY_ID} .lp-status.ok {
+        color: #166534;
       }
 
-      #${PANEL_ID} .lp-status.err {
+      #${PANEL_OVERLAY_ID} .lp-status.err {
         color: #b42318;
       }
 
-      #${PANEL_ID} ul {
+      #${PANEL_OVERLAY_ID} .lp-list-wrap {
+        margin-top: 10px;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+
+      #${PANEL_OVERLAY_ID} ul {
         list-style: none;
         margin: 0;
         padding: 0;
-        max-height: 46vh;
+        max-height: min(42vh, 380px);
         overflow: auto;
       }
 
-      #${PANEL_ID} li {
+      #${PANEL_OVERLAY_ID} li {
         display: flex;
         justify-content: space-between;
         align-items: center;
         gap: 8px;
-        padding: 8px 0;
-        border-bottom: 1px solid #f0f0f0;
+        padding: 10px 12px;
+        border-bottom: 1px solid #f1f5f9;
       }
 
-      #${PANEL_ID} .lp-item-num {
+      #${PANEL_OVERLAY_ID} li:last-child {
+        border-bottom: 0;
+      }
+
+      #${PANEL_OVERLAY_ID} .lp-item-num {
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
         font-size: 12px;
-        color: #2b2b2b;
+        color: #1f2937;
       }
 
-      #${PANEL_ID} .lp-empty {
-        color: #8a8a8a;
+      #${PANEL_OVERLAY_ID} .lp-empty {
+        color: #64748b;
       }
 
-      #${PANEL_ID} .lp-foot {
+      #${PANEL_OVERLAY_ID} .lp-foot {
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        color: #666;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 12px 16px;
+        border-top: 1px solid #e5e7eb;
+        background: #f8fafc;
+      }
+
+      #${PANEL_OVERLAY_ID} .lp-count {
         font-size: 12px;
+        color: #64748b;
       }
     `;
 
@@ -455,56 +491,91 @@
     btn.style.top = `${delta}px`;
   }
 
-  function removePanel(doc) {
-    const panel = doc.getElementById(PANEL_ID);
-    if (panel) panel.remove();
+  function closePanel() {
+    const overlay = document.getElementById(PANEL_OVERLAY_ID);
+    if (!overlay) return;
+
+    const restoreOverflow = overlay.getAttribute('data-prev-overflow') || '';
+    document.body.style.overflow = restoreOverflow;
+
+    const escHandler = overlay.__lpEscHandler;
+    if (escHandler) document.removeEventListener('keydown', escHandler);
+
+    overlay.remove();
   }
 
   function buildPanel(doc) {
-    removePanel(doc);
+    if (!doc || !doc.body) return;
+
+    closePanel();
     injectStyles(doc);
 
-    const panel = doc.createElement('div');
-    panel.id = PANEL_ID;
+    const previousBodyOverflow = doc.body.style.overflow;
 
-    panel.innerHTML = `
-      <div class="lp-head">
-        <div class="lp-title">Processos Favoritos</div>
-        <button class="lp-close" type="button" title="Fechar">✕</button>
-      </div>
-      <div class="lp-body">
-        <div class="lp-stack">
+    const overlay = doc.createElement('div');
+    overlay.id = PANEL_OVERLAY_ID;
+    overlay.setAttribute('data-prev-overflow', previousBodyOverflow || '');
+
+    overlay.innerHTML = `
+      <div class="lp-panel" role="dialog" aria-modal="true" aria-label="Painel de processos favoritos">
+        <div class="lp-head">
+          <div class="lp-head-row">
+            <div>
+              <div class="lp-title">Processos Favoritos</div>
+              <div class="lp-subtitle">Gerencie sua lista local de processos</div>
+            </div>
+            <button type="button" class="lp-close" id="lp-close-btn" title="Fechar">×</button>
+          </div>
+        </div>
+        <div class="lp-body">
+          <div class="lp-card">
+            <div class="lp-row">
+              <input type="text" id="lp-add-input" placeholder="0000000-00.0000.0.00.0000" />
+              <button type="button" class="lp-btn lp-btn-primary" id="lp-add-btn">Adicionar</button>
+            </div>
+            <div class="lp-actions">
+              <button type="button" class="lp-btn lp-btn-soft" id="lp-export">Exportar JSON</button>
+              <button type="button" class="lp-btn lp-btn-soft" id="lp-import">Importar JSON</button>
+              <input type="file" id="lp-import-file" accept=".json,application/json" style="display:none" />
+            </div>
+            <div class="lp-status" id="lp-status" aria-live="polite"></div>
+          </div>
+          <div class="lp-list-wrap">
+            <ul id="lp-list"></ul>
+          </div>
+        </div>
+        <div class="lp-foot">
+          <span class="lp-count" id="lp-count"></span>
           <div class="lp-row">
-            <input type="text" id="lp-add-input" placeholder="0000000-00.0000.0.00.0000" />
-            <button type="button" class="lp-add" id="lp-add-btn">Adicionar</button>
-          </div>
-          <div class="lp-actions">
-            <button type="button" id="lp-export">Exportar JSON</button>
-            <button type="button" id="lp-import">Importar JSON</button>
-            <input type="file" id="lp-import-file" accept=".json,application/json" style="display:none" />
-          </div>
-          <div class="lp-status" id="lp-status" aria-live="polite"></div>
-          <ul id="lp-list"></ul>
-          <div class="lp-foot">
-            <span id="lp-count"></span>
-            <button type="button" id="lp-clear">Limpar tudo</button>
+            <button type="button" class="lp-btn" id="lp-clear">Limpar tudo</button>
+            <button type="button" class="lp-btn" id="lp-cancel">Fechar</button>
+            <button type="button" class="lp-btn lp-btn-primary" id="lp-save">Salvar</button>
           </div>
         </div>
       </div>
     `;
 
-    doc.body.appendChild(panel);
+    doc.body.appendChild(overlay);
+    doc.body.style.overflow = 'hidden';
 
-    const closeBtn = panel.querySelector('.lp-close');
-    const addBtn = panel.querySelector('#lp-add-btn');
-    const addInput = panel.querySelector('#lp-add-input');
-    const exportBtn = panel.querySelector('#lp-export');
-    const importBtn = panel.querySelector('#lp-import');
-    const importInput = panel.querySelector('#lp-import-file');
-    const status = panel.querySelector('#lp-status');
-    const clearBtn = panel.querySelector('#lp-clear');
-    const ul = panel.querySelector('#lp-list');
-    const count = panel.querySelector('#lp-count');
+    const panel = overlay.querySelector('.lp-panel');
+    requestAnimationFrame(() => {
+      panel.style.transform = 'translateY(0) scale(1)';
+      panel.style.opacity = '1';
+    });
+
+    const addBtn = overlay.querySelector('#lp-add-btn');
+    const addInput = overlay.querySelector('#lp-add-input');
+    const exportBtn = overlay.querySelector('#lp-export');
+    const importBtn = overlay.querySelector('#lp-import');
+    const importInput = overlay.querySelector('#lp-import-file');
+    const status = overlay.querySelector('#lp-status');
+    const clearBtn = overlay.querySelector('#lp-clear');
+    const closeBtn = overlay.querySelector('#lp-close-btn');
+    const cancelBtn = overlay.querySelector('#lp-cancel');
+    const saveBtn = overlay.querySelector('#lp-save');
+    const ul = overlay.querySelector('#lp-list');
+    const count = overlay.querySelector('#lp-count');
 
     function canonicalizeFull(value) {
       const text = String(value || '').trim();
@@ -556,6 +627,7 @@
 
           const del = doc.createElement('button');
           del.type = 'button';
+          del.className = 'lp-btn';
           del.textContent = 'Remover';
           del.addEventListener('click', function () {
             removeFavorite(num);
@@ -637,7 +709,12 @@
       reader.readAsText(file, 'utf-8');
     }
 
-    closeBtn.addEventListener('click', () => removePanel(doc));
+    function escClose(ev) {
+      if (ev.key === 'Escape') closePanel();
+    }
+
+    overlay.__lpEscHandler = escClose;
+
     addBtn.addEventListener('click', tryAddInput);
     addInput.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') tryAddInput();
@@ -657,6 +734,14 @@
       renderList();
     });
 
+    closeBtn.addEventListener('click', closePanel);
+    cancelBtn.addEventListener('click', closePanel);
+    saveBtn.addEventListener('click', closePanel);
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) closePanel();
+    });
+
+    document.addEventListener('keydown', escClose);
     renderList();
   }
 
