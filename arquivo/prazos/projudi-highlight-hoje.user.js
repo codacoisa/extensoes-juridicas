@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque de Prazos
 // @namespace    projudi-highlight-hoje.user.js
-// @version      3.4
+// @version      3.5
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Realça possíveis vencimentos no projudi, com cores definidas.
 // @author       louencosv (GPT)
@@ -25,6 +25,9 @@
   const FIXED_DATE_KEY = "projudi_highlight_fixed_date_v1";
   const FILTER_DATE_KEY = "projudi_highlight_filter_date_v1";
   const FILTER_ENABLED_KEY = "projudi_highlight_filter_enabled_v1";
+  const FILTER_MODE_KEY = "projudi_highlight_filter_mode_v1";
+  const FILTER_RANGE_START_KEY = "projudi_highlight_filter_range_start_v1";
+  const FILTER_RANGE_END_KEY = "projudi_highlight_filter_range_end_v1";
 
   const IS_TOP = (() => {
     try {
@@ -104,6 +107,45 @@
     setStored(FILTER_ENABLED_KEY, !!enabled);
   }
 
+  function getStoredFilterMode() {
+    const raw = String(getStored(FILTER_MODE_KEY, "exact") || "exact").toLowerCase();
+    if (raw === "range") return "range";
+    if (raw === "missing") return "missing";
+    return "exact";
+  }
+
+  function setStoredFilterMode(mode) {
+    if (mode === "range" || mode === "missing") {
+      setStored(FILTER_MODE_KEY, mode);
+      return;
+    }
+    setStored(FILTER_MODE_KEY, "exact");
+  }
+
+  function getStoredFilterRangeStart() {
+    return String(getStored(FILTER_RANGE_START_KEY, "") || "");
+  }
+
+  function setStoredFilterRangeStart(yyyy_mm_dd) {
+    setStored(FILTER_RANGE_START_KEY, yyyy_mm_dd);
+  }
+
+  function clearStoredFilterRangeStart() {
+    clearStored(FILTER_RANGE_START_KEY);
+  }
+
+  function getStoredFilterRangeEnd() {
+    return String(getStored(FILTER_RANGE_END_KEY, "") || "");
+  }
+
+  function setStoredFilterRangeEnd(yyyy_mm_dd) {
+    setStored(FILTER_RANGE_END_KEY, yyyy_mm_dd);
+  }
+
+  function clearStoredFilterRangeEnd() {
+    clearStored(FILTER_RANGE_END_KEY);
+  }
+
   const pad2 = (n) => (n < 10 ? "0" + n : "" + n);
 
   const alt = (num) => {
@@ -175,6 +217,42 @@
     if (!dateInfo || !text) return false;
     dateInfo.regex.lastIndex = 0;
     return dateInfo.regex.test(text);
+  }
+
+  function parseBRDateToken(dd, mm, yyOrYyyy) {
+    const day = Number(dd);
+    const month = Number(mm);
+    let year = Number(yyOrYyyy);
+
+    if (!Number.isFinite(day) || !Number.isFinite(month) || !Number.isFinite(year)) return null;
+    if (String(yyOrYyyy).length === 2) year += 2000;
+
+    const d = new Date(year, month - 1, day);
+    d.setHours(0, 0, 0, 0);
+
+    if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return null;
+    return d;
+  }
+
+  function extractDatesFromText(text) {
+    if (!text) return [];
+
+    const out = [];
+    const re = /\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2}|\d{4})\b/g;
+    let m;
+
+    while ((m = re.exec(text)) !== null) {
+      const d = parseBRDateToken(m[1], m[2], m[3]);
+      if (d) out.push(d);
+    }
+
+    return out;
+  }
+
+  function isMissingDeadlineText(text) {
+    const t = String(text || "").trim();
+    if (t === "") return true;
+    return /^[-–—]+$/.test(t);
   }
 
   const CLASS_PREFIX = "tm-hl7d";
@@ -550,14 +628,40 @@
     for (const tn of nodes) highlightInTextNode(tn);
   }
 
-  function getEffectiveFilterDate() {
+  function getEffectiveExactFilterDate() {
     const stored = getStoredFilterDate();
     const d = stored ? ymdToDate(stored) : null;
     return d || cloneDate(new Date());
   }
 
-  function rowMatchesDeadlineDate(tr, targetCols, dateInfo) {
+  function getActiveFilterSpec() {
+    if (!getStoredFilterEnabled()) return null;
+
+    const mode = getStoredFilterMode();
+
+    if (mode === "missing") {
+      return { mode: "missing" };
+    }
+
+    if (mode === "range") {
+      const startYMD = getStoredFilterRangeStart();
+      const endYMD = getStoredFilterRangeEnd();
+      const start = startYMD ? ymdToDate(startYMD) : null;
+      const end = endYMD ? ymdToDate(endYMD) : null;
+      if (!start || !end) return null;
+
+      const from = start <= end ? start : end;
+      const to = start <= end ? end : start;
+      return { mode: "range", from, to };
+    }
+
+    const date = getEffectiveExactFilterDate();
+    return { mode: "exact", date, dateInfo: makeDateInfo(date) };
+  }
+
+  function rowMatchesDeadlineFilter(tr, targetCols, filterSpec) {
     if (!tr || !targetCols || targetCols.size === 0) return false;
+    if (!filterSpec) return false;
 
     const tds = Array.from(tr.children).filter((x) => x.nodeName === "TD");
     if (tds.length === 0) return false;
@@ -565,8 +669,20 @@
     for (let col = 0; col < tds.length; col++) {
       if (!targetCols.has(col)) continue;
       const txt = (tds[col].textContent || "").trim();
+      if (filterSpec.mode === "missing") {
+        if (isMissingDeadlineText(txt)) return true;
+        continue;
+      }
       if (!txt) continue;
-      if (dateMatchesTextByInfo(dateInfo, txt)) return true;
+      if (filterSpec.mode === "exact") {
+        if (dateMatchesTextByInfo(filterSpec.dateInfo, txt)) return true;
+        continue;
+      }
+
+      const dates = extractDatesFromText(txt);
+      for (const d of dates) {
+        if (d >= filterSpec.from && d <= filterSpec.to) return true;
+      }
     }
 
     return false;
@@ -612,15 +728,12 @@
   }
 
   function applyDeadlineFilter(root = document) {
-    const enabled = getStoredFilterEnabled();
+    const filterSpec = getActiveFilterSpec();
 
-    if (!enabled) {
+    if (!filterSpec) {
       clearFilterInRoot(root);
       return;
     }
-
-    const filterDate = getEffectiveFilterDate();
-    const filterInfo = makeDateInfo(filterDate);
     const tables = getTablesFromRoot(root);
 
     for (const table of tables) {
@@ -630,7 +743,7 @@
 
       const tbodyRows = table.querySelectorAll("tbody tr");
       for (const tr of tbodyRows) {
-        const match = rowMatchesDeadlineDate(tr, targetCols, filterInfo);
+        const match = rowMatchesDeadlineFilter(tr, targetCols, filterSpec);
         if (match) showRow(tr);
         else hideRow(tr);
       }
@@ -650,8 +763,6 @@
     if (topDoc.getElementById(`${CLASS_PREFIX}-panel-overlay`)) return;
 
     const overlayId = `${CLASS_PREFIX}-panel-overlay`;
-    const panelId = `${CLASS_PREFIX}-panel`;
-
     const previousBodyOverflow = topDoc.body.style.overflow;
 
     const overlay = topDoc.createElement("div");
@@ -666,10 +777,14 @@
     `;
 
     const panel = topDoc.createElement("div");
-    panel.id = panelId;
     panel.style.cssText = `
-      width: 540px; max-width: calc(100vw - 24px);
-      background: #ffffff; color: #0f172a;
+      width: 620px;
+      max-width: calc(100vw - 36px);
+      max-height: min(88vh, 860px);
+      display: flex;
+      flex-direction: column;
+      background: #ffffff;
+      color: #0f172a;
       border-radius: 14px;
       box-shadow: 0 24px 70px rgba(2, 6, 23, .30);
       border: 1px solid #dbe3ef;
@@ -682,6 +797,8 @@
 
     const scopedStyle = topDoc.createElement("style");
     scopedStyle.textContent = `
+      #${overlayId} * { box-sizing: border-box; }
+
       #${overlayId} button,
       #${overlayId} input,
       #${overlayId} label,
@@ -689,18 +806,65 @@
       #${overlayId} div {
         text-indent: 0 !important;
         letter-spacing: normal !important;
-        text-transform: none !important;
         line-height: 1.25 !important;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
+      }
+
+      #${overlayId} .tm-head {
+        padding: 14px 16px;
+        background: linear-gradient(135deg,#0f3e75,#1f5ca4);
+        color: #fff;
+        border-bottom: 1px solid rgba(255,255,255,.14);
+        flex: 0 0 auto;
+      }
+
+      #${overlayId} .tm-head-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      #${overlayId} .tm-head-title {
+        font-size: 16px;
+        font-weight: 700;
+        line-height: 1.2;
+      }
+
+      #${overlayId} .tm-head-sub {
+        font-size: 12px;
+        opacity: .92;
+        margin-top: 2px;
+      }
+
+      #${overlayId} .tm-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: auto;
+        padding: 14px;
+        background: #fff;
+      }
+
+      #${overlayId} .tm-footer {
+        flex: 0 0 auto;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 12px 16px;
+        border-top: 1px solid #e5e7eb;
+        background: #f8fafc;
       }
 
       #${overlayId} button {
         cursor: pointer;
         border-radius: 8px;
         font-size: 14px !important;
-        font-weight: 500 !important;
+        height: 42px;
         padding: 7px 11px;
-        min-width: 86px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
       }
 
       #${overlayId} .btn-ghost {
@@ -729,66 +893,183 @@
         padding: 0 !important;
       }
 
+      #${overlayId} .btn-icon:hover { background: rgba(255,255,255,.28) !important; }
+
       #${overlayId} input[type="date"] {
         width: 100%;
-        padding: 8px 10px !important;
+        min-width: 0;
+        height: 42px;
+        padding: 8px 12px !important;
         border: 1px solid #cbd5e1 !important;
         border-radius: 8px !important;
         color: #0f172a !important;
         background: #fff !important;
         font-size: 14px !important;
       }
+
+      #${overlayId} .tm-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 12px;
+        background: #fff;
+      }
+
+      #${overlayId} .tm-card + .tm-card {
+        margin-top: 10px;
+      }
+
+      #${overlayId} .tm-card-title {
+        font-size: 12px;
+        font-weight: 700;
+        color: #0f172a;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+      }
+
+      #${overlayId} .tm-card-desc {
+        margin-top: 5px;
+        font-size: 12px;
+        line-height: 1.35 !important;
+        color: #64748b;
+        text-align: justify;
+        text-justify: inter-word;
+      }
+
+      #${overlayId} .tm-inline-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 170px;
+        gap: 8px;
+        align-items: center;
+        margin-top: 10px;
+      }
+
+      #${overlayId} .tm-range-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 8px;
+        align-items: center;
+        margin-top: 10px;
+      }
+
+      #${overlayId} .tm-center-actions {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      #${overlayId} .tm-center-actions .btn-primary {
+        min-width: 170px;
+      }
+
+      #${overlayId} .tm-status {
+        margin-top: 12px;
+        font-size: 12px;
+        color: #334155;
+      }
+
+      #${overlayId} .tm-note {
+        margin-top: 6px;
+        font-size: 12px;
+        color: #64748b;
+      }
+
+      #${overlayId} .tm-footer .btn-ghost {
+        min-width: 98px;
+      }
+
+      #${overlayId} .tm-action-main {
+        width: 170px !important;
+        min-width: 170px !important;
+      }
+
+      @media (max-width: 640px) {
+        #${overlayId} .tm-inline-row {
+          grid-template-columns: 1fr;
+        }
+
+        #${overlayId} .tm-inline-row button,
+        #${overlayId} .tm-center-actions button {
+          width: 100%;
+          min-width: 0 !important;
+        }
+
+        #${overlayId} .tm-range-row {
+          grid-template-columns: 1fr;
+        }
+
+        #${overlayId} .tm-center-actions {
+          flex-direction: column;
+        }
+      }
     `;
 
     const fixed = getStoredFixedDate();
     const filterDateStored = getStoredFilterDate();
+    const filterRangeStartStored = getStoredFilterRangeStart();
+    const filterRangeEndStored = getStoredFilterRangeEnd();
     const today = new Date();
     const todayYMD = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
     const filterDateInitial = filterDateStored || fixed || todayYMD;
+    const rangeStartInitial = filterRangeStartStored || filterDateInitial;
+    const rangeEndInitial = filterRangeEndStored || filterDateInitial;
 
     panel.innerHTML = `
-      <div style="padding:14px 16px; background:linear-gradient(135deg,#0f3e75,#1f5ca4); color:#fff;">
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+      <div class="tm-head">
+        <div class="tm-head-row">
           <div>
-            <div style="font-size:16px; font-weight:700; line-height:1.2;">Prazos do Projudi</div>
-            <div style="font-size:12px; opacity:.9; margin-top:2px;">Destaque e filtro de vencimentos</div>
+            <div class="tm-head-title">Prazos do Projudi</div>
+            <div class="tm-head-sub">Destaque e filtros de prazo</div>
           </div>
-          <button id="${CLASS_PREFIX}-close-top" class="btn-icon" aria-label="Fechar">×</button>
+          <button id="${CLASS_PREFIX}-close-top" class="btn-icon" aria-label="Fechar painel">×</button>
         </div>
       </div>
 
-      <div style="padding:16px; background:#fff;">
-        <label style="display:block; padding:12px; border:1px solid #e5e7eb; border-radius:10px; margin-bottom:10px;">
-          <div style="font-weight:600; color:#0f172a;">Data fixa (realce persistente)</div>
-          <div style="font-size:12px; color:#64748b; margin-top:2px;">
-            Mantem essa data sempre destacada, independentemente da janela de ${WINDOW_DAYS} dias.
-          </div>
-          <div style="display:flex; gap:8px; align-items:center; margin-top:10px;">
+      <div class="tm-body">
+        <div class="tm-card">
+          <div class="tm-card-title">DATA FIXA (DESTAQUE)</div>
+          <div class="tm-card-desc">Mantém uma data sempre destacada nas tabelas, mesmo quando estiver fora da janela automática de acompanhamento.</div>
+          <div class="tm-inline-row">
             <input id="${CLASS_PREFIX}-date-input" type="date" value="${fixed || ""}" />
-            <button id="${CLASS_PREFIX}-save-fixed" class="btn-primary">Salvar</button>
-            <button id="${CLASS_PREFIX}-clear-fixed" class="btn-ghost">Limpar</button>
+            <button id="${CLASS_PREFIX}-save-fixed" class="btn-primary tm-action-main">Salvar</button>
           </div>
-        </label>
-
-        <label style="display:block; padding:12px; border:1px solid #e5e7eb; border-radius:10px;">
-          <div style="font-weight:600; color:#0f172a;">Filtro da tabela (data exata)</div>
-          <div style="font-size:12px; color:#64748b; margin-top:2px;">
-            Exibe apenas linhas com "Data Limite" ou "Possivel Data Limite" na data escolhida.
-          </div>
-          <div style="display:flex; gap:8px; align-items:center; margin-top:10px;">
-            <input id="${CLASS_PREFIX}-filter-date" type="date" value="${filterDateInitial}" />
-            <button id="${CLASS_PREFIX}-apply-filter" class="btn-primary">Aplicar</button>
-            <button id="${CLASS_PREFIX}-clear-filter" class="btn-ghost">Limpar</button>
-          </div>
-        </label>
-
-        <div id="${CLASS_PREFIX}-status" style="font-size:12px; color:#334155; margin-top:12px;"></div>
-        <div style="font-size:12px; color:#64748b; margin-top:6px;">
-          O destaque automatico continua em hoje + proximos ${WINDOW_DAYS - 1} dias.
         </div>
+
+        <div class="tm-card">
+          <div class="tm-card-title">FILTRO POR DATA EXATA</div>
+          <div class="tm-card-desc">Exibe somente processos cuja coluna de prazo corresponda exatamente à data informada, na página principal ou em intimações.</div>
+          <div class="tm-inline-row">
+            <input id="${CLASS_PREFIX}-filter-date" type="date" value="${filterDateInitial}" />
+            <button id="${CLASS_PREFIX}-apply-filter" class="btn-primary tm-action-main">Aplicar</button>
+          </div>
+        </div>
+
+        <div class="tm-card">
+          <div class="tm-card-title">FILTRO POR PERÍODO</div>
+          <div class="tm-card-desc">Exibe somente processos com prazo dentro do intervalo informado (data inicial até data final).</div>
+          <div class="tm-range-row">
+            <input id="${CLASS_PREFIX}-range-start" type="date" value="${rangeStartInitial}" />
+            <input id="${CLASS_PREFIX}-range-end" type="date" value="${rangeEndInitial}" />
+          </div>
+          <div class="tm-center-actions">
+            <button id="${CLASS_PREFIX}-apply-range-filter" class="btn-primary tm-action-main">Aplicar período</button>
+          </div>
+        </div>
+
+        <div class="tm-card">
+          <div class="tm-card-title">FILTRO SEM DATA LIMITE</div>
+          <div class="tm-card-desc">Localiza processos sem prazo definido: campo vazio na página principal ou “-” na lista de intimações.</div>
+          <div class="tm-center-actions">
+            <button id="${CLASS_PREFIX}-apply-missing-filter" class="btn-primary tm-action-main">Localizar sem prazo</button>
+          </div>
+        </div>
+
+        <div id="${CLASS_PREFIX}-status" class="tm-status"></div>
+        <div class="tm-note">Destaque automático: hoje + próximos ${WINDOW_DAYS - 1} dias.</div>
       </div>
 
-      <div style="display:flex; gap:8px; justify-content:flex-end; padding:12px 16px; border-top:1px solid #e5e7eb; background:#f8fafc;">
+      <div class="tm-footer">
+        <button id="${CLASS_PREFIX}-clear-all" class="btn-ghost">Limpar</button>
         <button id="${CLASS_PREFIX}-close-bottom" class="btn-ghost">Fechar</button>
       </div>
     `;
@@ -813,8 +1094,13 @@
       const fixedY = getStoredFixedDate();
       const fixedD = fixedY ? ymdToDate(fixedY) : null;
       const fEnabled = getStoredFilterEnabled();
+      const fMode = getStoredFilterMode();
       const fY = getStoredFilterDate();
       const fD = fY ? ymdToDate(fY) : null;
+      const rStartY = getStoredFilterRangeStart();
+      const rEndY = getStoredFilterRangeEnd();
+      const rStart = rStartY ? ymdToDate(rStartY) : null;
+      const rEnd = rEndY ? ymdToDate(rEndY) : null;
 
       const parts = [];
       parts.push(
@@ -822,11 +1108,19 @@
           ? `Data fixa: ${pad2(fixedD.getDate())}/${pad2(fixedD.getMonth() + 1)}/${fixedD.getFullYear()}`
           : "Data fixa: desativada"
       );
-      parts.push(
-        fEnabled && fD
-          ? `Filtro: ativo em ${pad2(fD.getDate())}/${pad2(fD.getMonth() + 1)}/${fD.getFullYear()}`
-          : "Filtro: desativado"
-      );
+      if (fEnabled && fMode === "range" && rStart && rEnd) {
+        const from = rStart <= rEnd ? rStart : rEnd;
+        const to = rStart <= rEnd ? rEnd : rStart;
+        parts.push(
+          `Filtro: período de ${pad2(from.getDate())}/${pad2(from.getMonth() + 1)}/${from.getFullYear()} até ${pad2(to.getDate())}/${pad2(to.getMonth() + 1)}/${to.getFullYear()}`
+        );
+      } else if (fEnabled && fMode === "missing") {
+        parts.push("Filtro: sem data limite");
+      } else if (fEnabled && fD) {
+        parts.push(`Filtro: data exata em ${pad2(fD.getDate())}/${pad2(fD.getMonth() + 1)}/${fD.getFullYear()}`);
+      } else {
+        parts.push("Filtro: desativado");
+      }
 
       setStatus(parts.join(" | "));
     }
@@ -847,15 +1141,8 @@
     $(`${CLASS_PREFIX}-save-fixed`).addEventListener("click", () => {
       const v = $(`${CLASS_PREFIX}-date-input`).value || "";
       const d = v ? ymdToDate(v) : null;
-      if (!d) return setStatus("Data fixa invalida. Use o seletor de data.");
+      if (!d) return setStatus("Data fixa inválida. Use o seletor de data.");
       setStoredFixedDate(v);
-      rebuildStateAndRehighlight();
-      refreshStatus();
-    });
-
-    $(`${CLASS_PREFIX}-clear-fixed`).addEventListener("click", () => {
-      clearStoredFixedDate();
-      $(`${CLASS_PREFIX}-date-input`).value = "";
       rebuildStateAndRehighlight();
       refreshStatus();
     });
@@ -863,17 +1150,51 @@
     $(`${CLASS_PREFIX}-apply-filter`).addEventListener("click", () => {
       const ymd = $(`${CLASS_PREFIX}-filter-date`).value || "";
       const d = ymdToDate(ymd);
-      if (!d) return setStatus("Filtro: selecione uma data valida.");
+      if (!d) return setStatus("Filtro: selecione uma data válida.");
       setStoredFilterDate(ymd);
+      setStoredFilterMode("exact");
       setStoredFilterEnabled(true);
       applyDeadlineFilter(document);
       refreshStatus();
     });
 
-    $(`${CLASS_PREFIX}-clear-filter`).addEventListener("click", () => {
-      setStoredFilterEnabled(false);
-      clearStoredFilterDate();
+    $(`${CLASS_PREFIX}-apply-range-filter`).addEventListener("click", () => {
+      const startYMD = $(`${CLASS_PREFIX}-range-start`).value || "";
+      const endYMD = $(`${CLASS_PREFIX}-range-end`).value || "";
+      const start = ymdToDate(startYMD);
+      const end = ymdToDate(endYMD);
+
+      if (!start || !end) return setStatus("Filtro por período: selecione data inicial e final válidas.");
+
+      setStoredFilterRangeStart(startYMD);
+      setStoredFilterRangeEnd(endYMD);
+      setStoredFilterMode("range");
+      setStoredFilterEnabled(true);
       applyDeadlineFilter(document);
+      refreshStatus();
+    });
+
+    $(`${CLASS_PREFIX}-apply-missing-filter`).addEventListener("click", () => {
+      setStoredFilterMode("missing");
+      setStoredFilterEnabled(true);
+      applyDeadlineFilter(document);
+      refreshStatus();
+    });
+
+    $(`${CLASS_PREFIX}-clear-all`).addEventListener("click", () => {
+      clearStoredFixedDate();
+      clearStoredFilterDate();
+      clearStoredFilterRangeStart();
+      clearStoredFilterRangeEnd();
+      setStoredFilterEnabled(false);
+      setStoredFilterMode("exact");
+
+      $(`${CLASS_PREFIX}-date-input`).value = "";
+      $(`${CLASS_PREFIX}-filter-date`).value = todayYMD;
+      $(`${CLASS_PREFIX}-range-start`).value = todayYMD;
+      $(`${CLASS_PREFIX}-range-end`).value = todayYMD;
+
+      rebuildStateAndRehighlight();
       refreshStatus();
     });
 
@@ -979,6 +1300,9 @@
     fixed: getStoredFixedDate(),
     filterDate: getStoredFilterDate(),
     filterEnabled: getStoredFilterEnabled(),
+    filterMode: getStoredFilterMode(),
+    filterRangeStart: getStoredFilterRangeStart(),
+    filterRangeEnd: getStoredFilterRangeEnd(),
   });
 
   setInterval(() => {
@@ -989,6 +1313,9 @@
       fixed: getStoredFixedDate(),
       filterDate: getStoredFilterDate(),
       filterEnabled: getStoredFilterEnabled(),
+      filterMode: getStoredFilterMode(),
+      filterRangeStart: getStoredFilterRangeStart(),
+      filterRangeEnd: getStoredFilterRangeEnd(),
     });
 
     const dayChanged = ymd !== lastYMD;
