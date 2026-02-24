@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         To-do local
 // @namespace    projudi-tarefas-locais.user.js
-// @version      1.3
+// @version      1.4
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  To-do local por processo e visão geral na página inicial com tarefas globais.
 // @author       louencosv (GPT)
@@ -29,6 +29,13 @@
   const DEFAULT_UI = { minimized: true, right: 12, top: 12 };
   const EXPORT_SCHEMA = 'projudi-todo-export-v1';
   const FA_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css';
+  const FAB_UI = {
+    right: 16,
+    bottom: 16,
+    size: 38,
+    brand: '#2b69aa',
+    brandHover: '#245a92'
+  };
 
   const state = { mounted: false, timer: null, mode: null, ctxKey: null };
 
@@ -84,6 +91,13 @@
   function isHomeDashboardIframe() {
     const href = String(location.href || '');
     return /\/Usuario\?(?:[^#]*&)?PaginaAtual=-?10\b/.test(href) || /\/Usuario\?PaginaAtual=-?10\b/.test(href);
+  }
+
+  function isIntimacoesPage() {
+    const titleEl = document.querySelector('h1,h2,.Titulo,.titulo');
+    const titleText = String(titleEl && titleEl.textContent ? titleEl.textContent : '').trim();
+    const url = String(location.href || '');
+    return /intima(ç|c)(a|ã)o|intima(ç|c)ões/i.test(titleText) || /intimac/i.test(url);
   }
 
   function processCtxFromDoc() {
@@ -552,27 +566,29 @@
 
       #pj-todo-min {
         position: fixed;
-        right: 12px;
-        top: 12px;
+        right: ${FAB_UI.right}px;
+        bottom: ${FAB_UI.bottom}px;
         z-index: ${Z_UI};
-        width: 42px;
-        height: 42px;
-        border: 1px solid rgba(0,0,0,.22);
-        border-radius: 8px;
-        background: #fff;
-        color: #0b5ed7;
+        width: ${FAB_UI.size}px;
+        height: ${FAB_UI.size}px;
+        border-radius: 50%;
+        border: 1px solid ${FAB_UI.brand};
+        background: ${FAB_UI.brand};
+        color: #fff;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        box-shadow: 0 8px 24px rgba(0,0,0,.22);
+        box-shadow: 0 4px 12px rgba(0,0,0,.2);
+        transition: transform .12s ease, background .12s ease;
       }
       #pj-todo-min:hover {
-        background: #f4f8ff;
+        background: ${FAB_UI.brandHover};
+        transform: translateY(-1px);
       }
       #pj-todo-min i {
         pointer-events: none;
-        font-size: 22px;
+        font-size: 16px;
       }
     `;
     document.head.appendChild(style);
@@ -731,11 +747,8 @@
     const existing = document.getElementById('pj-todo-min');
     if (existing) return;
     ensureFontAwesome();
-    const ui = getUI();
-    const icon = el('i', { className: 'fa-solid fa-list-check fa-1x', 'aria-hidden': 'true' });
+    const icon = el('i', { className: 'fa-solid fa-list-check', 'aria-hidden': 'true' });
     const btn = el('button', { id: 'pj-todo-min', title: 'Abrir To-do', 'aria-label': 'Abrir To-do' }, [icon]);
-    btn.style.right = `${ui.right}px`;
-    btn.style.top = `${ui.top}px`;
     btn.addEventListener('click', () => {
       btn.remove();
       onOpen();
@@ -1093,6 +1106,11 @@
     ensureFontAwesome();
 
     if (!shouldRunInThisFrame()) {
+      if (state.mounted) unmount();
+      return;
+    }
+
+    if (isIntimacoesPage()) {
       if (state.mounted) unmount();
       return;
     }
