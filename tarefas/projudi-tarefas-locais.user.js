@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         To-do local
 // @namespace    projudi-tarefas-locais.user.js
-// @version      1.4
+// @version      1.5
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  To-do local por processo e visão geral na página inicial com tarefas globais.
 // @author       louencosv (GPT)
@@ -36,6 +36,8 @@
     brand: '#2b69aa',
     brandHover: '#245a92'
   };
+  const ID_MIN_BTN = 'pj-todo-min';
+  const ID_PROC_BTN = 'pj-todo-proc-btn';
 
   const state = { mounted: false, timer: null, mode: null, ctxKey: null };
 
@@ -564,7 +566,45 @@
         max-height: none;
       }
 
-      #pj-todo-min {
+      #${ID_PROC_BTN} {
+        position: relative !important;
+        inset: auto !important;
+        margin: 0 10px 0 12px !important;
+        padding: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        color: #2b69aa !important;
+        z-index: ${Z_UI} !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        vertical-align: middle !important;
+        cursor: pointer !important;
+        line-height: 1 !important;
+        height: auto !important;
+        min-width: 0 !important;
+        top: auto !important;
+        left: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        appearance: none !important;
+        -webkit-appearance: none !important;
+      }
+      #${ID_PROC_BTN} i {
+        color: #2b69aa !important;
+        display: inline-block !important;
+        line-height: 1 !important;
+        vertical-align: middle !important;
+        transform: scale(0.92) !important;
+        transform-origin: center center !important;
+        margin: 0 !important;
+      }
+      #${ID_PROC_BTN}:hover {
+        filter: brightness(1.06);
+      }
+
+      #${ID_MIN_BTN} {
         position: fixed;
         right: ${FAB_UI.right}px;
         bottom: ${FAB_UI.bottom}px;
@@ -582,11 +622,11 @@
         box-shadow: 0 4px 12px rgba(0,0,0,.2);
         transition: transform .12s ease, background .12s ease;
       }
-      #pj-todo-min:hover {
+      #${ID_MIN_BTN}:hover {
         background: ${FAB_UI.brandHover};
         transform: translateY(-1px);
       }
-      #pj-todo-min i {
+      #${ID_MIN_BTN} i {
         pointer-events: none;
         font-size: 16px;
       }
@@ -736,24 +776,85 @@
   function unmount() {
     const p = document.getElementById('pj-todo');
     if (p) p.remove();
-    const m = document.getElementById('pj-todo-min');
+    const m = document.getElementById(ID_MIN_BTN);
     if (m) m.remove();
+    const pb = document.getElementById(ID_PROC_BTN);
+    if (pb) pb.remove();
     state.mounted = false;
     state.mode = null;
     state.ctxKey = null;
   }
 
-  function mountMinButton({ getUI, onOpen }) {
-    const existing = document.getElementById('pj-todo-min');
+  function mountFloatingMinButton({ onOpen }) {
+    const existing = document.getElementById(ID_MIN_BTN);
     if (existing) return;
+    const inlineBtn = document.getElementById(ID_PROC_BTN);
+    if (inlineBtn) inlineBtn.remove();
     ensureFontAwesome();
     const icon = el('i', { className: 'fa-solid fa-list-check', 'aria-hidden': 'true' });
-    const btn = el('button', { id: 'pj-todo-min', title: 'Abrir To-do', 'aria-label': 'Abrir To-do' }, [icon]);
+    const btn = el('button', { id: ID_MIN_BTN, title: 'Abrir To-do', 'aria-label': 'Abrir To-do' }, [icon]);
     btn.addEventListener('click', () => {
       btn.remove();
       onOpen();
     });
     document.body.appendChild(btn);
+  }
+
+  function mountProcessInlineButton({ onOpen }) {
+    const existing = document.getElementById(ID_PROC_BTN);
+    if (existing) return true;
+
+        const anchor = document.getElementById('pj-add-btn');
+    if (!anchor || !anchor.parentElement) return false;
+
+    const fab = document.getElementById(ID_MIN_BTN);
+    if (fab) fab.remove();
+
+    ensureFontAwesome();
+    const btn = el('button', {
+      id: ID_PROC_BTN,
+      type: 'button',
+      title: 'To-do local deste processo',
+      'aria-label': 'To-do local deste processo'
+    }, [el('i', { className: 'fa-solid fa-list-check fa-3x', 'aria-hidden': 'true' })]);
+
+    btn.addEventListener('mousedown', e => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      btn.remove();
+      onOpen();
+    });
+
+    const anchorCS = getComputedStyle(anchor);
+    const parentCS = getComputedStyle(anchor.parentElement);
+    const anchorFloat = String(anchorCS.float || '').toLowerCase();
+    const parentDisplay = String(parentCS.display || '').toLowerCase();
+    const parentFlexDir = String(parentCS.flexDirection || '').toLowerCase();
+    const reverseVisualOrder = anchorFloat === 'right' || (parentDisplay.includes('flex') && parentFlexDir === 'row-reverse');
+
+    if (anchorFloat && anchorFloat !== 'none') btn.style.setProperty('float', anchorFloat, 'important');
+    btn.style.setProperty('margin-top', anchorCS.marginTop, 'important');
+    btn.style.setProperty('margin-bottom', anchorCS.marginBottom, 'important');
+    btn.style.setProperty('margin-right', '4px', 'important');
+    btn.style.setProperty('margin-left', '4px', 'important');
+
+    if (reverseVisualOrder) {
+      anchor.insertAdjacentElement('beforebegin', btn);
+    } else {
+      anchor.insertAdjacentElement('afterend', btn);
+    }
+    return true;
+  }
+
+  function syncProcessLauncher(ctx) {
+    const onOpen = () => openProcessPanel(ctx);
+    if (document.getElementById('pj-todo')) return;
+    if (mountProcessInlineButton({ onOpen })) return;
+    mountFloatingMinButton({ onOpen });
   }
 
   function createHeaderActions({ onExport, onImport, onClose }) {
@@ -773,13 +874,7 @@
     state.mounted = true;
     state.mode = 'process';
     state.ctxKey = ctx.key;
-
-    const getUI = () => loadUIByKey(ctx.key);
-
-    mountMinButton({
-      getUI,
-      onOpen: () => openProcessPanel(ctx)
-    });
+    syncProcessLauncher(ctx);
   }
 
   function openProcessPanel(ctx) {
@@ -787,15 +882,14 @@
     const getUI = () => loadUIByKey(ctx.key);
     const setUI = u => saveUIByKey(ctx.key, u);
 
-    const chip = document.getElementById('pj-todo-min');
+    const chip = document.getElementById(ID_MIN_BTN);
     if (chip) chip.remove();
+    const inlineBtn = document.getElementById(ID_PROC_BTN);
+    if (inlineBtn) inlineBtn.remove();
 
     const onClose = () => {
       panel.remove();
-      mountMinButton({
-        getUI,
-        onOpen: () => openProcessPanel(ctx)
-      });
+      syncProcessLauncher(ctx);
     };
 
     const header = el('div', { id: 'pj-todo-header' }, [
@@ -898,11 +992,7 @@
     state.mounted = true;
     state.mode = 'home';
     state.ctxKey = 'global';
-
-    const getUI = () => loadGlobalUI();
-
-    mountMinButton({
-      getUI,
+    mountFloatingMinButton({
       onOpen: () => openHomePanel()
     });
   }
@@ -911,13 +1001,12 @@
     const getUI = () => loadGlobalUI();
     const setUI = u => saveGlobalUI(u);
 
-    const chip = document.getElementById('pj-todo-min');
+    const chip = document.getElementById(ID_MIN_BTN);
     if (chip) chip.remove();
 
     const onClose = () => {
       panel.remove();
-      mountMinButton({
-        getUI,
+      mountFloatingMinButton({
         onOpen: () => openHomePanel()
       });
     };
@@ -1130,6 +1219,8 @@
       if (changed) {
         unmount();
         mountProcess(ctx);
+      } else {
+        syncProcessLauncher(ctx);
       }
       return;
     }
