@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque de Prazos
 // @namespace    projudi-highlight-hoje.user.js
-// @version      3.5
+// @version      3.6
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Realça possíveis vencimentos no projudi, com cores definidas.
 // @author       louencosv (GPT)
@@ -778,8 +778,8 @@
 
     const panel = topDoc.createElement("div");
     panel.style.cssText = `
-      width: 620px;
-      max-width: calc(100vw - 36px);
+      width: 640px;
+      max-width: calc(100vw - 24px);
       max-height: min(88vh, 860px);
       display: flex;
       flex-direction: column;
@@ -790,6 +790,8 @@
       border: 1px solid #dbe3ef;
       overflow: hidden;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.35;
       transform: translateY(6px) scale(.985);
       opacity: .96;
       transition: transform .16s ease, opacity .16s ease;
@@ -798,6 +800,7 @@
     const scopedStyle = topDoc.createElement("style");
     scopedStyle.textContent = `
       #${overlayId} * { box-sizing: border-box; }
+      #${overlayId} { --tm-action-main-w: 210px; }
 
       #${overlayId} button,
       #${overlayId} input,
@@ -806,7 +809,7 @@
       #${overlayId} div {
         text-indent: 0 !important;
         letter-spacing: normal !important;
-        line-height: 1.25 !important;
+        line-height: 1.35 !important;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
       }
 
@@ -841,7 +844,7 @@
         flex: 1 1 auto;
         min-height: 0;
         overflow: auto;
-        padding: 14px;
+        padding: 16px;
         background: #fff;
       }
 
@@ -859,8 +862,11 @@
         cursor: pointer;
         border-radius: 8px;
         font-size: 14px !important;
+        font-weight: 500 !important;
+        line-height: 1.2 !important;
         height: 42px;
         padding: 7px 11px;
+        min-width: 86px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -937,7 +943,7 @@
 
       #${overlayId} .tm-inline-row {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 170px;
+        grid-template-columns: minmax(0, 1fr) var(--tm-action-main-w);
         gap: 8px;
         align-items: center;
         margin-top: 10px;
@@ -945,7 +951,7 @@
 
       #${overlayId} .tm-range-row {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) var(--tm-action-main-w);
         gap: 8px;
         align-items: center;
         margin-top: 10px;
@@ -953,13 +959,31 @@
 
       #${overlayId} .tm-center-actions {
         display: flex;
-        justify-content: center;
+        justify-content: flex-end;
         gap: 8px;
         margin-top: 10px;
       }
 
       #${overlayId} .tm-center-actions .btn-primary {
-        min-width: 170px;
+        min-width: var(--tm-action-main-w);
+      }
+
+      #${overlayId} .tm-desc-action-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) var(--tm-action-main-w);
+        gap: 8px;
+        align-items: start;
+        margin-top: 8px;
+      }
+
+      #${overlayId} .tm-desc-action-row .tm-card-desc {
+        margin-top: 0;
+      }
+
+      #${overlayId} .tm-desc-action-row .btn-primary {
+        width: var(--tm-action-main-w) !important;
+        min-width: var(--tm-action-main-w) !important;
+        align-self: center;
       }
 
       #${overlayId} .tm-status {
@@ -975,15 +999,23 @@
       }
 
       #${overlayId} .tm-footer .btn-ghost {
-        min-width: 98px;
+        min-width: 86px;
       }
 
       #${overlayId} .tm-action-main {
-        width: 170px !important;
-        min-width: 170px !important;
+        width: var(--tm-action-main-w) !important;
+        min-width: var(--tm-action-main-w) !important;
       }
 
       @media (max-width: 640px) {
+        #${overlayId} .tm-body {
+          padding: 12px;
+        }
+
+        #${overlayId} .tm-footer {
+          padding: 10px 12px;
+        }
+
         #${overlayId} .tm-inline-row {
           grid-template-columns: 1fr;
         }
@@ -1000,6 +1032,15 @@
 
         #${overlayId} .tm-center-actions {
           flex-direction: column;
+        }
+
+        #${overlayId} .tm-desc-action-row {
+          grid-template-columns: 1fr;
+        }
+
+        #${overlayId} .tm-desc-action-row .btn-primary {
+          width: 100% !important;
+          min-width: 0 !important;
         }
       }
     `;
@@ -1050,16 +1091,14 @@
           <div class="tm-range-row">
             <input id="${CLASS_PREFIX}-range-start" type="date" value="${rangeStartInitial}" />
             <input id="${CLASS_PREFIX}-range-end" type="date" value="${rangeEndInitial}" />
-          </div>
-          <div class="tm-center-actions">
             <button id="${CLASS_PREFIX}-apply-range-filter" class="btn-primary tm-action-main">Aplicar período</button>
           </div>
         </div>
 
         <div class="tm-card">
           <div class="tm-card-title">FILTRO SEM DATA LIMITE</div>
-          <div class="tm-card-desc">Localiza processos sem prazo definido: campo vazio na página principal ou “-” na lista de intimações.</div>
-          <div class="tm-center-actions">
+          <div class="tm-desc-action-row">
+            <div class="tm-card-desc">Localiza processos sem prazo definido: campo vazio na página principal ou “-” na lista de intimações.</div>
             <button id="${CLASS_PREFIX}-apply-missing-filter" class="btn-primary tm-action-main">Localizar sem prazo</button>
           </div>
         </div>
