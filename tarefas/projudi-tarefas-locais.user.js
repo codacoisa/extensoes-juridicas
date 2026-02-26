@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         To-do local
 // @namespace    projudi-tarefas-locais.user.js
-// @version      1.6
+// @version      1.7
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  To-do local por processo e visão geral na página inicial com tarefas globais.
 // @author       louencosv (GPT)
@@ -44,6 +44,8 @@
   };
   const ID_MIN_BTN = 'pj-todo-min';
   const ID_PROC_BTN = 'pj-todo-proc-btn';
+  const ID_HEADER_MENU = 'pj-todo-header-menu';
+  const MSG_OPEN_TODO = 'pj-todo-open-panel';
 
   const state = {
     mounted: false,
@@ -78,12 +80,28 @@
     };
   }
 
+  function openLauncherSafely({ removeLauncher, onOpen }) {
+    try {
+      if (typeof removeLauncher === 'function') removeLauncher();
+      onOpen();
+    } catch (err) {
+      try {
+        console.error('[Projudi To-do] Falha ao abrir painel:', err);
+      } catch (_) {}
+      scheduleEvaluate(50);
+    }
+  }
+
   function scheduleEvaluate(delay = 0) {
     clearTimeout(state.timer);
     state.timer = setTimeout(() => {
       state.timer = null;
       evaluate();
     }, Math.max(0, delay | 0));
+  }
+
+  function isTopHeaderPage() {
+    return window.top === window.self && !!document.getElementById('Principal') && !!document.getElementById('menuPrinciapl');
   }
 
   function shouldRunInThisFrame() {
@@ -138,6 +156,80 @@
   function isHomeDashboardIframe() {
     const href = String(location.href || '');
     return /\/Usuario\?(?:[^#]*&)?PaginaAtual=-?10\b/.test(href) || /\/Usuario\?PaginaAtual=-?10\b/.test(href);
+  }
+
+  function openTodoPanelForCurrentPage() {
+    if (isIntimacoesPage()) return false;
+
+    if (document.getElementById('pj-todo')) return true;
+
+    if (isHomeDashboardIframe()) {
+      if (!state.mounted || state.mode !== 'home') {
+        unmount();
+        mountHomeDashboard();
+      }
+      openHomePanel();
+      return true;
+    }
+
+    const cnj = getCNJFromDocument(document);
+    if (cnj) {
+      const ctx = processCtxFromCnj(cnj);
+      if (!ctx) return false;
+      if (!state.mounted || state.mode !== 'process' || state.ctxKey !== ctx.key) {
+        unmount();
+        mountProcess(ctx);
+      }
+      openProcessPanel(ctx);
+      return true;
+    }
+
+    return false;
+  }
+
+  function ensureHeaderMenuEntry() {
+    if (!isTopHeaderPage()) return;
+    if (document.getElementById(ID_HEADER_MENU)) return;
+
+    const menu = document.getElementById('menuPrinciapl');
+    if (!menu) return;
+
+    const certAnchor = Array.from(menu.querySelectorAll('a')).find(a => (a.textContent || '').trim() === 'Certificados');
+    const certUl = certAnchor ? certAnchor.closest('ul') : null;
+
+    const ul = el('ul', { id: ID_HEADER_MENU });
+    const li = el('li');
+    const a = el('a', { href: '#', target: '_self', title: 'Abrir tarefas locais' }, ['Tarefas']);
+
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const iframe = document.getElementById('Principal');
+      const targetWin = iframe && iframe.contentWindow ? iframe.contentWindow : window;
+
+      try {
+        if (targetWin.__pjTodoApi && typeof targetWin.__pjTodoApi.openPanel === 'function') {
+          targetWin.__pjTodoApi.openPanel();
+          return;
+        }
+      } catch (_) {}
+
+      try {
+        targetWin.postMessage({ source: 'pj-todo', type: MSG_OPEN_TODO }, '*');
+        return;
+      } catch (_) {}
+
+      try {
+        alert('Abra a página inicial ou um processo para usar as tarefas.');
+      } catch (_) {}
+    });
+
+    li.appendChild(a);
+    ul.appendChild(li);
+
+    if (certUl && certUl.parentElement === menu) certUl.insertAdjacentElement('afterend', ul);
+    else menu.appendChild(ul);
   }
 
   function isIntimacoesPage() {
@@ -853,8 +945,10 @@
     const icon = el('i', { className: 'fa-solid fa-list-check', 'aria-hidden': 'true' });
     const btn = el('button', { id: ID_MIN_BTN, title: 'Abrir To-do', 'aria-label': 'Abrir To-do' }, [icon]);
     btn.addEventListener('click', () => {
-      btn.remove();
-      onOpen();
+      openLauncherSafely({
+        removeLauncher: () => btn.remove(),
+        onOpen
+      });
     });
     document.body.appendChild(btn);
   }
@@ -886,8 +980,10 @@
     btn.addEventListener('click', e => {
       e.preventDefault();
       e.stopPropagation();
-      btn.remove();
-      onOpen();
+      openLauncherSafely({
+        removeLauncher: () => btn.remove(),
+        onOpen
+      });
     });
 
     const anchorCS = getComputedStyle(anchor);
@@ -966,8 +1062,10 @@
     btn.addEventListener('click', e => {
       e.preventDefault();
       e.stopPropagation();
-      btn.remove();
-      onOpen();
+      openLauncherSafely({
+        removeLauncher: () => btn.remove(),
+        onOpen
+      });
     });
 
     const anchorCS = getComputedStyle(anchor);
@@ -1129,9 +1227,6 @@
     state.mounted = true;
     state.mode = 'home';
     state.ctxKey = 'global';
-    mountFloatingMinButton({
-      onOpen: () => openHomePanel()
-    });
   }
 
   function openHomePanel() {
@@ -1143,9 +1238,6 @@
 
     const onClose = () => {
       panel.remove();
-      mountFloatingMinButton({
-        onOpen: () => openHomePanel()
-      });
     };
 
     const header = el('div', { id: 'pj-todo-header' }, [
@@ -1329,6 +1421,7 @@
   }
 
   function evaluate() {
+    ensureHeaderMenuEntry();
     injectStyles();
     ensureFontAwesome();
 
@@ -1400,6 +1493,20 @@
     scheduleEvaluate(250);
   });
   obs.observe(document.documentElement, { childList: true, subtree: true });
+
+  window.addEventListener('message', e => {
+    const data = e && e.data;
+    if (!data || typeof data !== 'object') return;
+    if (data.source !== 'pj-todo' || data.type !== MSG_OPEN_TODO) return;
+    openTodoPanelForCurrentPage();
+  });
+
+  try {
+    window.__pjTodoApi = {
+      openPanel: () => openTodoPanelForCurrentPage(),
+      refresh: () => scheduleEvaluate(0)
+    };
+  } catch (_) {}
 
   evaluate();
 })();
