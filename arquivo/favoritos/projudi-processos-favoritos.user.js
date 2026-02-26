@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Processos Favoritos
 // @namespace    projudi-processos-favoritos.user.js
-// @version      0.7
+// @version      0.8
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca processos favoritos, permite adicionar/remover no detalhe e gerenciar via painel.
 // @author       lourencosv (GPT)
@@ -22,11 +22,31 @@
   const STORAGE_KEY = 'lp_procs_favoritos_v2';
   const STYLE_ID = 'lp-style-favoritos';
   const BTN_ID = 'lp-toggle-proc-btn';
-  const MENU_LABEL = 'Abrir Painel';
+  const MENU_LABEL = 'Favoritos: Abrir Painel';
   const PANEL_OVERLAY_ID = 'lp-fav-panel-overlay';
 
   let menuCommandId = null;
   let menuRegistered = false;
+
+  function lockBodyScroll(doc = document) {
+    const body = doc && doc.body;
+    if (!body) return () => {};
+    const win = (doc && doc.defaultView) || window;
+    const KEY = "__pjBodyScrollLock__";
+    const state = win[KEY] || (win[KEY] = { count: 0, prevOverflow: "" });
+    if (state.count === 0) {
+      state.prevOverflow = body.style.overflow;
+      body.style.overflow = "hidden";
+    }
+    state.count += 1;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      state.count = Math.max(0, state.count - 1);
+      if (state.count === 0) body.style.overflow = state.prevOverflow;
+    };
+  }
 
   function supportsMenuCommand() {
     return typeof GM_registerMenuCommand === 'function';
@@ -495,8 +515,7 @@
     const overlay = document.getElementById(PANEL_OVERLAY_ID);
     if (!overlay) return;
 
-    const restoreOverflow = overlay.getAttribute('data-prev-overflow') || '';
-    document.body.style.overflow = restoreOverflow;
+    if (typeof overlay.__lpUnlockScroll === 'function') overlay.__lpUnlockScroll();
 
     const escHandler = overlay.__lpEscHandler;
     if (escHandler) document.removeEventListener('keydown', escHandler);
@@ -510,11 +529,9 @@
     closePanel();
     injectStyles(doc);
 
-    const previousBodyOverflow = doc.body.style.overflow;
-
     const overlay = doc.createElement('div');
     overlay.id = PANEL_OVERLAY_ID;
-    overlay.setAttribute('data-prev-overflow', previousBodyOverflow || '');
+    overlay.__lpUnlockScroll = lockBodyScroll(doc);
 
     overlay.innerHTML = `
       <div class="lp-panel" role="dialog" aria-modal="true" aria-label="Painel de processos favoritos">
@@ -556,7 +573,6 @@
     `;
 
     doc.body.appendChild(overlay);
-    doc.body.style.overflow = 'hidden';
 
     const panel = overlay.querySelector('.lp-panel');
     requestAnimationFrame(() => {
