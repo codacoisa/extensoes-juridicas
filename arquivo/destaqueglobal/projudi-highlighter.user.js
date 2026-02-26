@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque Global
 // @namespace    projudi-highlighter.user.js
-// @version      4.1
+// @version      4.2
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaque global, com painel configurável (Ctrl+Shift+H).
 // @author       lourencosv (GPT)
@@ -545,8 +545,28 @@
 
 
   const PANEL_OVERLAY_ID = "projudi-highlighter-panel-overlay";
+  const MENU_LABEL = "Destaque Global: Abrir Painel";
   let panelCleanup = null;
-  let previousBodyOverflow = "";
+
+  function lockBodyScroll(doc = document) {
+    const body = doc && doc.body;
+    if (!body) return () => {};
+    const win = (doc && doc.defaultView) || window;
+    const KEY = "__pjBodyScrollLock__";
+    const state = win[KEY] || (win[KEY] = { count: 0, prevOverflow: "" });
+    if (state.count === 0) {
+      state.prevOverflow = body.style.overflow;
+      body.style.overflow = "hidden";
+    }
+    state.count += 1;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      state.count = Math.max(0, state.count - 1);
+      if (state.count === 0) body.style.overflow = state.prevOverflow;
+    };
+  }
 
   function getPanelOverlay() {
     return document.getElementById(PANEL_OVERLAY_ID);
@@ -563,7 +583,6 @@
     if (typeof panelCleanup === "function") panelCleanup();
     panelCleanup = null;
     overlay.remove();
-    document.body.style.overflow = previousBodyOverflow;
     panelOpen = false;
   }
 
@@ -574,7 +593,10 @@
       return;
     }
 
-    previousBodyOverflow = document.body.style.overflow;
+    const unlockBodyScroll = lockBodyScroll(document);
+    panelCleanup = () => {
+      unlockBodyScroll();
+    };
 
     const overlay = document.createElement("div");
     overlay.id = PANEL_OVERLAY_ID;
@@ -901,7 +923,6 @@
     overlay.appendChild(scopedStyle);
     overlay.appendChild(panel);
     document.body.appendChild(overlay);
-    document.body.style.overflow = "hidden";
 
     requestAnimationFrame(() => {
       panel.style.transform = "translateY(0) scale(1)";
@@ -1110,6 +1131,7 @@
     });
 
     panelCleanup = () => {
+      unlockBodyScroll();
       document.removeEventListener("keydown", onEsc);
     };
 
@@ -1154,11 +1176,11 @@
     };
 
     if (typeof GM !== "undefined" && typeof GM.registerMenuCommand === "function") {
-      GM.registerMenuCommand("Abrir Painel", fn);
+      GM.registerMenuCommand(MENU_LABEL, fn);
       return;
     }
     if (typeof GM_registerMenuCommand === "function") {
-      GM_registerMenuCommand("Abrir Painel", fn);
+      GM_registerMenuCommand(MENU_LABEL, fn);
     }
   }
 
