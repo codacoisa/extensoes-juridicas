@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque de Prazos
 // @namespace    projudi-highlight-hoje.user.js
-// @version      3.8
+// @version      3.9
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Realça possíveis vencimentos no projudi, com cores definidas.
 // @author       louencosv (GPT)
@@ -29,6 +29,70 @@
   const FILTER_RANGE_START_KEY = "projudi_highlight_filter_range_start_v1";
   const FILTER_RANGE_END_KEY = "projudi_highlight_filter_range_end_v1";
   const SETTINGS_SYNC_EVENT = "projudi:deadline-settings-changed";
+  const RUNTIME_KEY = "__tm_hl7d_runtime_v1";
+
+  try {
+    if (window[RUNTIME_KEY]?.cleanup) window[RUNTIME_KEY].cleanup();
+  } catch {}
+
+  const RUNTIME = (window[RUNTIME_KEY] = {
+    listeners: [],
+    intervals: [],
+    timeouts: [],
+    observers: [],
+    cleanup() {
+      for (const off of this.listeners.splice(0)) {
+        try {
+          off();
+        } catch {}
+      }
+      for (const id of this.intervals.splice(0)) {
+        try {
+          clearInterval(id);
+        } catch {}
+      }
+      for (const id of this.timeouts.splice(0)) {
+        try {
+          clearTimeout(id);
+        } catch {}
+      }
+      for (const obs of this.observers.splice(0)) {
+        try {
+          obs.disconnect();
+        } catch {}
+      }
+    },
+  });
+
+  function managedAddEventListener(target, type, listener, options) {
+    target.addEventListener(type, listener, options);
+    RUNTIME.listeners.push(() => target.removeEventListener(type, listener, options));
+    return listener;
+  }
+
+  function managedSetInterval(fn, ms) {
+    const id = window.setInterval(fn, ms);
+    RUNTIME.intervals.push(id);
+    return id;
+  }
+
+  function managedSetTimeout(fn, ms) {
+    const id = window.setTimeout(() => {
+      try {
+        fn();
+      } finally {
+        const idx = RUNTIME.timeouts.indexOf(id);
+        if (idx >= 0) RUNTIME.timeouts.splice(idx, 1);
+      }
+    }, ms);
+    RUNTIME.timeouts.push(id);
+    return id;
+  }
+
+  function managedObserver(observer) {
+    RUNTIME.observers.push(observer);
+    return observer;
+  }
 
   const IS_TOP = (() => {
     try {
@@ -370,6 +434,7 @@
   }
 
   const style = document.createElement("style");
+  style.id = `${CLASS_PREFIX}-base-style`;
   style.textContent = `
 .${CLASS_PREFIX}-base {
   position: relative;
@@ -423,6 +488,7 @@
   box-shadow: inset 0 0 0 1px rgba(74,20,140,.25);
 }
 `;
+  document.getElementById(style.id)?.remove();
   document.documentElement.appendChild(style);
 
   const SKIP_TAGS = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEXTAREA", "INPUT"]);
@@ -496,6 +562,8 @@
   }
 
   let STATE = buildConfigs();
+  let REBUILDING = false;
+  let REBUILD_PENDING = false;
 
   function ensureWeekdayDynamicClasses() {
     const existing = document.getElementById(`${CLASS_PREFIX}-dyn`);
@@ -752,11 +820,25 @@
   }
 
   function rebuildStateAndRehighlight() {
+    if (!document.body) return;
+    if (REBUILDING) {
+      REBUILD_PENDING = true;
+      return;
+    }
+    REBUILDING = true;
     STATE = buildConfigs();
-    ensureWeekdayDynamicClasses();
-    unwrapAllHighlights(document.body);
-    walkAndHighlight(document.body);
-    applyDeadlineFilter(document);
+    try {
+      ensureWeekdayDynamicClasses();
+      unwrapAllHighlights(document.body);
+      walkAndHighlight(document.body);
+      applyDeadlineFilter(document);
+    } finally {
+      REBUILDING = false;
+      if (REBUILD_PENDING) {
+        REBUILD_PENDING = false;
+        scheduleFullRefresh();
+      }
+    }
   }
 
   function openPanel() {
@@ -1260,7 +1342,7 @@
   let fullRefreshTimer = 0;
   function scheduleFullRefresh() {
     if (fullRefreshTimer) return;
-    fullRefreshTimer = window.setTimeout(() => {
+    fullRefreshTimer = managedSetTimeout(() => {
       fullRefreshTimer = 0;
       rebuildStateAndRehighlight();
     }, 0);
@@ -1298,8 +1380,8 @@
 
   function broadcastSettingsSyncBurst() {
     broadcastSettingsSync();
-    window.setTimeout(broadcastSettingsSync, 40);
-    window.setTimeout(broadcastSettingsSync, 180);
+    managedSetTimeout(broadcastSettingsSync, 40);
+    managedSetTimeout(broadcastSettingsSync, 180);
   }
 
   function clearVisualFilterNowInWindow(win) {
@@ -1350,26 +1432,26 @@
 
   if (IS_TOP) {
     ensureMenuCommand();
-    window.addEventListener("pageshow", ensureMenuCommand);
-    window.addEventListener("focus", ensureMenuCommand);
-    document.addEventListener("visibilitychange", () => {
+    managedAddEventListener(window, "pageshow", ensureMenuCommand);
+    managedAddEventListener(window, "focus", ensureMenuCommand);
+    managedAddEventListener(document, "visibilitychange", () => {
       if (!document.hidden) ensureMenuCommand();
     });
-    setInterval(() => {
+    managedSetInterval(() => {
       if (!document.hidden) ensureMenuCommand();
     }, 15000);
   }
 
   let BULK_LOADING = false;
-  window.addEventListener("projudi:bulk-load-start", () => {
+  managedAddEventListener(window, "projudi:bulk-load-start", () => {
     BULK_LOADING = true;
   });
-  window.addEventListener("projudi:bulk-load-end", () => {
+  managedAddEventListener(window, "projudi:bulk-load-end", () => {
     BULK_LOADING = false;
     rebuildStateAndRehighlight();
   });
 
-  window.addEventListener(SETTINGS_SYNC_EVENT, () => {
+  managedAddEventListener(window, SETTINGS_SYNC_EVENT, () => {
     scheduleFullRefresh();
   });
 
@@ -1382,12 +1464,14 @@
 
   function scheduleProcess(root) {
     if (BULK_LOADING) return;
+    if (REBUILDING) return;
+    if (!document.body) return;
 
     const effectiveRoot = root && root.nodeType === Node.ELEMENT_NODE ? root : document.body;
     pendingRoots.add(effectiveRoot);
 
     if (flushTimer) return;
-    flushTimer = window.setTimeout(() => {
+    flushTimer = managedSetTimeout(() => {
       flushTimer = 0;
       const roots = Array.from(pendingRoots);
       pendingRoots.clear();
@@ -1399,7 +1483,7 @@
     }, 80);
   }
 
-  const mo = new MutationObserver((mutations) => {
+  const mo = managedObserver(new MutationObserver((mutations) => {
     for (const m of mutations) {
       for (const node of m.addedNodes) {
         if (node.nodeType === Node.TEXT_NODE) {
@@ -1410,8 +1494,8 @@
         }
       }
     }
-  });
-  mo.observe(document.body, { childList: true, subtree: true });
+  }));
+  if (document.body) mo.observe(document.body, { childList: true, subtree: true });
 
   let lastYMD = `${new Date().getFullYear()}-${pad2(new Date().getMonth() + 1)}-${pad2(new Date().getDate())}`;
   let lastSnapshot = JSON.stringify({
@@ -1423,7 +1507,7 @@
     filterRangeEnd: getStoredFilterRangeEnd(),
   });
 
-  setInterval(() => {
+  managedSetInterval(() => {
     const now = new Date();
     const ymd = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
 
