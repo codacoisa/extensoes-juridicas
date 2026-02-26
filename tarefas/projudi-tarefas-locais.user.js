@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         To-do local
 // @namespace    projudi-tarefas-locais.user.js
-// @version      1.5
+// @version      1.6
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  To-do local por processo e visão geral na página inicial com tarefas globais.
 // @author       louencosv (GPT)
@@ -19,8 +19,6 @@
 (function () {
   'use strict';
 
-  if (window.top === window.self) return;
-
   const Z_UI = 2147483001;
   const KEY_PREFIX = 'projudi_todo::';
   const KEY_INDEX = `${KEY_PREFIX}index`;
@@ -36,10 +34,57 @@
     brand: '#2b69aa',
     brandHover: '#245a92'
   };
+  const PROC_BTN_GAP = {
+    postitLeft: 0,
+    postitRight: 0,
+    nativeLeft: 8,
+    nativeRight: 6,
+    directHeaderLeft: 10,
+    directHeaderRight: 0
+  };
   const ID_MIN_BTN = 'pj-todo-min';
   const ID_PROC_BTN = 'pj-todo-proc-btn';
 
-  const state = { mounted: false, timer: null, mode: null, ctxKey: null };
+  const state = {
+    mounted: false,
+    timer: null,
+    mode: null,
+    ctxKey: null,
+    panelCleanup: null
+  };
+
+  function runPanelCleanup() {
+    if (typeof state.panelCleanup !== 'function') return;
+    try {
+      state.panelCleanup();
+    } catch (_) {}
+    state.panelCleanup = null;
+  }
+
+  function setPanelCleanup(fn) {
+    runPanelCleanup();
+    state.panelCleanup = typeof fn === 'function' ? fn : null;
+  }
+
+  function composeCleanups(...fns) {
+    const list = fns.filter(fn => typeof fn === 'function');
+    if (!list.length) return null;
+    return () => {
+      for (const fn of list) {
+        try {
+          fn();
+        } catch (_) {}
+      }
+    };
+  }
+
+  function scheduleEvaluate(delay = 0) {
+    clearTimeout(state.timer);
+    state.timer = setTimeout(() => {
+      state.timer = null;
+      evaluate();
+    }, Math.max(0, delay | 0));
+  }
 
   function shouldRunInThisFrame() {
     if (document.visibilityState !== 'visible') return false;
@@ -104,6 +149,10 @@
 
   function processCtxFromDoc() {
     const cnj = getCNJFromDocument(document);
+    return processCtxFromCnj(cnj);
+  }
+
+  function processCtxFromCnj(cnj) {
     if (!cnj) return null;
     const shortCnj = String(cnj).split('.')[0] || cnj;
     return { type: 'process', cnj, shortCnj, key: `cnj_${cnj}` };
@@ -296,7 +345,7 @@
 
       alert('Importação concluída.');
       unmount();
-      setTimeout(evaluate, 50);
+      scheduleEvaluate(50);
     } catch (_) {
       alert('Falha ao importar JSON. Verifique o arquivo.');
     }
@@ -635,7 +684,7 @@
   }
 
   function bindPanelScrollLock(panel) {
-    panel.addEventListener('wheel', e => {
+    const onWheel = e => {
       const getScrollable = start => {
         let n = start instanceof Element ? start : null;
         while (n && n !== panel.parentElement) {
@@ -660,7 +709,10 @@
 
       if ((dy < 0 && atTop) || (dy > 0 && atBottom)) e.preventDefault();
       e.stopPropagation();
-    }, { passive: false });
+    };
+
+    panel.addEventListener('wheel', onWheel, { passive: false });
+    return () => panel.removeEventListener('wheel', onWheel);
   }
 
   async function copyToClipboard(text) {
@@ -771,9 +823,16 @@
     }
 
     handle.addEventListener('mousedown', onDown);
+    return () => {
+      dragging = false;
+      handle.removeEventListener('mousedown', onDown);
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
   }
 
   function unmount() {
+    runPanelCleanup();
     const p = document.getElementById('pj-todo');
     if (p) p.remove();
     const m = document.getElementById(ID_MIN_BTN);
@@ -804,7 +863,9 @@
     const existing = document.getElementById(ID_PROC_BTN);
     if (existing) return true;
 
-        const anchor = document.getElementById('pj-add-btn');
+    const postitButton = document.getElementById('pj-add-btn');
+    const nativeNoteButton = document.querySelector('button.notaProcesso, button[onclick*="criarNota"]');
+    const anchor = postitButton || nativeNoteButton;
     if (!anchor || !anchor.parentElement) return false;
 
     const fab = document.getElementById(ID_MIN_BTN);
@@ -837,12 +898,22 @@
     const reverseVisualOrder = anchorFloat === 'right' || (parentDisplay.includes('flex') && parentFlexDir === 'row-reverse');
 
     if (anchorFloat && anchorFloat !== 'none') btn.style.setProperty('float', anchorFloat, 'important');
+    const isPostitAnchor = anchor.id === 'pj-add-btn';
     btn.style.setProperty('margin-top', anchorCS.marginTop, 'important');
     btn.style.setProperty('margin-bottom', anchorCS.marginBottom, 'important');
-    btn.style.setProperty('margin-right', '4px', 'important');
-    btn.style.setProperty('margin-left', '4px', 'important');
+    btn.style.setProperty(
+      'margin-right',
+      `${isPostitAnchor ? PROC_BTN_GAP.postitRight : PROC_BTN_GAP.nativeRight}px`,
+      'important'
+    );
+    btn.style.setProperty(
+      'margin-left',
+      `${isPostitAnchor ? PROC_BTN_GAP.postitLeft : PROC_BTN_GAP.nativeLeft}px`,
+      'important'
+    );
 
     if (reverseVisualOrder) {
+      // float:right / row-reverse invert visual order; insert before to render visually after (last item).
       anchor.insertAdjacentElement('beforebegin', btn);
     } else {
       anchor.insertAdjacentElement('afterend', btn);
@@ -850,10 +921,75 @@
     return true;
   }
 
+  function findDirectProcessHeaderAnchor() {
+    const selectors = [
+      'i.fa-thumbtack',
+      'i.fa-thumb-tack',
+      '.fa-thumbtack',
+      '.fa-thumb-tack',
+      'i.fa-star',
+      '.fa-star'
+    ];
+
+    for (const sel of selectors) {
+      const icon = document.querySelector(sel);
+      if (!icon) continue;
+      const anchor = icon.closest('a,button,span,div');
+      if (anchor && anchor.parentElement) return anchor;
+    }
+
+    return null;
+  }
+
+  function mountProcessHeaderButton({ onOpen }) {
+    const existing = document.getElementById(ID_PROC_BTN);
+    if (existing) return true;
+
+    const anchor = findDirectProcessHeaderAnchor();
+    if (!anchor || !anchor.parentElement) return false;
+
+    const fab = document.getElementById(ID_MIN_BTN);
+    if (fab) fab.remove();
+
+    ensureFontAwesome();
+    const btn = el('button', {
+      id: ID_PROC_BTN,
+      type: 'button',
+      title: 'To-do local deste processo',
+      'aria-label': 'To-do local deste processo'
+    }, [el('i', { className: 'fa-solid fa-list-check fa-3x', 'aria-hidden': 'true' })]);
+
+    btn.addEventListener('mousedown', e => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      btn.remove();
+      onOpen();
+    });
+
+    const anchorCS = getComputedStyle(anchor);
+    btn.style.setProperty('float', 'none', 'important');
+    btn.style.setProperty('display', 'inline-flex', 'important');
+    btn.style.setProperty('vertical-align', 'middle', 'important');
+    btn.style.setProperty('margin-top', anchorCS.marginTop || '0px', 'important');
+    btn.style.setProperty('margin-bottom', anchorCS.marginBottom || '0px', 'important');
+    btn.style.setProperty('margin-right', `${PROC_BTN_GAP.directHeaderRight}px`, 'important');
+    btn.style.setProperty('margin-left', `${PROC_BTN_GAP.directHeaderLeft}px`, 'important');
+
+    anchor.insertAdjacentElement('afterend', btn);
+    return true;
+  }
+
   function syncProcessLauncher(ctx) {
     const onOpen = () => openProcessPanel(ctx);
     if (document.getElementById('pj-todo')) return;
+    // Prefer a stable native anchor. Do not re-anchor from header to Post-it later if already mounted.
+    if (document.getElementById(ID_PROC_BTN)) return;
     if (mountProcessInlineButton({ onOpen })) return;
+    if (mountProcessHeaderButton({ onOpen })) return;
     mountFloatingMinButton({ onOpen });
   }
 
@@ -979,8 +1115,9 @@
       if (e.key === 'Enter') addItem();
     });
 
-    enableDragWindow({ loadUI: getUI, saveUI: setUI, panel, handle: header });
-    bindPanelScrollLock(panel);
+    const cleanupDrag = enableDragWindow({ loadUI: getUI, saveUI: setUI, panel, handle: header });
+    const cleanupScroll = bindPanelScrollLock(panel);
+    setPanelCleanup(composeCleanups(cleanupDrag, cleanupScroll));
 
     document.body.appendChild(panel);
     ensureIndexHas(ctx);
@@ -1182,8 +1319,9 @@
       if (e.key === 'Enter') addGlobal();
     });
 
-    enableDragWindow({ loadUI: getUI, saveUI: setUI, panel, handle: header });
-    bindPanelScrollLock(panel);
+    const cleanupDrag = enableDragWindow({ loadUI: getUI, saveUI: setUI, panel, handle: header });
+    const cleanupScroll = bindPanelScrollLock(panel);
+    setPanelCleanup(composeCleanups(cleanupDrag, cleanupScroll));
 
     document.body.appendChild(panel);
     renderGlobal();
@@ -1212,8 +1350,9 @@
       return;
     }
 
-    if (isProcessPage(document)) {
-      const ctx = processCtxFromDoc();
+    const cnj = getCNJFromDocument(document);
+    if (cnj) {
+      const ctx = processCtxFromCnj(cnj);
       if (!ctx) return;
       const changed = !state.mounted || state.mode !== 'process' || state.ctxKey !== ctx.key;
       if (changed) {
@@ -1228,14 +1367,37 @@
     if (state.mounted) unmount();
   }
 
-  window.addEventListener('load', () => setTimeout(evaluate, 300));
-  document.addEventListener('visibilitychange', () => setTimeout(evaluate, 100));
-  window.addEventListener('focus', () => setTimeout(evaluate, 100));
-  window.addEventListener('resize', () => setTimeout(evaluate, 100));
+  function isOwnUiNode(node) {
+    if (!(node instanceof Element)) return false;
+    if (node.id === 'pj-todo' || node.id === ID_MIN_BTN || node.id === ID_PROC_BTN) return true;
+    if (node.id === 'pj-todo-style') return true;
+    if (node.matches('link[data-pj-fa="1"]')) return true;
+    return !!node.closest?.(`#pj-todo, #${ID_MIN_BTN}, #${ID_PROC_BTN}`);
+  }
 
-  const obs = new MutationObserver(() => {
-    clearTimeout(state.timer);
-    state.timer = setTimeout(evaluate, 250);
+  function shouldIgnoreMutations(mutations) {
+    if (!mutations || !mutations.length) return true;
+    for (const m of mutations) {
+      if (!m) continue;
+      if (m.target instanceof Element && !isOwnUiNode(m.target)) return false;
+      for (const n of m.addedNodes || []) {
+        if (!isOwnUiNode(n)) return false;
+      }
+      for (const n of m.removedNodes || []) {
+        if (!isOwnUiNode(n)) return false;
+      }
+    }
+    return true;
+  }
+
+  window.addEventListener('load', () => scheduleEvaluate(300));
+  document.addEventListener('visibilitychange', () => scheduleEvaluate(100));
+  window.addEventListener('focus', () => scheduleEvaluate(100));
+  window.addEventListener('resize', () => scheduleEvaluate(100));
+
+  const obs = new MutationObserver(mutations => {
+    if (shouldIgnoreMutations(mutations)) return;
+    scheduleEvaluate(250);
   });
   obs.observe(document.documentElement, { childList: true, subtree: true });
 
