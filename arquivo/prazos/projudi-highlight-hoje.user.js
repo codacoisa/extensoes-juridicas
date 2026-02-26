@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque de Prazos
 // @namespace    projudi-highlight-hoje.user.js
-// @version      3.7
+// @version      3.8
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Realça possíveis vencimentos no projudi, com cores definidas.
 // @author       louencosv (GPT)
@@ -1183,7 +1183,7 @@
       const d = v ? ymdToDate(v) : null;
       if (!d) return setStatus("Data fixa inválida. Use o seletor de data.");
       setStoredFixedDate(v);
-      broadcastSettingsSync();
+      broadcastSettingsSyncBurst();
       refreshStatus();
     });
 
@@ -1194,7 +1194,7 @@
       setStoredFilterDate(ymd);
       setStoredFilterMode("exact");
       setStoredFilterEnabled(true);
-      broadcastSettingsSync();
+      broadcastSettingsSyncBurst();
       refreshStatus();
     });
 
@@ -1210,14 +1210,14 @@
       setStoredFilterRangeEnd(endYMD);
       setStoredFilterMode("range");
       setStoredFilterEnabled(true);
-      broadcastSettingsSync();
+      broadcastSettingsSyncBurst();
       refreshStatus();
     });
 
     $(`${CLASS_PREFIX}-apply-missing-filter`).addEventListener("click", () => {
       setStoredFilterMode("missing");
       setStoredFilterEnabled(true);
-      broadcastSettingsSync();
+      broadcastSettingsSyncBurst();
       refreshStatus();
     });
 
@@ -1234,7 +1234,8 @@
       $(`${CLASS_PREFIX}-range-start`).value = todayYMD;
       $(`${CLASS_PREFIX}-range-end`).value = todayYMD;
 
-      broadcastSettingsSync();
+      clearVisualFilterNowInWindow(getTopWindowSafe());
+      broadcastSettingsSyncBurst();
       refreshStatus();
     });
 
@@ -1293,6 +1294,40 @@
   function broadcastSettingsSync() {
     const topWin = getTopWindowSafe();
     dispatchSettingsSyncRecursive(topWin, window);
+  }
+
+  function broadcastSettingsSyncBurst() {
+    broadcastSettingsSync();
+    window.setTimeout(broadcastSettingsSync, 40);
+    window.setTimeout(broadcastSettingsSync, 180);
+  }
+
+  function clearVisualFilterNowInWindow(win) {
+    if (!win) return;
+
+    try {
+      const doc = win.document;
+      if (!doc || !doc.documentElement) return;
+      const rows = doc.querySelectorAll(`tr[${FILTER_HIDDEN_ATTR}="1"]`);
+      for (const tr of rows) {
+        try {
+          tr.style.removeProperty("display");
+          tr.removeAttribute(FILTER_HIDDEN_ATTR);
+        } catch {}
+      }
+    } catch {}
+
+    let frames = [];
+    try {
+      frames = Array.from(win.frames || []);
+    } catch {
+      frames = [];
+    }
+    for (const child of frames) {
+      try {
+        if (child && child !== win) clearVisualFilterNowInWindow(child);
+      } catch {}
+    }
   }
 
   function ensureMenuCommand() {
