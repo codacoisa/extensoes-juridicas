@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque de Prazos
 // @namespace    projudi-highlight-hoje.user.js
-// @version      3.6
+// @version      3.7
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Realça possíveis vencimentos no projudi, com cores definidas.
 // @author       louencosv (GPT)
@@ -28,6 +28,7 @@
   const FILTER_MODE_KEY = "projudi_highlight_filter_mode_v1";
   const FILTER_RANGE_START_KEY = "projudi_highlight_filter_range_start_v1";
   const FILTER_RANGE_END_KEY = "projudi_highlight_filter_range_end_v1";
+  const SETTINGS_SYNC_EVENT = "projudi:deadline-settings-changed";
 
   const IS_TOP = (() => {
     try {
@@ -1182,7 +1183,7 @@
       const d = v ? ymdToDate(v) : null;
       if (!d) return setStatus("Data fixa inválida. Use o seletor de data.");
       setStoredFixedDate(v);
-      rebuildStateAndRehighlight();
+      broadcastSettingsSync();
       refreshStatus();
     });
 
@@ -1193,7 +1194,7 @@
       setStoredFilterDate(ymd);
       setStoredFilterMode("exact");
       setStoredFilterEnabled(true);
-      applyDeadlineFilter(document);
+      broadcastSettingsSync();
       refreshStatus();
     });
 
@@ -1209,14 +1210,14 @@
       setStoredFilterRangeEnd(endYMD);
       setStoredFilterMode("range");
       setStoredFilterEnabled(true);
-      applyDeadlineFilter(document);
+      broadcastSettingsSync();
       refreshStatus();
     });
 
     $(`${CLASS_PREFIX}-apply-missing-filter`).addEventListener("click", () => {
       setStoredFilterMode("missing");
       setStoredFilterEnabled(true);
-      applyDeadlineFilter(document);
+      broadcastSettingsSync();
       refreshStatus();
     });
 
@@ -1233,7 +1234,7 @@
       $(`${CLASS_PREFIX}-range-start`).value = todayYMD;
       $(`${CLASS_PREFIX}-range-end`).value = todayYMD;
 
-      rebuildStateAndRehighlight();
+      broadcastSettingsSync();
       refreshStatus();
     });
 
@@ -1253,6 +1254,45 @@
     } catch {
       return window;
     }
+  }
+
+  let fullRefreshTimer = 0;
+  function scheduleFullRefresh() {
+    if (fullRefreshTimer) return;
+    fullRefreshTimer = window.setTimeout(() => {
+      fullRefreshTimer = 0;
+      rebuildStateAndRehighlight();
+    }, 0);
+  }
+
+  function dispatchSettingsSyncRecursive(win, sourceWindow) {
+    if (!win) return;
+
+    try {
+      win.dispatchEvent(
+        new CustomEvent(SETTINGS_SYNC_EVENT, {
+          detail: { source: sourceWindow === win ? "self" : "external" },
+        })
+      );
+    } catch {}
+
+    let frames = [];
+    try {
+      frames = Array.from(win.frames || []);
+    } catch {
+      frames = [];
+    }
+
+    for (const child of frames) {
+      try {
+        if (child && child !== win) dispatchSettingsSyncRecursive(child, sourceWindow);
+      } catch {}
+    }
+  }
+
+  function broadcastSettingsSync() {
+    const topWin = getTopWindowSafe();
+    dispatchSettingsSyncRecursive(topWin, window);
   }
 
   function ensureMenuCommand() {
@@ -1292,6 +1332,10 @@
   window.addEventListener("projudi:bulk-load-end", () => {
     BULK_LOADING = false;
     rebuildStateAndRehighlight();
+  });
+
+  window.addEventListener(SETTINGS_SYNC_EVENT, () => {
+    scheduleFullRefresh();
   });
 
   ensureWeekdayDynamicClasses();
