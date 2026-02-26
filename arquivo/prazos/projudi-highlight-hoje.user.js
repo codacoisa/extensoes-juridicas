@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque de Prazos
 // @namespace    projudi-highlight-hoje.user.js
-// @version      3.9
+// @version      4.0
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Realça possíveis vencimentos no projudi, com cores definidas.
 // @author       louencosv (GPT)
@@ -30,6 +30,7 @@
   const FILTER_RANGE_END_KEY = "projudi_highlight_filter_range_end_v1";
   const SETTINGS_SYNC_EVENT = "projudi:deadline-settings-changed";
   const RUNTIME_KEY = "__tm_hl7d_runtime_v1";
+  const MENU_LABEL = "Prazos: Abrir Painel";
 
   try {
     if (window[RUNTIME_KEY]?.cleanup) window[RUNTIME_KEY].cleanup();
@@ -841,12 +842,32 @@
     }
   }
 
+  function lockBodyScroll(doc = document) {
+    const body = doc && doc.body;
+    if (!body) return () => {};
+    const win = (doc && doc.defaultView) || window;
+    const KEY = "__pjBodyScrollLock__";
+    const state = win[KEY] || (win[KEY] = { count: 0, prevOverflow: "" });
+    if (state.count === 0) {
+      state.prevOverflow = body.style.overflow;
+      body.style.overflow = "hidden";
+    }
+    state.count += 1;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      state.count = Math.max(0, state.count - 1);
+      if (state.count === 0) body.style.overflow = state.prevOverflow;
+    };
+  }
+
   function openPanel() {
     const topDoc = getTopDocumentSafe();
     if (topDoc.getElementById(`${CLASS_PREFIX}-panel-overlay`)) return;
 
     const overlayId = `${CLASS_PREFIX}-panel-overlay`;
-    const previousBodyOverflow = topDoc.body.style.overflow;
+    const unlockBodyScroll = lockBodyScroll(topDoc);
 
     const overlay = topDoc.createElement("div");
     overlay.id = overlayId;
@@ -1199,7 +1220,6 @@
     overlay.appendChild(scopedStyle);
     overlay.appendChild(panel);
     topDoc.body.appendChild(overlay);
-    topDoc.body.style.overflow = "hidden";
 
     requestAnimationFrame(() => {
       panel.style.transform = "translateY(0) scale(1)";
@@ -1253,7 +1273,7 @@
 
     function closePanel() {
       topDoc.removeEventListener("keydown", escClose);
-      topDoc.body.style.overflow = previousBodyOverflow;
+      unlockBodyScroll();
       overlay.remove();
     }
 
@@ -1426,7 +1446,7 @@
     } catch {}
 
     try {
-      state.id = GM_registerMenuCommand("Abrir Painel", openPanel);
+      state.id = GM_registerMenuCommand(MENU_LABEL, openPanel);
     } catch {}
   }
 
