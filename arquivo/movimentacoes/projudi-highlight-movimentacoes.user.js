@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque de Movimentações
 // @namespace    projudi-highlight-movimentacoes.user.js
-// @version      1.7
+// @version      1.8
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca as movimentações processuais em cores definidas.
 // @author       lourencosv (GPT)
@@ -76,9 +76,28 @@
 
   const STORAGE_KEY = 'projudi_highlight_movs_cfg_v26';
   const DOC_STYLE_ID = 'phm-doc-style-v26';
-  const MENU_LABEL = 'Abrir Painel';
+  const MENU_LABEL = 'Movimentações: Abrir Painel';
   let menuCommandId = null;
-  let previousBodyOverflow = '';
+
+  function lockBodyScroll(doc = document) {
+    const body = doc && doc.body;
+    if (!body) return () => {};
+    const win = (doc && doc.defaultView) || window;
+    const KEY = "__pjBodyScrollLock__";
+    const state = win[KEY] || (win[KEY] = { count: 0, prevOverflow: "" });
+    if (state.count === 0) {
+      state.prevOverflow = body.style.overflow;
+      body.style.overflow = "hidden";
+    }
+    state.count += 1;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      state.count = Math.max(0, state.count - 1);
+      if (state.count === 0) body.style.overflow = state.prevOverflow;
+    };
+  }
 
   function deepMerge(base, add) {
     for (const k in add) {
@@ -662,8 +681,9 @@
 
   function closePanel() {
     const overlay = document.querySelector('.phm-overlay');
-    if (overlay) overlay.remove();
-    if (document.body) document.body.style.overflow = previousBodyOverflow;
+    if (!overlay) return;
+    if (typeof overlay.__phmUnlockScroll === "function") overlay.__phmUnlockScroll();
+    overlay.remove();
   }
 
   function ensurePanel() {
@@ -672,7 +692,7 @@
     const overlay = document.createElement('div');
     overlay.className = 'phm-overlay';
     overlay.innerHTML = `<div class="phm-panel" role="dialog" aria-modal="true">${panelHtml()}</div>`;
-    previousBodyOverflow = document.body ? document.body.style.overflow : '';
+    overlay.__phmUnlockScroll = lockBodyScroll(document);
 
     overlay.addEventListener('click', (ev) => {
       if (ev.target === overlay) closePanel();
@@ -739,7 +759,6 @@
     });
 
     document.body.appendChild(overlay);
-    if (document.body) document.body.style.overflow = 'hidden';
     refreshPanelPreviews(overlay);
   }
 
