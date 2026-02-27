@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque Global
 // @namespace    projudi-highlighter.user.js
-// @version      4.2
+// @version      4.3
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaque global, com painel configurável (Ctrl+Shift+H).
 // @author       lourencosv (GPT)
@@ -31,14 +31,61 @@
   const KEY_ITALIC = "hl:text_italic";
 
   const MIN_LEN = 3;
+  const APPLY_DEBOUNCE_MS = 180;
+  const RUNTIME_KEY = "__vini_highlighter_runtime__";
+  const SPA_CHANGE_EVENT = "vini-spa-change";
+  const TOOLBAR_HOST_ATTR = "data-vini-toolbar-host";
+  const POP_HOST_ATTR = "data-vini-pop-host";
 
-  const DEFAULT_HIGHLIGHT_COLOR = "#C5E1A5FF"; // RGBA em hex (alpha no final)
+  const DEFAULT_HIGHLIGHT_COLOR = "#C5E1A5FF";
   const DEFAULT_TEXT_COLOR = "#111111";
 
   let highlightColor = DEFAULT_HIGHLIGHT_COLOR;
   let textColor = DEFAULT_TEXT_COLOR;
   let textBold = false;
   let textItalic = false;
+  let termsCache = null;
+  let applyTimer = null;
+  let isApplying = false;
+  let rerunApply = false;
+  let domObserver = null;
+  let observerPaused = false;
+  let historyPatched = false;
+  let originalPushState = null;
+  let originalReplaceState = null;
+  let patchedPushState = null;
+  let patchedReplaceState = null;
+  const cleanupTasks = [];
+
+  function addCleanup(fn) {
+    if (typeof fn !== "function") return;
+    cleanupTasks.push(fn);
+  }
+
+  function runCleanup() {
+    while (cleanupTasks.length) {
+      const fn = cleanupTasks.pop();
+      try {
+        fn();
+      } catch {}
+    }
+  }
+
+  function on(target, type, handler, options) {
+    if (!target || typeof target.addEventListener !== "function" || typeof handler !== "function") return;
+    const capture = typeof options === "boolean" ? options : !!(options && options.capture);
+    target.addEventListener(type, handler, options);
+    addCleanup(() => {
+      target.removeEventListener(type, handler, capture);
+    });
+  }
+
+  if (window[RUNTIME_KEY] && typeof window[RUNTIME_KEY].cleanup === "function") {
+    try {
+      window[RUNTIME_KEY].cleanup();
+    } catch {}
+  }
+  window[RUNTIME_KEY] = { cleanup: runCleanup };
 
   let panelOpen = false;
 
@@ -83,6 +130,7 @@
 
 
   async function loadTerms() {
+    if (Array.isArray(termsCache)) return [...termsCache];
     try {
       const raw = await GM.getValue(KEY_GLOBAL, []);
       const arr = Array.isArray(raw) ? raw : [];
@@ -100,14 +148,18 @@
           out.push(s);
         }
       }
-      return out;
+      termsCache = out;
+      return [...out];
     } catch {
+      termsCache = [];
       return [];
     }
   }
 
   async function saveTerms(terms) {
-    await GM.setValue(KEY_GLOBAL, terms);
+    const normalized = Array.isArray(terms) ? [...terms] : [];
+    termsCache = normalized;
+    await GM.setValue(KEY_GLOBAL, normalized);
   }
 
   async function addTerm(term) {
@@ -202,6 +254,7 @@
   }
 
   function clearExistingHighlights(root = document.body) {
+    if (!root) return;
     root.querySelectorAll("." + HIGHLIGHT_CLASS).forEach((node) => {
       const p = node.parentNode;
       if (!p) return;
@@ -211,6 +264,7 @@
   }
 
   function highlightSingleTerm(term, root = document.body) {
+    if (!root) return;
     const pat = escapeRegExp(term);
     const reTest = new RegExp("(" + pat + ")", "iu");
 
@@ -251,14 +305,91 @@
     });
   }
 
-  async function applyHighlights() {
-    const terms = await loadTerms();
-    clearExistingHighlights();
-    if (!terms.length) return;
-
-    const ordered = [...terms].sort((a, b) => b.length - a.length);
-    for (const t of ordered) highlightSingleTerm(t);
+  function observeDom() {
+    if (domObserver || !document.documentElement) return;
+    domObserver = new MutationObserver((mutations) => {
+      if (observerPaused) return;
+      let relevant = false;
+      for (const m of mutations) {
+        const target = m.target && m.target.nodeType === 1 ? m.target : m.target && m.target.parentElement;
+        if (
+          target &&
+          (
+            target.closest("." + HIGHLIGHT_CLASS) ||
+            target.closest("#" + PANEL_OVERLAY_ID) ||
+            target.closest("[" + TOOLBAR_HOST_ATTR + "]") ||
+            target.closest("[" + POP_HOST_ATTR + "]")
+          )
+        ) {
+          continue;
+        }
+        if (m.type === "characterData") {
+          relevant = true;
+          break;
+        }
+        if (m.type === "childList" && (m.addedNodes.length || m.removedNodes.length)) {
+          relevant = true;
+          break;
+        }
+      }
+      if (relevant) scheduleApplyHighlights();
+    });
+    domObserver.observe(document.documentElement, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+    });
   }
+
+  function disconnectObserver() {
+    if (!domObserver) return;
+    domObserver.disconnect();
+    domObserver = null;
+  }
+
+  async function applyHighlights() {
+    if (isApplying) {
+      rerunApply = true;
+      return;
+    }
+
+    isApplying = true;
+    try {
+      do {
+        rerunApply = false;
+        const terms = await loadTerms();
+        observerPaused = true;
+        disconnectObserver();
+        try {
+          clearExistingHighlights(document.body);
+          if (!terms.length) continue;
+          const ordered = [...terms].sort((a, b) => b.length - a.length);
+          for (const t of ordered) highlightSingleTerm(t, document.body);
+        } finally {
+          observerPaused = false;
+          observeDom();
+        }
+      } while (rerunApply);
+    } finally {
+      isApplying = false;
+    }
+  }
+
+  function scheduleApplyHighlights() {
+    if (applyTimer) clearTimeout(applyTimer);
+    applyTimer = setTimeout(() => {
+      applyTimer = null;
+      applyHighlights();
+    }, APPLY_DEBOUNCE_MS);
+  }
+
+  addCleanup(() => {
+    if (applyTimer) {
+      clearTimeout(applyTimer);
+      applyTimer = null;
+    }
+    disconnectObserver();
+  });
 
 
   const broadcastApply = () => {
@@ -267,18 +398,21 @@
     } catch {}
   };
 
-  window.addEventListener("message", (e) => {
+  const onApplyMessage = (e) => {
     const d = e && e.data;
-    if (d && d.type === "VINI_APPLY_HIGHLIGHTS") applyHighlights();
-  });
+    if (d && d.type === "VINI_APPLY_HIGHLIGHTS") scheduleApplyHighlights();
+  };
 
-  window.addEventListener("message", (e) => {
+  const onPanelToggleMessage = (e) => {
     const d = e && e.data;
     if (!d) return;
     if (d.type === "VINI_TOGGLE_PANEL_REQUEST" && IS_TOP) {
       togglePanelSafe();
     }
-  });
+  };
+
+  on(window, "message", onApplyMessage);
+  on(window, "message", onPanelToggleMessage);
 
 
   let toolbar, toolbarRoot;
@@ -290,12 +424,20 @@
     if (toolbarRoot) return;
 
     const host = document.createElement("div");
+    host.setAttribute(TOOLBAR_HOST_ATTR, "1");
     host.style.position = "fixed";
     host.style.zIndex = "2147483647";
     host.style.top = "0";
     host.style.left = "0";
     host.style.pointerEvents = "none";
     document.documentElement.appendChild(host);
+    addCleanup(() => {
+      if (toolbarRoot === host) {
+        try { host.remove(); } catch {}
+        toolbar = null;
+        toolbarRoot = null;
+      }
+    });
 
     const root = host.attachShadow({ mode: "open" });
 
@@ -405,9 +547,10 @@
     showToolbarAt(r.right + 10, r.top - 10);
   }
 
-  document.addEventListener("selectionchange", positionToolbarNearSelection);
+  on(document, "selectionchange", positionToolbarNearSelection);
 
-  document.addEventListener(
+  on(
+    document,
     "mouseup",
     () => {
       setTimeout(() => {
@@ -417,7 +560,8 @@
     { passive: true }
   );
 
-  document.addEventListener(
+  on(
+    document,
     "keyup",
     (e) => {
       if (e && e.shiftKey) positionToolbarNearSelection();
@@ -425,7 +569,8 @@
     { passive: true }
   );
 
-  document.addEventListener(
+  on(
+    document,
     "scroll",
     () => {
       if (lastSelectionText && lastSelectionRangeRect) {
@@ -445,12 +590,21 @@
     if (popRoot) return;
 
     const host = document.createElement("div");
+    host.setAttribute(POP_HOST_ATTR, "1");
     host.style.position = "fixed";
     host.style.zIndex = "2147483647";
     host.style.top = "0";
     host.style.left = "0";
     host.style.pointerEvents = "none";
     document.documentElement.appendChild(host);
+    addCleanup(() => {
+      if (popRoot === host) {
+        try { host.remove(); } catch {}
+        pop = null;
+        popRoot = null;
+        currentCanonical = null;
+      }
+    });
 
     const root = host.attachShadow({ mode: "open" });
 
@@ -519,7 +673,8 @@
     currentCanonical = null;
   }
 
-  document.addEventListener(
+  on(
+    document,
     "click",
     (e) => {
       if (popRoot) {
@@ -615,8 +770,9 @@
 
     const panel = document.createElement("div");
     panel.style.cssText = `
-      width: min(760px, calc(100vw - 24px));
-      max-height: min(88vh, 760px);
+      width: 640px;
+      max-width: calc(100vw - 24px);
+      max-height: min(88vh, 860px);
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -626,6 +782,8 @@
       box-shadow: 0 24px 70px rgba(2, 6, 23, .30);
       border: 1px solid #dbe3ef;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.35;
       transform: translateY(6px) scale(.985);
       opacity: .96;
       transition: transform .16s ease, opacity .16s ease;
@@ -656,7 +814,7 @@
       }
 
       #${PANEL_OVERLAY_ID} .vhp-sec {
-        border: 1px solid #e5e7eb;
+        border: 1px solid #dbe3ef;
         border-radius: 10px;
         padding: 12px;
         background: #ffffff;
@@ -664,7 +822,7 @@
 
       #${PANEL_OVERLAY_ID} .vhp-sec + .vhp-sec { margin-top: 10px; }
       #${PANEL_OVERLAY_ID} .vhp-title {
-        font-size: 13px;
+        font-size: 14px;
         font-weight: 700;
         color: #0f172a;
         margin-bottom: 8px;
@@ -675,22 +833,25 @@
 
       #${PANEL_OVERLAY_ID} .vhp-inpt {
         flex: 1;
-        padding: 9px 10px;
+        padding: 6px 8px;
         border: 1px solid #cbd5e1;
         border-radius: 8px;
         outline: none;
-        font-size: 13px;
+        font-size: 14px;
+        line-height: 1.35;
       }
 
       #${PANEL_OVERLAY_ID} .vhp-btn {
-        padding: 8px 11px;
+        padding: 7px 11px;
+        min-width: 86px;
         border: 1px solid #cbd5e1;
         background: #ffffff;
         color: #1e293b;
         border-radius: 8px;
         cursor: pointer;
-        font-size: 13px;
-        font-weight: 600;
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 1.2;
       }
 
       #${PANEL_OVERLAY_ID} .vhp-btn:hover { filter: brightness(.98); }
@@ -713,7 +874,7 @@
       }
 
       #${PANEL_OVERLAY_ID} .vhp-field {
-        border: 1px solid #e5e7eb;
+        border: 1px solid #dbe3ef;
         border-radius: 10px;
         padding: 10px;
       }
@@ -729,7 +890,7 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        font-size: 13px;
+        font-size: 14px;
         color: #1e293b;
       }
 
@@ -770,7 +931,7 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        border: 1px solid #e5e7eb;
+        border: 1px solid #dbe3ef;
         border-radius: 10px;
         padding: 9px 10px;
         background: #ffffff;
@@ -778,7 +939,7 @@
 
       #${PANEL_OVERLAY_ID} .vhp-term {
         flex: 1;
-        font-size: 13px;
+        font-size: 14px;
         font-weight: 600;
         color: #0f172a;
         word-break: break-word;
@@ -790,9 +951,10 @@
         color: #b00020;
         border-radius: 8px;
         cursor: pointer;
-        padding: 6px 9px;
-        font-size: 12px;
-        font-weight: 700;
+        padding: 7px 11px;
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 1.2;
       }
 
       #${PANEL_OVERLAY_ID} #vhp-import-area {
@@ -804,10 +966,11 @@
         width: 100%;
         min-height: 110px;
         resize: vertical;
-        padding: 9px 10px;
+        padding: 6px 8px;
         border: 1px solid #cbd5e1;
         border-radius: 8px;
-        font-size: 12px;
+        font-size: 14px;
+        line-height: 1.35;
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       }
 
@@ -829,13 +992,16 @@
         justify-content: flex-end;
         gap: 8px;
         padding: 12px 16px;
-        border-top: 1px solid #e5e7eb;
-        background: #f1f5f9;
+        border-top: 1px solid #dbe3ef;
+        background: #f8fafc;
       }
 
       @media (max-width: 760px) {
         #${PANEL_OVERLAY_ID} .vhp-grid { grid-template-columns: 1fr; }
         #${PANEL_OVERLAY_ID} .vhp-row { flex-wrap: wrap; }
+        #${PANEL_OVERLAY_ID} #vhp-body { padding: 12px; }
+        #${PANEL_OVERLAY_ID} #vhp-content { padding: 12px; }
+        #${PANEL_OVERLAY_ID} #vhp-footer { padding: 10px 12px; }
       }
     `;
 
@@ -846,7 +1012,7 @@
             <div style="font-size:16px; font-weight:700; line-height:1.2;">Destaque Global</div>
             <div style="font-size:12px; opacity:.9; margin-top:2px;">Gerencie termos e personalização dos destaques</div>
           </div>
-          <button id="vhp-close" class="vhp-btn" style="border:0; background:rgba(255,255,255,.2); color:#fff; width:28px; height:28px; border-radius:999px; cursor:pointer; font-size:16px; line-height:1;">×</button>
+          <button id="vhp-close" class="vhp-btn" style="border:0; background:rgba(255,255,255,.2); color:#fff; width:28px; height:28px; border-radius:999px; cursor:pointer; font-size:14px; font-weight:500; line-height:1.2;">×</button>
         </div>
       </div>
 
@@ -1188,40 +1354,56 @@
   (async function init() {
     await loadSettings();
     await applyHighlights();
+    observeDom();
     registerExtensionMenu();
 
-    const mo = new MutationObserver(() => {
-      if (mo._pending) return;
-      mo._pending = true;
-      setTimeout(async () => {
-        mo._pending = false;
-        await applyHighlights();
-      }, 350);
+    if (!historyPatched) {
+      historyPatched = true;
+      originalPushState = history.pushState;
+      originalReplaceState = history.replaceState;
+
+      patchedPushState = function () {
+        const ret = originalPushState.apply(this, arguments);
+        window.dispatchEvent(new Event(SPA_CHANGE_EVENT));
+        return ret;
+      };
+      patchedReplaceState = function () {
+        const ret = originalReplaceState.apply(this, arguments);
+        window.dispatchEvent(new Event(SPA_CHANGE_EVENT));
+        return ret;
+      };
+      history.pushState = patchedPushState;
+      history.replaceState = patchedReplaceState;
+
+      addCleanup(() => {
+        if (history.pushState === patchedPushState && originalPushState) history.pushState = originalPushState;
+        if (history.replaceState === patchedReplaceState && originalReplaceState) history.replaceState = originalReplaceState;
+        patchedPushState = null;
+        patchedReplaceState = null;
+        historyPatched = false;
+      });
+    }
+
+    on(window, "popstate", () => window.dispatchEvent(new Event(SPA_CHANGE_EVENT)));
+    on(window, SPA_CHANGE_EVENT, () => {
+      scheduleApplyHighlights();
     });
-
-    mo.observe(document.documentElement, {
-      subtree: true,
-      childList: true,
-      characterData: true,
-    });
-
-    const push = history.pushState,
-      replace = history.replaceState;
-
-    history.pushState = function () {
-      const ret = push.apply(this, arguments);
-      window.dispatchEvent(new Event("vini-spa-change"));
-      return ret;
-    };
-    history.replaceState = function () {
-      const ret = replace.apply(this, arguments);
-      window.dispatchEvent(new Event("vini-spa-change"));
-      return ret;
-    };
-
-    window.addEventListener("popstate", () => window.dispatchEvent(new Event("vini-spa-change")));
-    window.addEventListener("vini-spa-change", async () => {
-      await applyHighlights();
-    });
+    on(window, "pagehide", () => {
+      if (applyTimer) {
+        clearTimeout(applyTimer);
+        applyTimer = null;
+      }
+      disconnectObserver();
+      closePanel();
+      hideToolbar();
+      hidePop();
+      if (historyPatched) {
+        if (history.pushState === patchedPushState && originalPushState) history.pushState = originalPushState;
+        if (history.replaceState === patchedReplaceState && originalReplaceState) history.replaceState = originalReplaceState;
+        patchedPushState = null;
+        patchedReplaceState = null;
+        historyPatched = false;
+      }
+    }, { once: true });
   })();
 })();
