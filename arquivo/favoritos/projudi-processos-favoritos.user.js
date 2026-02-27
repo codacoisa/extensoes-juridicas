@@ -298,7 +298,7 @@
       }
 
       #${PANEL_OVERLAY_ID} .lp-card {
-        border: 1px solid #e5e7eb;
+        border: 1px solid #dbe3ef;
         border-radius: 10px;
         padding: 12px;
       }
@@ -375,7 +375,7 @@
 
       #${PANEL_OVERLAY_ID} .lp-list-wrap {
         margin-top: 10px;
-        border: 1px solid #e5e7eb;
+        border: 1px solid #dbe3ef;
         border-radius: 10px;
         overflow: hidden;
       }
