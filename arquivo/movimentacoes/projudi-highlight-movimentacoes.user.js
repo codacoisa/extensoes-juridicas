@@ -77,6 +77,7 @@
   const STORAGE_KEY = 'projudi_highlight_movs_cfg_v26';
   const DOC_STYLE_ID = 'phm-doc-style-v26';
   const MENU_LABEL = 'Movimentações: Abrir Painel';
+  const PANEL_OVERLAY_ID = 'phm-overlay-root';
   let menuCommandId = null;
 
   function lockBodyScroll(doc = document) {
@@ -135,7 +136,7 @@
   let CFG = readCfg();
 
   GM_addStyle(`
-    .phm-overlay {
+    #${PANEL_OVERLAY_ID} {
       position: fixed;
       inset: 0;
       z-index: 2147483647;
@@ -148,9 +149,9 @@
       padding: 18px;
     }
 
-    .phm-panel {
+    #${PANEL_OVERLAY_ID} .phm-panel {
       width: min(980px, calc(100vw - 24px));
-      max-height: min(88vh, 760px);
+      max-height: min(88vh, 860px);
       border-radius: 14px;
       border: 1px solid #dbe3ef;
       background: #ffffff;
@@ -170,23 +171,23 @@
       to { transform: translateY(0) scale(1); opacity: 1; }
     }
 
-    .phm-panel *,
-    .phm-panel *::before,
-    .phm-panel *::after {
+    #${PANEL_OVERLAY_ID} .phm-panel *,
+    #${PANEL_OVERLAY_ID} .phm-panel *::before,
+    #${PANEL_OVERLAY_ID} .phm-panel *::after {
       box-sizing: border-box;
     }
 
-    .phm-overlay button,
-    .phm-overlay input,
-    .phm-overlay label,
-    .phm-overlay span {
+    #${PANEL_OVERLAY_ID} button,
+    #${PANEL_OVERLAY_ID} input,
+    #${PANEL_OVERLAY_ID} label,
+    #${PANEL_OVERLAY_ID} span {
       text-indent: 0 !important;
       letter-spacing: normal !important;
       text-transform: none !important;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif !important;
     }
 
-    .phm-head {
+    #${PANEL_OVERLAY_ID} .phm-head {
       flex: 0 0 auto;
       padding: 14px 16px;
       color: #ffffff;
@@ -194,18 +195,18 @@
       border-bottom: 1px solid #dbe3ef;
     }
 
-    .phm-head-bar {
+    #${PANEL_OVERLAY_ID} .phm-head-bar {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 10px;
     }
 
-    .phm-title-wrap {
+    #${PANEL_OVERLAY_ID} .phm-title-wrap {
       min-width: 0;
     }
 
-    .phm-title {
+    #${PANEL_OVERLAY_ID} .phm-title {
       margin: 0;
       font-size: 16px;
       font-weight: 700;
@@ -218,7 +219,7 @@
       padding: 0 !important;
     }
 
-    .phm-subtitle {
+    #${PANEL_OVERLAY_ID} .phm-subtitle {
       margin: 2px 0 0;
       font-size: 12px;
       opacity: .92;
@@ -230,7 +231,7 @@
       padding: 0 !important;
     }
 
-    .phm-close {
+    #${PANEL_OVERLAY_ID} .phm-close {
       border: 0;
       width: 28px;
       height: 28px;
@@ -238,31 +239,32 @@
       background: rgba(255, 255, 255, .2);
       color: #ffffff;
       cursor: pointer;
-      font-size: 16px;
-      line-height: 1;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.2;
     }
 
-    .phm-close:hover {
+    #${PANEL_OVERLAY_ID} .phm-close:hover {
       background: rgba(255, 255, 255, .3);
     }
 
-    .phm-body {
+    #${PANEL_OVERLAY_ID} .phm-body {
       flex: 1 1 auto;
       min-height: 0;
       overflow: auto;
-      padding: 12px 14px;
+      padding: 16px;
       background: #f8fafc;
     }
 
-    .phm-grid-head,
-    .phm-row {
+    #${PANEL_OVERLAY_ID} .phm-grid-head,
+    #${PANEL_OVERLAY_ID} .phm-row {
       display: grid;
       grid-template-columns: minmax(240px, 1.4fr) 78px 78px 116px 104px 104px;
       align-items: center;
       gap: 10px;
     }
 
-    .phm-grid-head {
+    #${PANEL_OVERLAY_ID} .phm-grid-head {
       padding: 9px 12px;
       margin-bottom: 8px;
       border: 1px solid #d3dce8;
@@ -275,29 +277,29 @@
       letter-spacing: .35px;
     }
 
-    .phm-row {
+    #${PANEL_OVERLAY_ID} .phm-row {
       padding: 10px 12px;
       margin-bottom: 10px;
-      border: 1px solid #e5e7eb;
+      border: 1px solid #dbe3ef;
       border-radius: 12px;
       background: #ffffff;
     }
 
-    .phm-type {
+    #${PANEL_OVERLAY_ID} .phm-type {
       display: flex;
       align-items: center;
       gap: 10px;
       min-width: 0;
     }
 
-    .phm-type input[type='checkbox'] {
+    #${PANEL_OVERLAY_ID} .phm-type input[type='checkbox'] {
       width: 18px;
       height: 18px;
       margin: 0;
       cursor: pointer;
     }
 
-    .phm-type span {
+    #${PANEL_OVERLAY_ID} .phm-type span {
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
@@ -307,14 +309,14 @@
       line-height: 1.2;
     }
 
-    .phm-center {
+    #${PANEL_OVERLAY_ID} .phm-center {
       display: flex;
       justify-content: center;
       align-items: center;
       min-width: 0;
     }
 
-    .phm-center input[type='color'] {
+    #${PANEL_OVERLAY_ID} .phm-center input[type='color'] {
       width: 56px;
       height: 34px;
       border: 1px solid #cbd5e1;
@@ -324,7 +326,7 @@
       cursor: pointer;
     }
 
-    .phm-center label {
+    #${PANEL_OVERLAY_ID} .phm-center label {
       display: inline-flex;
       align-items: center;
       gap: 8px;
@@ -335,14 +337,14 @@
       cursor: pointer;
     }
 
-    .phm-center label input[type='checkbox'] {
+    #${PANEL_OVERLAY_ID} .phm-center label input[type='checkbox'] {
       width: 18px;
       height: 18px;
       margin: 0;
       cursor: pointer;
     }
 
-    .phm-chip {
+    #${PANEL_OVERLAY_ID} .phm-chip {
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -356,17 +358,17 @@
       padding: 0 10px;
     }
 
-    .phm-foot {
+    #${PANEL_OVERLAY_ID} .phm-foot {
       flex: 0 0 auto;
       display: flex;
       justify-content: flex-end;
       gap: 8px;
       padding: 12px 16px;
-      border-top: 1px solid #e5e7eb;
+      border-top: 1px solid #dbe3ef;
       background: #f8fafc;
     }
 
-    .phm-btn {
+    #${PANEL_OVERLAY_ID} .phm-btn {
       min-width: 86px;
       padding: 7px 11px;
       border-radius: 8px;
@@ -379,36 +381,44 @@
       border: 1px solid #cbd5e1;
     }
 
-    .phm-btn:hover {
+    #${PANEL_OVERLAY_ID} .phm-btn:hover {
       background: #f8fafc;
     }
 
-    .phm-btn-save {
+    #${PANEL_OVERLAY_ID} .phm-btn-save {
       color: #ffffff;
       background: #0f3e75;
       border-color: #0f3e75;
       font-weight: 600;
     }
 
-    .phm-btn-save:hover {
+    #${PANEL_OVERLAY_ID} .phm-btn-save:hover {
       background: #0d3562;
     }
 
     @media (max-width: 1040px) {
-      .phm-grid-head {
+      #${PANEL_OVERLAY_ID} .phm-body {
+        padding: 12px;
+      }
+
+      #${PANEL_OVERLAY_ID} .phm-foot {
+        padding: 10px 12px;
+      }
+
+      #${PANEL_OVERLAY_ID} .phm-grid-head {
         display: none;
       }
 
-      .phm-row {
+      #${PANEL_OVERLAY_ID} .phm-row {
         grid-template-columns: 1fr 1fr;
         gap: 8px;
       }
 
-      .phm-type {
+      #${PANEL_OVERLAY_ID} .phm-type {
         grid-column: 1 / -1;
       }
 
-      .phm-center {
+      #${PANEL_OVERLAY_ID} .phm-center {
         justify-content: flex-start;
       }
     }
@@ -680,16 +690,17 @@
   }
 
   function closePanel() {
-    const overlay = document.querySelector('.phm-overlay');
+    const overlay = document.getElementById(PANEL_OVERLAY_ID);
     if (!overlay) return;
     if (typeof overlay.__phmUnlockScroll === "function") overlay.__phmUnlockScroll();
     overlay.remove();
   }
 
   function ensurePanel() {
-    if (document.querySelector('.phm-overlay')) return;
+    if (document.getElementById(PANEL_OVERLAY_ID)) return;
 
     const overlay = document.createElement('div');
+    overlay.id = PANEL_OVERLAY_ID;
     overlay.className = 'phm-overlay';
     overlay.innerHTML = `<div class="phm-panel" role="dialog" aria-modal="true">${panelHtml()}</div>`;
     overlay.__phmUnlockScroll = lockBodyScroll(document);
