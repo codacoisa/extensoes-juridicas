@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque Global
 // @namespace    projudi-highlighter.user.js
-// @version      4.3
+// @version      4.4
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaque global, com painel configurável (Ctrl+Shift+H).
 // @author       lourencosv (GPT)
@@ -15,7 +15,9 @@
 // @grant        GM.getValue
 // @grant        GM.setValue
 // @grant        GM.registerMenuCommand
+// @grant        GM.unregisterMenuCommand
 // @grant        GM_registerMenuCommand
+// @grant        GM_unregisterMenuCommand
 // ==/UserScript==
 
 (function () {
@@ -702,6 +704,8 @@
   const PANEL_OVERLAY_ID = "projudi-highlighter-panel-overlay";
   const MENU_LABEL = "Destaque Global: Abrir Painel";
   let panelCleanup = null;
+  let menuRegistered = false;
+  let menuCommandId = null;
 
   function lockBodyScroll(doc = document) {
     const body = doc && doc.body;
@@ -811,6 +815,14 @@
         text-transform: none !important;
         line-height: 1.2 !important;
         white-space: nowrap !important;
+      }
+
+      #${PANEL_OVERLAY_ID} #vhp-close {
+        min-width: 0 !important;
+        padding: 0 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
       }
 
       #${PANEL_OVERLAY_ID} .vhp-sec {
@@ -1012,7 +1024,7 @@
             <div style="font-size:16px; font-weight:700; line-height:1.2;">Destaque Global</div>
             <div style="font-size:12px; opacity:.9; margin-top:2px;">Gerencie termos e personalização dos destaques</div>
           </div>
-          <button id="vhp-close" class="vhp-btn" style="border:0; background:rgba(255,255,255,.2); color:#fff; width:28px; height:28px; border-radius:999px; cursor:pointer; font-size:14px; font-weight:500; line-height:1.2;">×</button>
+          <button id="vhp-close" class="vhp-btn" style="border:0; background:rgba(255,255,255,.2); color:#fff; width:28px; height:28px; border-radius:999px; cursor:pointer; font-size:16px; font-weight:500; line-height:1;">×</button>
         </div>
       </div>
 
@@ -1333,6 +1345,8 @@
 
 
   function registerExtensionMenu() {
+    if (!IS_TOP || menuRegistered) return;
+
     const fn = () => {
       try {
         window.top.postMessage({ type: "VINI_TOGGLE_PANEL_REQUEST" }, "*");
@@ -1342,11 +1356,31 @@
     };
 
     if (typeof GM !== "undefined" && typeof GM.registerMenuCommand === "function") {
-      GM.registerMenuCommand(MENU_LABEL, fn);
+      menuCommandId = GM.registerMenuCommand(MENU_LABEL, fn);
+      menuRegistered = true;
+      addCleanup(() => {
+        try {
+          if (typeof GM !== "undefined" && typeof GM.unregisterMenuCommand === "function" && menuCommandId != null) {
+            GM.unregisterMenuCommand(menuCommandId);
+          }
+        } catch {}
+        menuCommandId = null;
+        menuRegistered = false;
+      });
       return;
     }
     if (typeof GM_registerMenuCommand === "function") {
-      GM_registerMenuCommand(MENU_LABEL, fn);
+      menuCommandId = GM_registerMenuCommand(MENU_LABEL, fn);
+      menuRegistered = true;
+      addCleanup(() => {
+        try {
+          if (typeof GM_unregisterMenuCommand === "function" && menuCommandId != null) {
+            GM_unregisterMenuCommand(menuCommandId);
+          }
+        } catch {}
+        menuCommandId = null;
+        menuRegistered = false;
+      });
     }
   }
 
