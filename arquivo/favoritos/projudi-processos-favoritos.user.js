@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Processos Favoritos
 // @namespace    projudi-processos-favoritos.user.js
-// @version      0.8
+// @version      0.9
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca processos favoritos, permite adicionar/remover no detalhe e gerenciar via painel.
 // @author       lourencosv (GPT)
@@ -27,6 +27,24 @@
 
   let menuCommandId = null;
   let menuRegistered = false;
+  let initialized = false;
+
+  const refreshTimers = new WeakMap();
+  const docObservers = new WeakMap();
+  const highlightState = new WeakMap();
+  const boundDocs = new WeakSet();
+
+  const QUICK_SHORT_RE = /\d+\.\d{1,2}/;
+
+  const globalHandlers = {
+    storage: null,
+    pageshow: null,
+    focus: null,
+    visibility: null,
+    pagehide: null
+  };
+  let storeCache = null;
+  let favSetCache = null;
 
   function lockBodyScroll(doc = document) {
     const body = doc && doc.body;
@@ -52,19 +70,32 @@
     return typeof GM_registerMenuCommand === 'function';
   }
 
+  function invalidateStoreCache() {
+    storeCache = null;
+    favSetCache = null;
+  }
+
   function readStore() {
+    if (Array.isArray(storeCache)) return storeCache.slice();
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       const parsed = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(parsed)) return [];
-      return parsed.filter(Boolean).map(String);
+      const list = Array.isArray(parsed) ? parsed.filter(Boolean).map(String) : [];
+      storeCache = list;
+      favSetCache = null;
+      return list.slice();
     } catch {
+      storeCache = [];
+      favSetCache = null;
       return [];
     }
   }
 
   function writeStore(list) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([...new Set(list)]));
+    const normalized = [...new Set(list.filter(Boolean).map(String))];
+    storeCache = normalized.slice();
+    favSetCache = null;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
     refreshAll();
   }
 
@@ -88,9 +119,10 @@
   }
 
   function getFavSet() {
-    const list = readStore();
-    const keys = list.map(normalizeFull).filter(Boolean);
-    return new Set(keys);
+    if (favSetCache) return favSetCache;
+    const keys = readStore().map(normalizeFull).filter(Boolean);
+    favSetCache = new Set(keys);
+    return favSetCache;
   }
 
   function isFavorite(fullNum) {
@@ -202,9 +234,9 @@
       }
 
       #${PANEL_OVERLAY_ID} .lp-panel {
-        width: 560px;
+        width: 640px;
         max-width: calc(100vw - 24px);
-        max-height: calc(100vh - 28px);
+        max-height: min(88vh, 860px);
         background: #ffffff;
         color: #0f172a;
         border-radius: 14px;
@@ -212,6 +244,8 @@
         border: 1px solid #dbe3ef;
         overflow: hidden;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.35;
         transform: translateY(6px) scale(0.985);
         opacity: 0.96;
         transition: transform 0.16s ease, opacity 0.16s ease;
@@ -272,12 +306,13 @@
       #${PANEL_OVERLAY_ID} input[type="text"] {
         width: 100%;
         min-width: 0;
-        padding: 9px 10px;
+        padding: 6px 8px;
         border: 1px solid #cbd5e1;
         border-radius: 8px;
         color: #0f172a;
         background: #ffffff;
-        font-size: 13px;
+        font-size: 14px;
+        line-height: 1.35;
       }
 
       #${PANEL_OVERLAY_ID} input[type="text"]:focus {
@@ -290,10 +325,11 @@
         background: #ffffff;
         color: #1e293b;
         border-radius: 8px;
-        padding: 8px 11px;
+        padding: 7px 11px;
+        min-width: 86px;
         cursor: pointer;
-        font-size: 13px;
-        font-weight: 600;
+        font-size: 14px;
+        font-weight: 500;
         line-height: 1.2;
         white-space: nowrap;
       }
@@ -302,6 +338,10 @@
         background: #0f3e75;
         border-color: #0f3e75;
         color: #ffffff;
+      }
+
+      #${PANEL_OVERLAY_ID} #lp-save {
+        font-weight: 600;
       }
 
       #${PANEL_OVERLAY_ID} .lp-btn-soft {
@@ -377,13 +417,23 @@
         justify-content: space-between;
         gap: 8px;
         padding: 12px 16px;
-        border-top: 1px solid #e5e7eb;
+        border-top: 1px solid #dbe3ef;
         background: #f8fafc;
       }
 
       #${PANEL_OVERLAY_ID} .lp-count {
         font-size: 12px;
         color: #64748b;
+      }
+
+      @media (max-width: 640px) {
+        #${PANEL_OVERLAY_ID} .lp-body {
+          padding: 12px;
+        }
+
+        #${PANEL_OVERLAY_ID} .lp-foot {
+          padding: 10px 12px;
+        }
       }
     `;
 
@@ -395,15 +445,39 @@
     injectStyles(doc);
 
     const favs = getFavSet();
+    const favSignature = Array.from(favs).sort().join('|');
+    const state = highlightState.get(doc) || { signature: '', highlightedCount: 0 };
+
+    if (!favs.size) {
+      if (!state.highlightedCount) {
+        highlightState.set(doc, { signature: '', highlightedCount: 0 });
+        return;
+      }
+      const current = doc.querySelectorAll('a.lp-proc-highlight');
+      current.forEach((a) => a.classList.remove('lp-proc-highlight'));
+      highlightState.set(doc, { signature: '', highlightedCount: 0 });
+      return;
+    }
+
     const links = doc.querySelectorAll('a');
+    let highlightedCount = 0;
 
     for (const a of links) {
-      const key = normalizeShort(a.textContent || '');
-      if (key && favs.has(key)) {
+      const text = a.textContent || '';
+      const likelyProcess = QUICK_SHORT_RE.test(text);
+      const key = likelyProcess ? normalizeShort(text) : null;
+      const shouldHighlight = !!(key && favs.has(key));
+
+      if (shouldHighlight) {
         a.classList.add('lp-proc-highlight');
-      } else {
+        highlightedCount += 1;
+      } else if (a.classList.contains('lp-proc-highlight')) {
         a.classList.remove('lp-proc-highlight');
       }
+    }
+
+    if (state.signature !== favSignature || state.highlightedCount !== highlightedCount) {
+      highlightState.set(doc, { signature: favSignature, highlightedCount });
     }
   }
 
@@ -805,10 +879,8 @@
     }
   }
 
-  const refreshTimers = new WeakMap();
-
   function scheduleRefresh(doc, delayMs = 180) {
-    if (!doc) return;
+    if (!doc || !doc.body) return;
     const existing = refreshTimers.get(doc);
     if (existing) clearTimeout(existing);
 
@@ -820,12 +892,39 @@
     refreshTimers.set(doc, timer);
   }
 
+  function clearDocArtifacts(doc) {
+    if (!doc) return;
+    const timer = refreshTimers.get(doc);
+    if (timer) {
+      clearTimeout(timer);
+      refreshTimers.delete(doc);
+    }
+    const observer = docObservers.get(doc);
+    if (observer) {
+      observer.disconnect();
+      docObservers.delete(doc);
+    }
+    highlightState.delete(doc);
+  }
+
   function observeDoc(doc) {
     if (!doc || !doc.body) return;
+    if (docObservers.has(doc)) return;
 
     const mo = new MutationObserver((mutations) => {
       let relevant = false;
       for (const m of mutations) {
+        const target = m.target && m.target.nodeType === 1 ? m.target : m.target && m.target.parentElement;
+        if (
+          target &&
+          (
+            target.id === PANEL_OVERLAY_ID ||
+            target.closest(`#${PANEL_OVERLAY_ID}`) ||
+            target.id === STYLE_ID
+          )
+        ) {
+          continue;
+        }
         if (m.type === 'characterData') {
           relevant = true;
           break;
@@ -838,15 +937,19 @@
       if (relevant) scheduleRefresh(doc);
     });
     mo.observe(doc.body, { childList: true, characterData: true, subtree: true });
+    docObservers.set(doc, mo);
   }
 
   function initMainFrameHook() {
     const iframe = document.getElementById('Principal');
     if (!iframe) return;
+    if (boundDocs.has(iframe)) return;
+    boundDocs.add(iframe);
 
     iframe.addEventListener('load', function () {
       const d = iframe.contentDocument;
       if (!d) return;
+      clearDocArtifacts(d);
       refreshDoc(d);
       observeDoc(d);
     });
@@ -862,22 +965,50 @@
     refreshAll();
   }
 
+  function installGlobalHandlers() {
+    if (!globalHandlers.storage) {
+      globalHandlers.storage = function (e) {
+        if (e.key === STORAGE_KEY) {
+          invalidateStoreCache();
+          refreshAll();
+        }
+      };
+      window.addEventListener('storage', globalHandlers.storage);
+    }
+    if (!globalHandlers.pageshow) {
+      globalHandlers.pageshow = reviveAfterReturn;
+      window.addEventListener('pageshow', globalHandlers.pageshow, true);
+    }
+    if (!globalHandlers.focus) {
+      globalHandlers.focus = reviveAfterReturn;
+      window.addEventListener('focus', globalHandlers.focus, true);
+    }
+    if (!globalHandlers.visibility) {
+      globalHandlers.visibility = () => {
+        if (!document.hidden) reviveAfterReturn();
+      };
+      document.addEventListener('visibilitychange', globalHandlers.visibility);
+    }
+    if (!globalHandlers.pagehide) {
+      globalHandlers.pagehide = () => {
+        clearDocArtifacts(document);
+        const iframe = document.getElementById('Principal');
+        if (iframe && iframe.contentDocument) clearDocArtifacts(iframe.contentDocument);
+      };
+      window.addEventListener('pagehide', globalHandlers.pagehide, true);
+    }
+  }
+
   function init() {
+    if (initialized) return;
+    initialized = true;
+
     injectStyles(document);
     registerMenu(false);
     refreshAll();
     observeDoc(document);
     initMainFrameHook();
-
-    window.addEventListener('storage', function (e) {
-      if (e.key === STORAGE_KEY) refreshAll();
-    });
-
-    window.addEventListener('pageshow', reviveAfterReturn, true);
-    window.addEventListener('focus', reviveAfterReturn, true);
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) reviveAfterReturn();
-    });
+    installGlobalHandlers();
   }
 
   init();
