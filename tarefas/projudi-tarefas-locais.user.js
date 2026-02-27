@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         To-do local
+// @name         Tarefas locais
 // @namespace    projudi-tarefas-locais.user.js
-// @version      1.7
+// @version      1.8
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
-// @description  To-do local por processo e visão geral na página inicial com tarefas globais.
+// @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
 // @license      CC BY-NC 4.0
 // @updateURL    https://gist.githubusercontent.com/lourencosv/99fd4d691bae5a921bd33fe7eb4c1885/raw/projudi-tarefas-locais.user.js
@@ -14,6 +14,8 @@
 // @grant        GM_setValue
 // @grant        GM_listValues
 // @grant        GM_deleteValue
+// @grant        GM_registerMenuCommand
+// @grant        GM_unregisterMenuCommand
 // ==/UserScript==
 
 (function () {
@@ -25,7 +27,8 @@
   const KEY_GLOBAL_ITEMS = `${KEY_PREFIX}global::items`;
   const KEY_GLOBAL_UI = `${KEY_PREFIX}global::ui`;
   const DEFAULT_UI = { minimized: true, right: 12, top: 12 };
-  const EXPORT_SCHEMA = 'projudi-todo-export-v1';
+  const EXPORT_SCHEMA = 'projudi-tarefas-export-v1';
+  const MENU_LABEL = 'Tarefas: Abrir Gestão';
   const FA_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css';
   const FAB_UI = {
     right: 16,
@@ -35,16 +38,17 @@
     brandHover: '#245a92'
   };
   const PROC_BTN_GAP = {
-    postitLeft: 0,
+    postitLeft: 16,
     postitRight: 0,
     nativeLeft: 8,
-    nativeRight: 6,
+    nativeRight: 0,
     directHeaderLeft: 10,
     directHeaderRight: 0
   };
   const ID_MIN_BTN = 'pj-todo-min';
   const ID_PROC_BTN = 'pj-todo-proc-btn';
   const ID_HEADER_MENU = 'pj-todo-header-menu';
+  const ID_MANAGER_OVERLAY = 'pj-task-manager-overlay';
   const MSG_OPEN_TODO = 'pj-todo-open-panel';
 
   const state = {
@@ -52,8 +56,54 @@
     timer: null,
     mode: null,
     ctxKey: null,
-    panelCleanup: null
+    panelCleanup: null,
+    menuRegistered: false,
+    menuCommandId: null
   };
+
+  function parseTags(raw) {
+    const text = String(raw || '').trim();
+    if (!text) return [];
+    const parts = text.split(/[;,]/).map(s => s.trim()).filter(Boolean);
+    const seen = new Set();
+    const out = [];
+    for (const part of parts) {
+      const key = part.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(part);
+    }
+    return out.slice(0, 5);
+  }
+
+  function normalizeTodoItem(item) {
+    const src = item && typeof item === 'object' ? item : {};
+    const id = src.id ? String(src.id) : uid();
+    const text = String(src.text || '').trim();
+    const done = !!src.done;
+    const createdAt = Number.isFinite(Number(src.createdAt)) ? Number(src.createdAt) : Date.now();
+    const completedAt = done ? (Number.isFinite(Number(src.completedAt)) ? Number(src.completedAt) : Date.now()) : null;
+    const tags = Array.isArray(src.tags) ? parseTags(src.tags.join(',')) : parseTags(src.tagsText || '');
+    return { id, text, done, createdAt, completedAt, tags };
+  }
+
+  function normalizeTodoItems(items) {
+    const list = Array.isArray(items) ? items : [];
+    return list.map(normalizeTodoItem).filter(x => x.text);
+  }
+
+  function formatDateTime(ts) {
+    const n = Number(ts);
+    if (!Number.isFinite(n) || n <= 0) return '--';
+    const d = new Date(n);
+    return d.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
 
   function runPanelCleanup() {
     if (typeof state.panelCleanup !== 'function') return;
@@ -86,7 +136,7 @@
       onOpen();
     } catch (err) {
       try {
-        console.error('[Projudi To-do] Falha ao abrir painel:', err);
+        console.error('[Projudi Tarefas] Falha ao abrir painel:', err);
       } catch (_) {}
       scheduleEvaluate(50);
     }
@@ -299,11 +349,11 @@
 
   function loadItemsByKey(ctxKey) {
     const items = storage.get(todosKey(ctxKey), []);
-    return Array.isArray(items) ? items : [];
+    return normalizeTodoItems(items);
   }
 
   function saveItemsByKey(ctxKey, items) {
-    storage.set(todosKey(ctxKey), items);
+    storage.set(todosKey(ctxKey), normalizeTodoItems(items));
   }
 
   function loadUIByKey(ctxKey) {
@@ -323,11 +373,11 @@
 
   function loadGlobalItems() {
     const items = storage.get(KEY_GLOBAL_ITEMS, []);
-    return Array.isArray(items) ? items : [];
+    return normalizeTodoItems(items);
   }
 
   function saveGlobalItems(items) {
-    storage.set(KEY_GLOBAL_ITEMS, items);
+    storage.set(KEY_GLOBAL_ITEMS, normalizeTodoItems(items));
   }
 
   function loadGlobalUI() {
@@ -392,7 +442,7 @@
     const url = URL.createObjectURL(blob);
     const a = el('a', {
       href: url,
-      download: `projudi-todo-export-${Date.now()}.json`
+      download: `projudi-tarefas-export-${Date.now()}.json`
     });
     document.body.appendChild(a);
     a.click();
@@ -422,11 +472,11 @@
 
       const importedKeys = Object.keys(data).filter(k => k.startsWith(KEY_PREFIX));
       if (!importedKeys.length) {
-        alert('Nenhuma chave de To-do encontrada no JSON.');
+        alert('Nenhuma chave de Tarefas encontrada no JSON.');
         return;
       }
 
-      if (!confirm('Importar vai substituir os dados atuais de To-do. Deseja continuar?')) return;
+      if (!confirm('Importar vai substituir os dados atuais de Tarefas. Deseja continuar?')) return;
 
       const existing = listTodoKeys();
       for (const key of existing) storage.del(key);
@@ -441,6 +491,68 @@
     } catch (_) {
       alert('Falha ao importar JSON. Verifique o arquivo.');
     }
+  }
+
+  function toggleDoneState(item, done) {
+    item.done = !!done;
+    if (item.done) item.completedAt = Date.now();
+    else item.completedAt = null;
+  }
+
+  function updateItemText(item, text) {
+    item.text = String(text || '').trim();
+  }
+
+  function updateItemTags(item, tagsRaw) {
+    item.tags = parseTags(tagsRaw);
+  }
+
+  function buildTaskStats() {
+    let active = 0;
+    let completed = 0;
+    const globalItems = loadGlobalItems();
+    for (const item of globalItems) {
+      if (item.done) completed += 1;
+      else active += 1;
+    }
+    const idx = loadIndex();
+    for (const entry of idx) {
+      if (!entry || !entry.key) continue;
+      const items = loadItemsByKey(entry.key);
+      for (const item of items) {
+        if (item.done) completed += 1;
+        else active += 1;
+      }
+    }
+    return { active, completed };
+  }
+
+  function collectTaskRows() {
+    const rows = [];
+    const addRow = (scopeType, scopeLabel, key, cnj, item) => {
+      rows.push({
+        scopeType,
+        scopeLabel,
+        key,
+        cnj,
+        id: item.id,
+        text: item.text,
+        done: !!item.done,
+        createdAt: item.createdAt,
+        completedAt: item.completedAt || null,
+        tags: Array.isArray(item.tags) ? item.tags : []
+      });
+    };
+
+    for (const item of loadGlobalItems()) addRow('global', 'Global', 'global', '', item);
+
+    for (const entry of loadIndex()) {
+      if (!entry || !entry.key || !entry.cnj) continue;
+      for (const item of loadItemsByKey(entry.key)) addRow('process', `Processo ${entry.cnj}`, entry.key, entry.cnj, item);
+    }
+
+    rows.sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+    return rows;
   }
 
   function el(tag, props = {}, children = []) {
@@ -469,17 +581,19 @@
         position: fixed;
         right: 12px;
         top: 12px;
-        width: 332px;
+        width: 390px;
         max-height: 84vh;
         background: #fff;
-        border: 1px solid rgba(0,0,0,.18);
-        border-radius: 8px;
-        box-shadow: 0 8px 24px rgba(0,0,0,.22);
+        border: 1px solid #dbe3ef;
+        border-radius: 14px;
+        box-shadow: 0 24px 70px rgba(2, 6, 23, .30);
         z-index: ${Z_UI};
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.35;
         overscroll-behavior: contain;
       }
       #pj-todo * { box-sizing: border-box; }
@@ -488,33 +602,34 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 6px;
-        padding: 8px;
-        background: #0b5ed7;
+        gap: 8px;
+        padding: 14px 16px;
+        background: linear-gradient(135deg, #0f3e75, #1f5ca4);
         color: #fff;
         cursor: move;
         user-select: none;
       }
       #pj-todo-title {
-        font-size: 12px;
-        font-weight: 800;
-        line-height: 1.1;
+        font-size: 16px;
+        font-weight: 700;
+        line-height: 1.2;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
         max-width: 235px;
       }
-      #pj-todo-actions { display: inline-flex; gap: 4px; }
+      #pj-todo-actions { display: inline-flex; gap: 6px; }
       .pj-todo-btn {
-        width: 22px;
-        height: 22px;
+        width: 28px;
+        height: 28px;
         border: none;
-        border-radius: 6px;
+        border-radius: 999px;
         background: rgba(255,255,255,.2);
         color: #fff;
         cursor: pointer;
         font-size: 14px;
-        font-weight: 800;
+        font-weight: 500;
+        line-height: 1.2;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -522,17 +637,18 @@
       .pj-todo-btn:hover { background: rgba(255,255,255,.3); }
 
       #pj-todo-body {
-        padding: 6px;
+        padding: 12px;
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 10px;
         overflow: hidden;
+        flex: 1;
         min-height: 0;
       }
 
       .pj-section {
-        border: 1px solid rgba(0,0,0,.11);
-        border-radius: 8px;
+        border: 1px solid #dbe3ef;
+        border-radius: 10px;
         overflow: hidden;
         display: flex;
         flex-direction: column;
@@ -540,45 +656,50 @@
       }
 
       .pj-sec-head {
-        padding: 5px 7px;
-        font-size: 11px;
-        font-weight: 800;
-        background: rgba(0,0,0,.05);
+        padding: 8px 10px;
+        font-size: 12px;
+        font-weight: 700;
+        background: #f8fafc;
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 8px;
       }
       .pj-sec-head small {
-        font-size: 10px;
-        color: rgba(0,0,0,.6);
-        font-weight: 700;
+        font-size: 11px;
+        color: #64748b;
+        font-weight: 500;
       }
 
       .pj-new {
         display: flex;
-        gap: 5px;
-        padding: 5px 6px;
-        border-top: 1px solid rgba(0,0,0,.08);
+        gap: 8px;
+        padding: 10px 12px;
+        border-top: 1px solid #dbe3ef;
         background: #fff;
       }
       .pj-input {
         flex: 1;
-        border: 1px solid rgba(0,0,0,.22);
-        border-radius: 7px;
-        padding: 5px 7px;
-        font-size: 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 6px 8px;
+        font-size: 14px;
         min-width: 0;
       }
+      .pj-tag-input {
+        flex: 0 0 100px;
+      }
       .pj-add {
-        border: none;
-        border-radius: 7px;
-        background: #198754;
+        border: 1px solid #0f3e75;
+        border-radius: 8px;
+        background: #0f3e75;
         color: #fff;
         cursor: pointer;
-        font-size: 12px;
-        font-weight: 800;
-        padding: 5px 8px;
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.2;
+        padding: 7px 11px;
+        min-width: 86px;
         white-space: nowrap;
       }
 
@@ -586,30 +707,102 @@
         overflow: auto;
         min-height: 0;
         max-height: 30vh;
-        padding: 2px 4px 4px;
+        padding: 8px;
         background: #fff;
         overscroll-behavior: contain;
       }
 
-      .pj-home-global .pj-list { max-height: 24vh; }
-      .pj-home-process {
+      .pj-home-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-height: 0;
         flex: 1;
-        min-height: 150px;
       }
-      .pj-home-process .pj-list {
+      .pj-home-tabs {
+        display: inline-flex;
+        gap: 8px;
+        padding: 4px;
+        border: 1px solid #dbe3ef;
+        border-radius: 10px;
+        background: #f8fafc;
+        width: fit-content;
+        margin: 0 auto;
+      }
+      .pj-home-tab {
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        background: #fff;
+        color: #334155;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 1.2;
+        padding: 7px 11px;
+        min-width: 122px;
+      }
+      .pj-home-tab.active {
+        border-color: #0f3e75;
+        background: #0f3e75;
+        color: #fff;
+        font-weight: 600;
+      }
+      .pj-home-stack {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+      }
+      .pj-home-panel {
+        display: none;
+        flex: 1;
+        min-height: 0;
+      }
+      .pj-home-panel.active {
+        display: flex;
+      }
+      .pj-home-panel .pj-section {
+        flex: 1;
+        min-height: 0;
+      }
+      .pj-home-panel .pj-list {
         flex: 1;
         min-height: 0;
         max-height: none;
+      }
+      .pj-home-panel .pj-new {
+        flex-wrap: wrap;
+      }
+      .pj-home-panel .pj-new .pj-input {
+        flex: 1 1 240px;
+      }
+      .pj-home-panel .pj-new .pj-tag-input {
+        flex: 1 1 180px;
+        max-width: none;
+      }
+      .pj-home-panel .pj-new .pj-add {
+        flex: 1 1 180px;
+        max-width: none;
+        min-height: 42px;
+      }
+      @media (max-width: 720px) {
+        .pj-home-panel .pj-new .pj-tag-input {
+          flex: 1 1 100%;
+        }
+        .pj-home-panel .pj-new .pj-add {
+          flex: 1 1 100%;
+        }
       }
 
       .pj-item {
         display: flex;
         align-items: flex-start;
-        gap: 5px;
-        padding: 2px 2px;
-        border-radius: 6px;
+        gap: 6px;
+        padding: 8px;
+        border-radius: 8px;
+        border: 1px solid #dbe3ef;
+        margin-bottom: 8px;
       }
-      .pj-item:hover { background: rgba(0,0,0,.03); }
+      .pj-item:hover { background: #f8fafc; }
 
       .pj-drag {
         cursor: grab;
@@ -627,22 +820,67 @@
         align-items: center;
       }
       .pj-mini input[type="checkbox"] {
-        width: 13px;
-        height: 13px;
+        width: 18px;
+        height: 18px;
         margin: 2px 0 0;
       }
 
       .pj-text {
         flex: 1;
-        font-size: 12px;
-        line-height: 1.15;
+        font-size: 14px;
+        line-height: 1.35;
         word-break: break-word;
         white-space: pre-wrap;
-        padding-top: 1px;
+        padding-top: 0;
       }
       .pj-text.done {
         text-decoration: line-through;
         color: rgba(0,0,0,.5);
+      }
+      .pj-item-main {
+        flex: 1;
+        min-width: 0;
+      }
+      .pj-meta {
+        margin-top: 4px;
+        font-size: 11px;
+        line-height: 1.35;
+        color: #64748b;
+      }
+      .pj-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 6px;
+      }
+      .pj-tag {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid #cbd5e1;
+        background: #f8fafc;
+        color: #334155;
+        border-radius: 999px;
+        padding: 2px 7px;
+        font-size: 11px;
+        line-height: 1.2;
+      }
+      .pj-edit-tags {
+        width: 18px;
+        height: 18px;
+        border: none;
+        border-radius: 5px;
+        background: transparent;
+        cursor: pointer;
+        color: #475569;
+        font-size: 12px;
+        line-height: 1;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .pj-edit-tags:hover {
+        background: #eef2f7;
       }
 
       .pj-del {
@@ -710,7 +948,7 @@
       #${ID_PROC_BTN} {
         position: relative !important;
         inset: auto !important;
-        margin: 0 10px 0 12px !important;
+        margin: 0 10px 0 14px !important;
         padding: 0 !important;
         border: 0 !important;
         background: transparent !important;
@@ -771,6 +1009,165 @@
         pointer-events: none;
         font-size: 16px;
       }
+
+      #${ID_MANAGER_OVERLAY} {
+        position: fixed;
+        inset: 0;
+        z-index: ${Z_UI + 20};
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+        background: rgba(11, 18, 32, .50);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+      }
+      #${ID_MANAGER_OVERLAY}, #${ID_MANAGER_OVERLAY} * { box-sizing: border-box; }
+      #${ID_MANAGER_OVERLAY} .pjm-panel {
+        width: 640px;
+        max-width: calc(100vw - 24px);
+        max-height: min(88vh, 860px);
+        background: #fff;
+        color: #0f172a;
+        border-radius: 14px;
+        border: 1px solid #dbe3ef;
+        box-shadow: 0 24px 70px rgba(2, 6, 23, .30);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.35;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-head {
+        padding: 14px 16px;
+        background: linear-gradient(135deg, #0f3e75, #1f5ca4);
+        color: #fff;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-head-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-title { font-size: 16px; font-weight: 700; line-height: 1.2; }
+      #${ID_MANAGER_OVERLAY} .pjm-sub { margin-top: 2px; font-size: 12px; opacity: .9; }
+      #${ID_MANAGER_OVERLAY} .pjm-close {
+        border: 0;
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, .2);
+        color: #fff;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 1.2;
+        min-width: 0;
+        padding: 0;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: auto;
+        padding: 16px;
+        background: #f8fafc;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-card {
+        border: 1px solid #dbe3ef;
+        border-radius: 10px;
+        background: #fff;
+        padding: 12px;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-card + .pjm-card { margin-top: 10px; }
+      #${ID_MANAGER_OVERLAY} .pjm-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+      #${ID_MANAGER_OVERLAY} .pjm-row + .pjm-row { margin-top: 10px; }
+      #${ID_MANAGER_OVERLAY} .pjm-row.pjm-filters > .pjm-select,
+      #${ID_MANAGER_OVERLAY} .pjm-row.pjm-filters > .pjm-input {
+        flex: 1 1 260px;
+        min-width: 0;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-input, #${ID_MANAGER_OVERLAY} .pjm-select {
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 6px 8px;
+        background: #fff;
+        color: #0f172a;
+        font-size: 14px;
+        line-height: 1.35;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-select { min-width: 170px; }
+      #${ID_MANAGER_OVERLAY} .pjm-btn {
+        padding: 7px 11px;
+        min-width: 86px;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        background: #fff;
+        color: #1e293b;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 1.2;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-btn.primary {
+        border-color: #0f3e75;
+        background: #0f3e75;
+        color: #fff;
+        font-weight: 600;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-list { margin-top: 10px; }
+      #${ID_MANAGER_OVERLAY} .pjm-item {
+        border: 1px solid #dbe3ef;
+        border-radius: 10px;
+        background: #fff;
+        padding: 10px 12px;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-item + .pjm-item { margin-top: 8px; }
+      #${ID_MANAGER_OVERLAY} .pjm-item-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-item-main {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(86px, 1fr));
+        gap: 8px;
+        align-items: center;
+        justify-items: stretch;
+        width: min(220px, 100%);
+        flex: 0 0 220px;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-actions .pjm-btn {
+        width: 100%;
+        min-width: 0;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-item-title { font-size: 14px; font-weight: 600; color: #0f172a; }
+      #${ID_MANAGER_OVERLAY} .pjm-item-meta { margin-top: 4px; font-size: 12px; color: #64748b; }
+      #${ID_MANAGER_OVERLAY} .pjm-foot {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 12px 16px;
+        border-top: 1px solid #dbe3ef;
+        background: #f8fafc;
+      }
+      @media (max-width: 640px) {
+        #${ID_MANAGER_OVERLAY} .pjm-body { padding: 12px; }
+        #${ID_MANAGER_OVERLAY} .pjm-foot { padding: 10px 12px; }
+        #${ID_MANAGER_OVERLAY} .pjm-actions {
+          grid-template-columns: 1fr;
+          width: 100%;
+          flex-basis: 100%;
+        }
+        #${ID_MANAGER_OVERLAY} .pjm-item-top {
+          flex-direction: column;
+        }
+      }
     `;
     document.head.appendChild(style);
   }
@@ -821,7 +1218,7 @@
     }
   }
 
-  function renderItemsList({ listEl, items, onToggle, onDelete, onEdit, onReorder }) {
+  function renderItemsList({ listEl, items, onToggle, onDelete, onEdit, onReorder, onEditTags }) {
     listEl.innerHTML = '';
 
     if (!items.length) {
@@ -836,12 +1233,21 @@
       const drag = el('div', { className: 'pj-drag', title: 'Arrastar para reordenar' }, ['⋮⋮']);
       const textEl = el('div', { className: 'pj-text', title: 'Duplo clique para editar' }, [item.text || '']);
       if (item.done) textEl.classList.add('done');
+      const metaEl = el('div', { className: 'pj-meta' }, [`Criada em: ${formatDateTime(item.createdAt)}`]);
+      const tagsWrap = el('div', { className: 'pj-tags' }, []);
+      for (const tag of item.tags || []) {
+        tagsWrap.appendChild(el('span', { className: 'pj-tag' }, [`#${tag}`]));
+      }
+      const itemMain = el('div', { className: 'pj-item-main' }, [textEl, metaEl]);
+      if ((item.tags || []).length) itemMain.appendChild(tagsWrap);
+      const tagsBtn = el('button', { className: 'pj-edit-tags', title: 'Editar tags' }, ['#']);
       const delBtn = el('button', { className: 'pj-del', title: 'Excluir' }, ['✕']);
 
       const row = el('div', { className: 'pj-item', draggable: true, 'data-id': item.id }, [
         drag,
         el('div', { className: 'pj-mini' }, [cb]),
-        textEl,
+        itemMain,
+        tagsBtn,
         delBtn
       ]);
 
@@ -851,6 +1257,12 @@
         const next = prompt('Editar tarefa:', item.text || '');
         if (next === null) return;
         onEdit(item.id, String(next).trim());
+      });
+      tagsBtn.addEventListener('click', () => {
+        if (typeof onEditTags !== 'function') return;
+        const next = prompt('Tags (separadas por vírgula):', (item.tags || []).join(', '));
+        if (next === null) return;
+        onEditTags(item.id, next);
       });
 
       row.addEventListener('dragstart', e => {
@@ -943,7 +1355,7 @@
     if (inlineBtn) inlineBtn.remove();
     ensureFontAwesome();
     const icon = el('i', { className: 'fa-solid fa-list-check', 'aria-hidden': 'true' });
-    const btn = el('button', { id: ID_MIN_BTN, title: 'Abrir To-do', 'aria-label': 'Abrir To-do' }, [icon]);
+    const btn = el('button', { id: ID_MIN_BTN, title: 'Abrir Tarefas', 'aria-label': 'Abrir Tarefas' }, [icon]);
     btn.addEventListener('click', () => {
       openLauncherSafely({
         removeLauncher: () => btn.remove(),
@@ -969,8 +1381,8 @@
     const btn = el('button', {
       id: ID_PROC_BTN,
       type: 'button',
-      title: 'To-do local deste processo',
-      'aria-label': 'To-do local deste processo'
+      title: 'Tarefas locais deste processo',
+      'aria-label': 'Tarefas locais deste processo'
     }, [el('i', { className: 'fa-solid fa-list-check fa-3x', 'aria-hidden': 'true' })]);
 
     btn.addEventListener('mousedown', e => {
@@ -995,16 +1407,17 @@
 
     if (anchorFloat && anchorFloat !== 'none') btn.style.setProperty('float', anchorFloat, 'important');
     const isPostitAnchor = anchor.id === 'pj-add-btn';
+    const alignAsPostitSlot = isPostitAnchor || !postitButton;
     btn.style.setProperty('margin-top', anchorCS.marginTop, 'important');
     btn.style.setProperty('margin-bottom', anchorCS.marginBottom, 'important');
     btn.style.setProperty(
       'margin-right',
-      `${isPostitAnchor ? PROC_BTN_GAP.postitRight : PROC_BTN_GAP.nativeRight}px`,
+      `${alignAsPostitSlot ? PROC_BTN_GAP.postitRight : PROC_BTN_GAP.nativeRight}px`,
       'important'
     );
     btn.style.setProperty(
       'margin-left',
-      `${isPostitAnchor ? PROC_BTN_GAP.postitLeft : PROC_BTN_GAP.nativeLeft}px`,
+      `${alignAsPostitSlot ? PROC_BTN_GAP.postitLeft : PROC_BTN_GAP.nativeLeft}px`,
       'important'
     );
 
@@ -1051,8 +1464,8 @@
     const btn = el('button', {
       id: ID_PROC_BTN,
       type: 'button',
-      title: 'To-do local deste processo',
-      'aria-label': 'To-do local deste processo'
+      title: 'Tarefas locais deste processo',
+      'aria-label': 'Tarefas locais deste processo'
     }, [el('i', { className: 'fa-solid fa-list-check fa-3x', 'aria-hidden': 'true' })]);
 
     btn.addEventListener('mousedown', e => {
@@ -1091,16 +1504,194 @@
     mountFloatingMinButton({ onOpen });
   }
 
-  function createHeaderActions({ onExport, onImport, onClose }) {
-    const exportBtn = el('button', { className: 'pj-todo-btn', title: 'Exportar JSON' }, ['↓']);
-    const importBtn = el('button', { className: 'pj-todo-btn', title: 'Importar JSON' }, ['↑']);
+  function createHeaderActions({ onClose }) {
     const closeBtn = el('button', { className: 'pj-todo-btn', title: 'Fechar' }, ['×']);
 
-    exportBtn.addEventListener('click', onExport);
-    importBtn.addEventListener('click', onImport);
     closeBtn.addEventListener('click', onClose);
 
-    return el('div', { id: 'pj-todo-actions' }, [exportBtn, importBtn, closeBtn]);
+    return el('div', { id: 'pj-todo-actions' }, [closeBtn]);
+  }
+
+  function openManagerPanel() {
+    const existing = document.getElementById(ID_MANAGER_OVERLAY);
+    if (existing) return;
+
+    const overlay = el('div', { id: ID_MANAGER_OVERLAY });
+    const panel = el('div', { className: 'pjm-panel', role: 'dialog', 'aria-modal': 'true' });
+    panel.innerHTML = `
+      <div class="pjm-head">
+        <div class="pjm-head-row">
+          <div>
+            <div class="pjm-title">Gestão de Tarefas</div>
+            <div class="pjm-sub">Ativas, concluídas e backup JSON</div>
+          </div>
+          <button type="button" class="pjm-close" data-pjm-action="close" title="Fechar">×</button>
+        </div>
+      </div>
+      <div class="pjm-body">
+        <div class="pjm-card">
+          <div class="pjm-row pjm-filters">
+            <select class="pjm-select" id="pjm-filter-state">
+              <option value="active">Ativas</option>
+              <option value="done">Concluídas</option>
+              <option value="all">Todas</option>
+            </select>
+            <input class="pjm-input" id="pjm-search" placeholder="Filtrar por texto, tag ou CNJ" />
+          </div>
+          <div class="pjm-row">
+            <button class="pjm-btn" id="pjm-export">Exportar JSON</button>
+            <button class="pjm-btn" id="pjm-import">Importar JSON</button>
+          </div>
+        </div>
+        <div class="pjm-card">
+          <div class="pjm-row">
+            <span id="pjm-stats" class="pjm-item-meta"></span>
+          </div>
+          <div id="pjm-list" class="pjm-list"></div>
+        </div>
+      </div>
+      <div class="pjm-foot">
+        <button class="pjm-btn" data-pjm-action="close">Fechar</button>
+      </div>
+    `;
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+
+    const listEl = panel.querySelector('#pjm-list');
+    const statsEl = panel.querySelector('#pjm-stats');
+    const stateFilterEl = panel.querySelector('#pjm-filter-state');
+    const searchEl = panel.querySelector('#pjm-search');
+
+    function persistRow(row) {
+      if (row.scopeType === 'global') {
+        const items = loadGlobalItems();
+        const idx = items.findIndex(x => x.id === row.id);
+        if (idx < 0) return;
+        items[idx] = normalizeTodoItem(row);
+        saveGlobalItems(items);
+        return;
+      }
+      const items = loadItemsByKey(row.key);
+      const idx = items.findIndex(x => x.id === row.id);
+      if (idx < 0) return;
+      items[idx] = normalizeTodoItem(row);
+      saveItemsByKey(row.key, items);
+      if (row.cnj) touchIndex({ key: row.key, cnj: row.cnj });
+    }
+
+    function removeRow(row) {
+      if (row.scopeType === 'global') {
+        saveGlobalItems(loadGlobalItems().filter(x => x.id !== row.id));
+        return;
+      }
+      saveItemsByKey(row.key, loadItemsByKey(row.key).filter(x => x.id !== row.id));
+      if (row.cnj) {
+        touchIndex({ key: row.key, cnj: row.cnj });
+        maybeRemoveFromIndexIfEmpty({ key: row.key, cnj: row.cnj });
+      }
+    }
+
+    function renderManagerRows() {
+      const allRows = collectTaskRows();
+      const filterState = stateFilterEl.value;
+      const q = String(searchEl.value || '').trim().toLowerCase();
+      const stats = buildTaskStats();
+      statsEl.textContent = `${stats.active} ativa(s) • ${stats.completed} concluída(s)`;
+
+      let rows = allRows;
+      if (filterState === 'active') rows = rows.filter(r => !r.done);
+      if (filterState === 'done') rows = rows.filter(r => r.done);
+      if (q) {
+        rows = rows.filter(r =>
+          r.text.toLowerCase().includes(q) ||
+          (r.cnj || '').toLowerCase().includes(q) ||
+          (r.tags || []).some(tag => tag.toLowerCase().includes(q))
+        );
+      }
+
+      listEl.innerHTML = '';
+      if (!rows.length) {
+        listEl.appendChild(el('div', { className: 'pj-empty' }, ['Sem tarefas para este filtro.']));
+        return;
+      }
+
+      for (const row of rows) {
+        const item = el('div', { className: 'pjm-item' });
+        const title = el('div', { className: 'pjm-item-title' }, [row.text]);
+        const meta = el('div', { className: 'pjm-item-meta' }, [
+          `${row.scopeLabel} • Criada: ${formatDateTime(row.createdAt)}${row.done ? ` • Concluída: ${formatDateTime(row.completedAt)}` : ''}`
+        ]);
+        const tags = el('div', { className: 'pj-tags' }, []);
+        for (const tag of row.tags || []) tags.appendChild(el('span', { className: 'pj-tag' }, [`#${tag}`]));
+
+        const left = el('div', { className: 'pjm-item-main' }, [title, meta]);
+        if ((row.tags || []).length) left.appendChild(tags);
+
+        const btnToggle = el('button', { className: 'pjm-btn' }, [row.done ? 'Reabrir' : 'Concluir']);
+        const btnEdit = el('button', { className: 'pjm-btn' }, ['Editar']);
+        const btnTags = el('button', { className: 'pjm-btn' }, ['Tags']);
+        const btnDelete = el('button', { className: 'pjm-btn' }, ['Excluir']);
+        const actions = el('div', { className: 'pjm-actions' }, [btnToggle, btnEdit, btnTags, btnDelete]);
+
+        btnToggle.addEventListener('click', () => {
+          row.done = !row.done;
+          toggleDoneState(row, row.done);
+          persistRow(row);
+          renderManagerRows();
+          scheduleEvaluate(50);
+        });
+        btnTags.addEventListener('click', () => {
+          const next = prompt('Tags (separadas por vírgula):', (row.tags || []).join(', '));
+          if (next === null) return;
+          updateItemTags(row, next);
+          persistRow(row);
+          renderManagerRows();
+          scheduleEvaluate(50);
+        });
+        btnEdit.addEventListener('click', () => {
+          const next = prompt('Editar tarefa:', row.text || '');
+          if (next === null) return;
+          updateItemText(row, next);
+          if (!row.text) return;
+          persistRow(row);
+          renderManagerRows();
+          scheduleEvaluate(50);
+        });
+        btnDelete.addEventListener('click', () => {
+          removeRow(row);
+          renderManagerRows();
+          scheduleEvaluate(50);
+        });
+
+        item.appendChild(el('div', { className: 'pjm-item-top' }, [left, actions]));
+        listEl.appendChild(item);
+      }
+    }
+
+    panel.querySelector('#pjm-export').addEventListener('click', exportTodoData);
+    panel.querySelector('#pjm-import').addEventListener('click', async () => {
+      await importTodoData();
+      renderManagerRows();
+    });
+    stateFilterEl.addEventListener('change', renderManagerRows);
+    searchEl.addEventListener('input', renderManagerRows);
+    panel.querySelectorAll('[data-pjm-action="close"]').forEach(btn => {
+      btn.addEventListener('click', () => overlay.remove());
+    });
+    overlay.addEventListener('click', e => {
+      if (e.target === overlay) overlay.remove();
+    });
+
+    renderManagerRows();
+  }
+
+  function registerMenuCommand() {
+    if (state.menuRegistered) return;
+    if (typeof GM_registerMenuCommand !== 'function') return;
+    try {
+      state.menuCommandId = GM_registerMenuCommand(MENU_LABEL, openManagerPanel);
+      state.menuRegistered = true;
+    } catch (_) {}
   }
 
   function mountProcess(ctx) {
@@ -1127,8 +1718,8 @@
     };
 
     const header = el('div', { id: 'pj-todo-header' }, [
-      el('div', { id: 'pj-todo-title', title: `To-do do processo ${ctx.cnj}` }, [`To-do • ${cnjLabel}`]),
-      createHeaderActions({ onExport: exportTodoData, onImport: importTodoData, onClose })
+      el('div', { id: 'pj-todo-title', title: `Tarefas do processo ${ctx.cnj}` }, [`Tarefas • ${cnjLabel}`]),
+      createHeaderActions({ onClose })
     ]);
 
     const section = el('div', { className: 'pj-section' }, []);
@@ -1136,9 +1727,10 @@
       el('div', {}, ['Tarefas do processo']),
       el('small', {}, ['Duplo clique edita'])
     ]);
-    const input = el('input', { className: 'pj-input', type: 'text', placeholder: 'Nova tarefa… (Enter)' });
+    const input = el('input', { className: 'pj-input', type: 'text', placeholder: 'Nova tarefa...' });
+    const tagsInput = el('input', { className: 'pj-input pj-tag-input', type: 'text', placeholder: 'tags' });
     const addBtn = el('button', { className: 'pj-add', type: 'button' }, ['Adicionar']);
-    const newRow = el('div', { className: 'pj-new' }, [input, addBtn]);
+    const newRow = el('div', { className: 'pj-new' }, [input, tagsInput, addBtn]);
     const list = el('div', { className: 'pj-list' }, []);
 
     section.appendChild(secHead);
@@ -1153,7 +1745,7 @@
     panel.style.top = `${ui.top}px`;
 
     function rerender() {
-      const items = loadItemsByKey(ctx.key);
+      const items = loadItemsByKey(ctx.key).filter(x => !x.done);
       renderItemsList({
         listEl: list,
         items,
@@ -1161,7 +1753,7 @@
           const it = loadItemsByKey(ctx.key);
           const x = it.find(a => a.id === id);
           if (!x) return;
-          x.done = !!done;
+          toggleDoneState(x, done);
           saveItemsByKey(ctx.key, it);
           touchIndex(ctx);
           rerender();
@@ -1177,7 +1769,16 @@
           const it = loadItemsByKey(ctx.key);
           const x = it.find(a => a.id === id);
           if (!x) return;
-          x.text = text;
+          updateItemText(x, text);
+          saveItemsByKey(ctx.key, it);
+          touchIndex(ctx);
+          rerender();
+        },
+        onEditTags: (id, tagsRaw) => {
+          const it = loadItemsByKey(ctx.key);
+          const x = it.find(a => a.id === id);
+          if (!x) return;
+          updateItemTags(x, tagsRaw);
           saveItemsByKey(ctx.key, it);
           touchIndex(ctx);
           rerender();
@@ -1200,16 +1801,26 @@
       const text = String(input.value || '').trim();
       if (!text) return;
       const it = loadItemsByKey(ctx.key);
-      it.unshift({ id: uid(), text, done: false, createdAt: Date.now() });
+      it.unshift(normalizeTodoItem({
+        id: uid(),
+        text,
+        done: false,
+        createdAt: Date.now(),
+        tags: parseTags(tagsInput.value)
+      }));
       saveItemsByKey(ctx.key, it);
       ensureIndexHas(ctx);
       touchIndex(ctx);
       input.value = '';
+      tagsInput.value = '';
       rerender();
     }
 
     addBtn.addEventListener('click', addItem);
     input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') addItem();
+    });
+    tagsInput.addEventListener('keydown', e => {
       if (e.key === 'Enter') addItem();
     });
 
@@ -1241,25 +1852,26 @@
     };
 
     const header = el('div', { id: 'pj-todo-header' }, [
-      el('div', { id: 'pj-todo-title', title: 'Visão geral de tarefas' }, ['To-do • Visão geral']),
-      createHeaderActions({ onExport: exportTodoData, onImport: importTodoData, onClose })
+      el('div', { id: 'pj-todo-title', title: 'Visão geral de tarefas' }, ['Tarefas • Visão geral']),
+      createHeaderActions({ onClose })
     ]);
 
-    const globalSection = el('div', { className: 'pj-section pj-home-global' }, []);
+    const globalSection = el('div', { className: 'pj-section' }, []);
     const globalHead = el('div', { className: 'pj-sec-head' }, [
       el('div', {}, ['Tarefas globais']),
       el('small', {}, ['Ex.: protocolar'])
     ]);
-    const globalInput = el('input', { className: 'pj-input', type: 'text', placeholder: 'Nova tarefa global… (Enter)' });
+    const globalInput = el('input', { className: 'pj-input', type: 'text', placeholder: 'Nova tarefa global...' });
+    const globalTagsInput = el('input', { className: 'pj-input pj-tag-input', type: 'text', placeholder: 'tags' });
     const globalAdd = el('button', { className: 'pj-add', type: 'button' }, ['Adicionar']);
-    const globalNew = el('div', { className: 'pj-new' }, [globalInput, globalAdd]);
+    const globalNew = el('div', { className: 'pj-new' }, [globalInput, globalTagsInput, globalAdd]);
     const globalList = el('div', { className: 'pj-list' }, []);
 
     globalSection.appendChild(globalHead);
     globalSection.appendChild(globalNew);
     globalSection.appendChild(globalList);
 
-    const procSection = el('div', { className: 'pj-section pj-home-process' }, []);
+    const procSection = el('div', { className: 'pj-section' }, []);
     const procHead = el('div', { className: 'pj-sec-head' }, [
       el('div', {}, ['Pendências por processo']),
       el('small', {}, ['Clique no CNJ para copiar'])
@@ -1268,7 +1880,15 @@
     procSection.appendChild(procHead);
     procSection.appendChild(procList);
 
-    const body = el('div', { id: 'pj-todo-body' }, [globalSection, procSection]);
+    const tabGlobal = el('button', { className: 'pj-home-tab active', type: 'button' }, ['Globais']);
+    const tabProcess = el('button', { className: 'pj-home-tab', type: 'button' }, ['Processos']);
+    const tabs = el('div', { className: 'pj-home-tabs' }, [tabGlobal, tabProcess]);
+    const globalPanel = el('div', { className: 'pj-home-panel active' }, [globalSection]);
+    const processPanel = el('div', { className: 'pj-home-panel' }, [procSection]);
+    const stack = el('div', { className: 'pj-home-stack' }, [globalPanel, processPanel]);
+    const homeLayout = el('div', { className: 'pj-home-layout' }, [tabs, stack]);
+
+    const body = el('div', { id: 'pj-todo-body' }, [homeLayout]);
     const panel = el('div', { id: 'pj-todo' }, [header, body]);
 
     const ui = getUI();
@@ -1276,7 +1896,7 @@
     panel.style.top = `${ui.top}px`;
 
     function renderGlobal() {
-      const items = loadGlobalItems();
+      const items = loadGlobalItems().filter(x => !x.done);
       renderItemsList({
         listEl: globalList,
         items,
@@ -1284,7 +1904,7 @@
           const it = loadGlobalItems();
           const x = it.find(a => a.id === id);
           if (!x) return;
-          x.done = !!done;
+          toggleDoneState(x, done);
           saveGlobalItems(it);
           renderGlobal();
         },
@@ -1296,7 +1916,15 @@
           const it = loadGlobalItems();
           const x = it.find(a => a.id === id);
           if (!x) return;
-          x.text = text;
+          updateItemText(x, text);
+          saveGlobalItems(it);
+          renderGlobal();
+        },
+        onEditTags: (id, tagsRaw) => {
+          const it = loadGlobalItems();
+          const x = it.find(a => a.id === id);
+          if (!x) return;
+          updateItemTags(x, tagsRaw);
           saveGlobalItems(it);
           renderGlobal();
         },
@@ -1400,9 +2028,16 @@
       const text = String(globalInput.value || '').trim();
       if (!text) return;
       const it = loadGlobalItems();
-      it.unshift({ id: uid(), text, done: false, createdAt: Date.now() });
+      it.unshift(normalizeTodoItem({
+        id: uid(),
+        text,
+        done: false,
+        createdAt: Date.now(),
+        tags: parseTags(globalTagsInput.value)
+      }));
       saveGlobalItems(it);
       globalInput.value = '';
+      globalTagsInput.value = '';
       renderGlobal();
     }
 
@@ -1410,6 +2045,20 @@
     globalInput.addEventListener('keydown', e => {
       if (e.key === 'Enter') addGlobal();
     });
+    globalTagsInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') addGlobal();
+    });
+
+    function setHomeTab(which) {
+      const isGlobal = which === 'global';
+      tabGlobal.classList.toggle('active', isGlobal);
+      tabProcess.classList.toggle('active', !isGlobal);
+      globalPanel.classList.toggle('active', isGlobal);
+      processPanel.classList.toggle('active', !isGlobal);
+    }
+
+    tabGlobal.addEventListener('click', () => setHomeTab('global'));
+    tabProcess.addEventListener('click', () => setHomeTab('process'));
 
     const cleanupDrag = enableDragWindow({ loadUI: getUI, saveUI: setUI, panel, handle: header });
     const cleanupScroll = bindPanelScrollLock(panel);
@@ -1421,6 +2070,7 @@
   }
 
   function evaluate() {
+    if (window.top === window.self) registerMenuCommand();
     ensureHeaderMenuEntry();
     injectStyles();
     ensureFontAwesome();
