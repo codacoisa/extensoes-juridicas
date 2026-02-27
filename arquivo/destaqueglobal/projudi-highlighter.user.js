@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque Global
 // @namespace    projudi-highlighter.user.js
-// @version      4.4
+// @version      4.5
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaque global, com painel configurável (Ctrl+Shift+H).
 // @author       lourencosv (GPT)
@@ -1344,8 +1344,30 @@
   }
 
 
-  function registerExtensionMenu() {
-    if (!IS_TOP || menuRegistered) return;
+  function supportsMenuCommand() {
+    if (!IS_TOP) return false;
+    if (typeof GM !== "undefined" && typeof GM.registerMenuCommand === "function") return true;
+    if (typeof GM_registerMenuCommand === "function") return true;
+    return false;
+  }
+
+  function unregisterExtensionMenu() {
+    if (!menuRegistered) return;
+    try {
+      if (typeof GM !== "undefined" && typeof GM.unregisterMenuCommand === "function" && menuCommandId != null) {
+        GM.unregisterMenuCommand(menuCommandId);
+      } else if (typeof GM_unregisterMenuCommand === "function" && menuCommandId != null) {
+        GM_unregisterMenuCommand(menuCommandId);
+      }
+    } catch {}
+    menuCommandId = null;
+    menuRegistered = false;
+  }
+
+  function registerExtensionMenu(force) {
+    if (!supportsMenuCommand()) return;
+    if (force) unregisterExtensionMenu();
+    if (menuRegistered) return;
 
     const fn = () => {
       try {
@@ -1358,29 +1380,11 @@
     if (typeof GM !== "undefined" && typeof GM.registerMenuCommand === "function") {
       menuCommandId = GM.registerMenuCommand(MENU_LABEL, fn);
       menuRegistered = true;
-      addCleanup(() => {
-        try {
-          if (typeof GM !== "undefined" && typeof GM.unregisterMenuCommand === "function" && menuCommandId != null) {
-            GM.unregisterMenuCommand(menuCommandId);
-          }
-        } catch {}
-        menuCommandId = null;
-        menuRegistered = false;
-      });
       return;
     }
     if (typeof GM_registerMenuCommand === "function") {
       menuCommandId = GM_registerMenuCommand(MENU_LABEL, fn);
       menuRegistered = true;
-      addCleanup(() => {
-        try {
-          if (typeof GM_unregisterMenuCommand === "function" && menuCommandId != null) {
-            GM_unregisterMenuCommand(menuCommandId);
-          }
-        } catch {}
-        menuCommandId = null;
-        menuRegistered = false;
-      });
     }
   }
 
@@ -1390,6 +1394,7 @@
     await applyHighlights();
     observeDom();
     registerExtensionMenu();
+    addCleanup(unregisterExtensionMenu);
 
     if (!historyPatched) {
       historyPatched = true;
@@ -1419,6 +1424,15 @@
     }
 
     on(window, "popstate", () => window.dispatchEvent(new Event(SPA_CHANGE_EVENT)));
+    on(window, "pageshow", () => {
+      registerExtensionMenu(true);
+    }, true);
+    on(window, "focus", () => {
+      registerExtensionMenu(true);
+    }, true);
+    on(document, "visibilitychange", () => {
+      if (!document.hidden) registerExtensionMenu(true);
+    });
     on(window, SPA_CHANGE_EVENT, () => {
       scheduleApplyHighlights();
     });
@@ -1431,6 +1445,7 @@
       closePanel();
       hideToolbar();
       hidePop();
+      unregisterExtensionMenu();
       if (historyPatched) {
         if (history.pushState === patchedPushState && originalPushState) history.pushState = originalPushState;
         if (history.replaceState === patchedReplaceState && originalReplaceState) history.replaceState = originalReplaceState;
