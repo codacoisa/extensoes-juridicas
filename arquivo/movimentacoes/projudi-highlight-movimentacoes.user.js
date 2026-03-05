@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque de Movimentações
 // @namespace    projudi-highlight-movimentacoes.user.js
-// @version      1.9
+// @version      2.0
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca as movimentações processuais em cores definidas.
 // @author       lourencosv (GPT)
@@ -76,7 +76,6 @@
 
   const STORAGE_KEY = 'projudi_highlight_movs_cfg_v26';
   const DOC_STYLE_ID = 'phm-doc-style-v26';
-  const MENU_LABEL = 'Movimentações: Abrir Painel';
   const PANEL_OVERLAY_ID = 'phm-overlay-root';
   let menuCommandId = null;
 
@@ -789,7 +788,7 @@
 
     if (menuCommandId !== null) return;
     try {
-      menuCommandId = GM_registerMenuCommand(MENU_LABEL, togglePanel);
+      menuCommandId = GM_registerMenuCommand('Movimentações: Abrir Painel', togglePanel);
     } catch {}
   }
 
