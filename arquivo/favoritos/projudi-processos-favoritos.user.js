@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Processos Favoritos
 // @namespace    projudi-processos-favoritos.user.js
-// @version      1.0
+// @version      1.1
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca processos favoritos, permite adicionar/remover no detalhe e gerenciar via painel.
 // @author       lourencosv (GPT)
@@ -22,7 +22,6 @@
   const STORAGE_KEY = 'lp_procs_favoritos_v2';
   const STYLE_ID = 'lp-style-favoritos';
   const BTN_ID = 'lp-toggle-proc-btn';
-  const MENU_LABEL = 'Favoritos: Abrir Painel';
   const PANEL_OVERLAY_ID = 'lp-fav-panel-overlay';
 
   let menuCommandId = null;
@@ -855,7 +854,7 @@
     if (menuRegistered) return;
 
     try {
-      const id = GM_registerMenuCommand(MENU_LABEL, openPanel);
+      const id = GM_registerMenuCommand('Favoritos: Abrir Painel', openPanel);
       menuCommandId = id == null ? null : id;
       menuRegistered = true;
     } catch {}
