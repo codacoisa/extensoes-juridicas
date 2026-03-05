@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque de Prazos
 // @namespace    projudi-highlight-hoje.user.js
-// @version      4.1
+// @version      4.2
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Realça possíveis vencimentos no projudi, com cores definidas.
 // @author       louencosv (GPT)
@@ -30,7 +30,6 @@
   const FILTER_RANGE_END_KEY = "projudi_highlight_filter_range_end_v1";
   const SETTINGS_SYNC_EVENT = "projudi:deadline-settings-changed";
   const RUNTIME_KEY = "__tm_hl7d_runtime_v1";
-  const MENU_LABEL = "Prazos: Abrir Painel";
 
   try {
     if (window[RUNTIME_KEY]?.cleanup) window[RUNTIME_KEY].cleanup();
@@ -1447,7 +1446,7 @@
     } catch {}
 
     try {
-      state.id = GM_registerMenuCommand(MENU_LABEL, openPanel);
+      state.id = GM_registerMenuCommand("Prazos: Abrir Painel", openPanel);
     } catch {}
   }
 
