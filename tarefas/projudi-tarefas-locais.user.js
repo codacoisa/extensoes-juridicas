@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas locais
 // @namespace    projudi-tarefas-locais.user.js
-// @version      1.8
+// @version      1.9
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -28,7 +28,6 @@
   const KEY_GLOBAL_UI = `${KEY_PREFIX}global::ui`;
   const DEFAULT_UI = { minimized: true, right: 12, top: 12 };
   const EXPORT_SCHEMA = 'projudi-tarefas-export-v1';
-  const MENU_LABEL = 'Tarefas: Abrir Gestão';
   const FA_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css';
   const FAB_UI = {
     right: 16,
@@ -1422,7 +1421,6 @@
     );
 
     if (reverseVisualOrder) {
-      // float:right / row-reverse invert visual order; insert before to render visually after (last item).
       anchor.insertAdjacentElement('beforebegin', btn);
     } else {
       anchor.insertAdjacentElement('afterend', btn);
@@ -1497,7 +1495,6 @@
   function syncProcessLauncher(ctx) {
     const onOpen = () => openProcessPanel(ctx);
     if (document.getElementById('pj-todo')) return;
-    // Prefer a stable native anchor. Do not re-anchor from header to Post-it later if already mounted.
     if (document.getElementById(ID_PROC_BTN)) return;
     if (mountProcessInlineButton({ onOpen })) return;
     if (mountProcessHeaderButton({ onOpen })) return;
@@ -1686,10 +1683,16 @@
   }
 
   function registerMenuCommand() {
-    if (state.menuRegistered) return;
     if (typeof GM_registerMenuCommand !== 'function') return;
+    if (state.menuRegistered && state.menuCommandId !== null && typeof GM_unregisterMenuCommand === 'function') {
+      try {
+        GM_unregisterMenuCommand(state.menuCommandId);
+      } catch (_) {}
+      state.menuCommandId = null;
+      state.menuRegistered = false;
+    }
     try {
-      state.menuCommandId = GM_registerMenuCommand(MENU_LABEL, openManagerPanel);
+      state.menuCommandId = GM_registerMenuCommand('Tarefas: Abrir Gestão', openManagerPanel);
       state.menuRegistered = true;
     } catch (_) {}
   }
