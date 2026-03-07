@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque de Movimentações
 // @namespace    projudi-highlight-movimentacoes.user.js
-// @version      2.0
+// @version      2.1
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca as movimentações processuais em cores definidas.
 // @author       lourencosv (GPT)
@@ -41,6 +41,14 @@
     'Juntada Documento Histórico Processo Físico': 'Histórico Proc. Físico'
   };
 
+  const USER_DEFAULT_RED_TYPES = new Set([
+    'Despacho',
+    'Decisão',
+    'Julgamento',
+    'Despacho Autos ao Contador',
+    'Relatório'
+  ]);
+
   const DEFAULTS = {
     enabled: true,
     padding: '6px 8px',
@@ -56,8 +64,12 @@
       'Relatório': '#eedbdb',
       'Juntada Documento Histórico Processo Físico': '#d1effc'
     },
-    textColors: TYPES_ORDER.reduce((acc, k) => {
+    textColorsMov: TYPES_ORDER.reduce((acc, k) => {
       acc[k] = '#111827';
+      return acc;
+    }, {}),
+    textColorsUser: TYPES_ORDER.reduce((acc, k) => {
+      acc[k] = USER_DEFAULT_RED_TYPES.has(k) ? '#dc2626' : '#111827';
       return acc;
     }, {}),
     enabledTypes: TYPES_ORDER.reduce((acc, k) => {
@@ -68,15 +80,39 @@
       acc[k] = false;
       return acc;
     }, {}),
-    boldTypes: TYPES_ORDER.reduce((acc, k) => {
+    boldTypesMov: TYPES_ORDER.reduce((acc, k) => {
       acc[k] = true;
       return acc;
-    }, {})
+    }, {}),
+    italicTypesMov: TYPES_ORDER.reduce((acc, k) => {
+      acc[k] = false;
+      return acc;
+    }, {}),
+    boldTypesUser: TYPES_ORDER.reduce((acc, k) => {
+      acc[k] = USER_DEFAULT_RED_TYPES.has(k);
+      return acc;
+    }, {}),
+    italicTypesUser: TYPES_ORDER.reduce((acc, k) => {
+      acc[k] = false;
+      return acc;
+    }, {}),
+    targets: {
+      mov: TYPES_ORDER.reduce((acc, k) => {
+        acc[k] = true;
+        return acc;
+      }, {}),
+      user: TYPES_ORDER.reduce((acc, k) => {
+        acc[k] = USER_DEFAULT_RED_TYPES.has(k);
+        return acc;
+      }, {})
+    },
+    movTextMode: 'first-line'
   };
 
-  const STORAGE_KEY = 'projudi_highlight_movs_cfg_v26';
-  const DOC_STYLE_ID = 'phm-doc-style-v26';
+  const STORAGE_KEY = 'projudi_highlight_movs_cfg_v28';
+  const DOC_STYLE_ID = 'phm-doc-style-v28';
   const PANEL_OVERLAY_ID = 'phm-overlay-root';
+  const MOV_TABLE_ROWS_SELECTOR = '#TabelaArquivos tbody tr, #tabListaProcesso tr';
   let menuCommandId = null;
 
   function lockBodyScroll(doc = document) {
@@ -114,7 +150,44 @@
   function readCfg() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? deepMerge(deepClone(DEFAULTS), JSON.parse(raw)) : deepClone(DEFAULTS);
+      if (!raw) return deepClone(DEFAULTS);
+      const parsed = JSON.parse(raw);
+      const cfg = deepMerge(deepClone(DEFAULTS), parsed);
+
+      if (parsed && parsed.textColors && typeof parsed.textColors === 'object') {
+        Object.keys(parsed.textColors).forEach((k) => {
+          const val = parsed.textColors[k];
+          cfg.textColorsMov[k] = val;
+          if (!parsed.textColorsUser) cfg.textColorsUser[k] = val;
+        });
+      }
+
+      if (parsed && parsed.boldTypes && typeof parsed.boldTypes === 'object') {
+        Object.keys(parsed.boldTypes).forEach((k) => {
+          const val = !!parsed.boldTypes[k];
+          cfg.boldTypesMov[k] = val;
+          if (!parsed.boldTypesUser) cfg.boldTypesUser[k] = val;
+        });
+      }
+
+      if (parsed && parsed.italicTypes && typeof parsed.italicTypes === 'object') {
+        Object.keys(parsed.italicTypes).forEach((k) => {
+          const val = !!parsed.italicTypes[k];
+          cfg.italicTypesMov[k] = val;
+          if (!parsed.italicTypesUser) cfg.italicTypesUser[k] = val;
+        });
+      }
+
+      if (!cfg.targets || typeof cfg.targets !== 'object') cfg.targets = { mov: {}, user: {} };
+      if (!cfg.targets.mov) cfg.targets.mov = {};
+      if (!cfg.targets.user) cfg.targets.user = {};
+      delete cfg.targets.row;
+
+      if (cfg.movTextMode !== 'first-line' && cfg.movTextMode !== 'full') {
+        cfg.movTextMode = 'first-line';
+      }
+
+      return cfg;
     } catch {
       return deepClone(DEFAULTS);
     }
@@ -251,44 +324,106 @@
       flex: 1 1 auto;
       min-height: 0;
       overflow: auto;
-      padding: 16px;
-      background: #f8fafc;
+      padding: 14px;
+      background: linear-gradient(180deg, #f8fbff 0%, #f2f6fc 100%);
     }
 
-    #${PANEL_OVERLAY_ID} .phm-grid-head,
-    #${PANEL_OVERLAY_ID} .phm-row {
-      display: grid;
-      grid-template-columns: minmax(240px, 1.4fr) 78px 78px 116px 104px 104px;
-      align-items: center;
-      gap: 10px;
+    #${PANEL_OVERLAY_ID} .phm-global {
+      border: 1px solid #d5dfec;
+      border-radius: 14px;
+      background: #ffffff;
+      padding: 12px 14px;
+      margin-top: 12px;
     }
 
-    #${PANEL_OVERLAY_ID} .phm-grid-head {
-      padding: 9px 12px;
-      margin-bottom: 8px;
-      border: 1px solid #d3dce8;
-      border-radius: 10px;
-      background: #e2e8f0;
-      color: #334155;
-      font-size: 11px;
+    #${PANEL_OVERLAY_ID} .phm-global-title {
+      margin: 0 0 8px;
+      color: #0b2545;
+      font-size: 12px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: .35px;
+      text-align: center;
     }
 
-    #${PANEL_OVERLAY_ID} .phm-row {
-      padding: 10px 12px;
-      margin-bottom: 10px;
-      border: 1px solid #dbe3ef;
-      border-radius: 12px;
+    #${PANEL_OVERLAY_ID} .phm-global-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    #${PANEL_OVERLAY_ID} .phm-global-options label {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 10px;
+      border: 1px solid #d6e0ec;
+      border-radius: 999px;
+      background: #f8fbff;
+      color: #243b55;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #${PANEL_OVERLAY_ID} .phm-global-options input[type='radio'] {
+      margin: 0;
+      accent-color: #0f3e75;
+    }
+
+    #${PANEL_OVERLAY_ID} .phm-accordion {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    #${PANEL_OVERLAY_ID} .phm-rule {
+      border: 1px solid #cfdae9;
+      border-radius: 14px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+
+    #${PANEL_OVERLAY_ID} .phm-rule.is-disabled {
+      opacity: .62;
+    }
+
+    #${PANEL_OVERLAY_ID} .phm-rule-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 11px 13px;
+      background: linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%);
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+    }
+
+    #${PANEL_OVERLAY_ID} .phm-rule-head::-webkit-details-marker {
+      display: none;
+    }
+
+    #${PANEL_OVERLAY_ID} .phm-rule:not([open]) .phm-rule-head {
+      border-bottom: 0;
+    }
+
+    #${PANEL_OVERLAY_ID} .phm-rule[open] .phm-rule-head {
+      border-bottom: 1px solid #e5edf8;
+    }
+
+    #${PANEL_OVERLAY_ID} .phm-rule-content {
+      padding: 12px 13px;
       background: #ffffff;
     }
 
     #${PANEL_OVERLAY_ID} .phm-type {
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      gap: 10px;
+      gap: 9px;
       min-width: 0;
+      cursor: pointer;
     }
 
     #${PANEL_OVERLAY_ID} .phm-type input[type='checkbox'] {
@@ -300,19 +435,60 @@
 
     #${PANEL_OVERLAY_ID} .phm-type span {
       overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
+      white-space: normal;
       font-weight: 600;
       color: #1e293b;
-      font-size: 14px;
+      font-size: 15px;
       line-height: 1.2;
+    }
+
+    #${PANEL_OVERLAY_ID} .phm-rule-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(180px, 1fr));
+      gap: 10px;
+      align-items: start;
+    }
+
+    #${PANEL_OVERLAY_ID} .phm-field {
+      min-width: 0;
+      border: 1px solid #dbe6f3;
+      border-radius: 12px;
+      background: #f8fbff;
+      padding: 9px 10px;
+    }
+
+    #${PANEL_OVERLAY_ID} .phm-field-title {
+      margin: 0 0 6px;
+      color: #51667f;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .35px;
+      text-align: center;
+    }
+
+    #${PANEL_OVERLAY_ID} .phm-field-body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
     }
 
     #${PANEL_OVERLAY_ID} .phm-center {
       display: flex;
-      justify-content: center;
       align-items: center;
-      min-width: 0;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    #${PANEL_OVERLAY_ID} .phm-options-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      width: 100%;
     }
 
     #${PANEL_OVERLAY_ID} .phm-center input[type='color'] {
@@ -328,17 +504,17 @@
     #${PANEL_OVERLAY_ID} .phm-center label {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      color: #334155;
-      font-size: 14px;
+      gap: 6px;
+      color: #334b66;
+      font-size: 12px;
       font-weight: 600;
       white-space: nowrap;
       cursor: pointer;
     }
 
     #${PANEL_OVERLAY_ID} .phm-center label input[type='checkbox'] {
-      width: 18px;
-      height: 18px;
+      width: 16px;
+      height: 16px;
       margin: 0;
       cursor: pointer;
     }
@@ -347,11 +523,11 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 92px;
-      height: 34px;
-      border: 1px solid #cbd5e1;
+      min-width: 88px;
+      height: 32px;
+      border: 1px solid #ccd7e5;
       border-radius: 999px;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 700;
       color: #111827;
       padding: 0 10px;
@@ -369,7 +545,7 @@
 
     #${PANEL_OVERLAY_ID} .phm-btn {
       min-width: 86px;
-      padding: 7px 11px;
+      padding: 8px 12px;
       border-radius: 8px;
       cursor: pointer;
       font-size: 14px;
@@ -404,21 +580,27 @@
         padding: 10px 12px;
       }
 
-      #${PANEL_OVERLAY_ID} .phm-grid-head {
-        display: none;
+      #${PANEL_OVERLAY_ID} .phm-rule-head {
+        padding: 10px 11px;
       }
 
-      #${PANEL_OVERLAY_ID} .phm-row {
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
+      #${PANEL_OVERLAY_ID} .phm-rule-content {
+        padding: 10px 11px;
       }
 
-      #${PANEL_OVERLAY_ID} .phm-type {
-        grid-column: 1 / -1;
+      #${PANEL_OVERLAY_ID} .phm-rule-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 700px) {
+      #${PANEL_OVERLAY_ID} .phm-rule-head {
+        flex-direction: column;
+        align-items: flex-start;
       }
 
-      #${PANEL_OVERLAY_ID} .phm-center {
-        justify-content: flex-start;
+      #${PANEL_OVERLAY_ID} .phm-rule-grid {
+        grid-template-columns: 1fr;
       }
     }
   `);
@@ -429,7 +611,10 @@
       if (doc.getElementById(DOC_STYLE_ID)) return;
       const style = doc.createElement('style');
       style.id = DOC_STYLE_ID;
-      style.textContent = `.phm-bold-fragment, .phm-bold-fragment * { font-weight: 700 !important; }`;
+      style.textContent = `
+        .phm-bold-fragment, .phm-bold-fragment * { font-weight: 700 !important; }
+        .phm-italic-fragment, .phm-italic-fragment * { font-style: italic !important; }
+      `;
       doc.head.appendChild(style);
     } catch {}
   }
@@ -459,7 +644,7 @@
   }
 
   function removeFirstLineWrapper(td) {
-    const wrappers = td.querySelectorAll('span.phm-bold-fragment[data-phm-firstline="1"]');
+    const wrappers = td.querySelectorAll('span.phm-format-fragment[data-phm-firstline="1"]');
     wrappers.forEach((wrap) => {
       const parent = wrap.parentNode;
       if (!parent) return;
@@ -468,9 +653,13 @@
     });
   }
 
-  function applyBoldFirstLogicalLine(td, enabled) {
+  function applyFirstLogicalLineFormat(td, kind) {
     removeFirstLineWrapper(td);
-    if (!enabled) return;
+    if (!kind) return;
+
+    const bold = !!CFG.boldTypesMov[kind];
+    const italic = !!CFG.italicTypesMov[kind];
+    if (!bold && !italic) return;
 
     const nodes = Array.from(td.childNodes);
     if (!nodes.length) return;
@@ -528,7 +717,9 @@
     if (!selected.length || !hasContent) return;
 
     const wrap = td.ownerDocument.createElement('span');
-    wrap.className = 'phm-bold-fragment';
+    wrap.className = 'phm-format-fragment';
+    if (bold) wrap.classList.add('phm-bold-fragment');
+    if (italic) wrap.classList.add('phm-italic-fragment');
     wrap.setAttribute('data-phm-firstline', '1');
 
     td.insertBefore(wrap, selected[0]);
@@ -537,11 +728,31 @@
     });
   }
 
-  function clearStyles(tr, td) {
+  function clearStyles(tr, movTd, userTd) {
     tr.style.background = '';
-    td.style.padding = '';
-    td.style.color = '';
-    removeFirstLineWrapper(td);
+    tr.removeAttribute('data-phm-styled');
+
+    const cells = tr.children ? Array.from(tr.children) : [];
+    cells.forEach((cell) => {
+      cell.style.color = '';
+      cell.style.fontWeight = '';
+      cell.style.fontStyle = '';
+    });
+
+    if (movTd) {
+      movTd.style.padding = '';
+      removeFirstLineWrapper(movTd);
+    }
+
+    if (userTd) {
+      userTd.style.color = '';
+      userTd.style.fontWeight = '';
+      userTd.style.fontStyle = '';
+    }
+  }
+
+  function isTargetEnabled(kind, target) {
+    return !!(CFG.targets && CFG.targets[target] && CFG.targets[target][kind]);
   }
 
   function styleRow(tr, kind) {
@@ -551,11 +762,44 @@
   }
 
   function styleCell(td, kind) {
-    const fg = CFG.textColors[kind] || '#111827';
-    const bold = !!CFG.boldTypes[kind];
+    if (!isTargetEnabled(kind, 'mov')) return;
+    const fg = CFG.textColorsMov[kind] || '#111827';
+    const bold = !!CFG.boldTypesMov[kind];
+    const italic = !!CFG.italicTypesMov[kind];
+    const useFirstLineMode = CFG.movTextMode !== 'full';
+
     td.style.color = fg;
     td.style.padding = CFG.padding;
-    applyBoldFirstLogicalLine(td, bold);
+
+    if (useFirstLineMode) {
+      td.style.fontWeight = '';
+      td.style.fontStyle = '';
+      applyFirstLogicalLineFormat(td, kind);
+    } else {
+      removeFirstLineWrapper(td);
+      td.style.fontWeight = bold ? '700' : '400';
+      td.style.fontStyle = italic ? 'italic' : 'normal';
+    }
+  }
+
+  function styleUserCell(td, kind) {
+    if (!td || !isTargetEnabled(kind, 'user')) return;
+    const fg = CFG.textColorsUser[kind] || '#111827';
+    const bold = !!CFG.boldTypesUser[kind];
+    const italic = !!CFG.italicTypesUser[kind];
+    td.style.color = fg;
+    td.style.fontWeight = bold ? '700' : '400';
+    td.style.fontStyle = italic ? 'italic' : 'normal';
+  }
+
+  function getMovCell(tr) {
+    return tr.querySelector('td.filtro_coluna_movimentacao');
+  }
+
+  function getUserCell(tr) {
+    const cells = tr.children;
+    if (!cells || cells.length < 4) return null;
+    return cells[3];
   }
 
   function walkDocuments(callback) {
@@ -590,33 +834,38 @@
     if (!CFG.enabled) return;
     ensureDocStyle(doc);
 
-    const rows = doc.querySelectorAll('table tr, .tabelaLista tr, tr');
+    const rows = doc.querySelectorAll(MOV_TABLE_ROWS_SELECTOR);
 
     rows.forEach((tr) => {
-      const cells = tr.children;
-      if (!cells || cells.length < 2) return;
-      const td = cells[1];
-      const kind = matchKind(td.textContent || '');
+      const movTd = getMovCell(tr);
+      const userTd = getUserCell(tr);
+      if (!movTd) return;
+
+      const kind = matchKind(movTd.textContent || '');
 
       if (!kind) {
-        clearStyles(tr, td);
+        clearStyles(tr, movTd, userTd);
         return;
       }
 
       styleRow(tr, kind);
-      styleCell(td, kind);
+      styleCell(movTd, kind);
+      styleUserCell(userTd, kind);
+      tr.setAttribute('data-phm-styled', '1');
     });
   }
 
   function reapply() {
     walkDocuments((doc) => {
       ensureDocStyle(doc);
-      const rows = doc.querySelectorAll('table tr, .tabelaLista tr, tr');
+
+      const rows = doc.querySelectorAll('tr[data-phm-styled="1"]');
       rows.forEach((tr) => {
-        const cells = tr.children;
-        if (!cells || cells.length < 2) return;
-        clearStyles(tr, cells[1]);
+        const movTd = getMovCell(tr);
+        const userTd = getUserCell(tr);
+        clearStyles(tr, movTd, userTd);
       });
+
       processDoc(doc);
     });
   }
@@ -625,22 +874,68 @@
     const items = TYPES_ORDER.map((key) => {
       const label = DISPLAY_NAMES[key] || key;
       const bg = toHexColor(CFG.colors[key] || '#eef2ff');
-      const fg = toHexColor(CFG.textColors[key] || '#111827');
+      const fgMov = toHexColor(CFG.textColorsMov[key] || '#111827');
+      const fgUser = toHexColor(CFG.textColorsUser[key] || '#111827');
       const enabled = CFG.enabledTypes[key] !== false ? 'checked' : '';
       const noBg = CFG.noBackgroundTypes[key] ? 'checked' : '';
-      const bold = CFG.boldTypes[key] ? 'checked' : '';
+      const boldMov = CFG.boldTypesMov[key] ? 'checked' : '';
+      const italicMov = CFG.italicTypesMov[key] ? 'checked' : '';
+      const boldUser = CFG.boldTypesUser[key] ? 'checked' : '';
+      const italicUser = CFG.italicTypesUser[key] ? 'checked' : '';
+      const targetMov = (CFG.targets && CFG.targets.mov && CFG.targets.mov[key]) ? 'checked' : '';
+      const targetUser = (CFG.targets && CFG.targets.user && CFG.targets.user[key]) ? 'checked' : '';
+      const open = key === TYPES_ORDER[0] ? 'open' : '';
       return `
-        <div class="phm-row">
-          <div class="phm-type">
-            <input type="checkbox" data-phm-enabled="${key}" ${enabled}>
-            <span>${label}</span>
+        <details class="phm-rule" data-phm-rule="${key}" ${open}>
+          <summary class="phm-rule-head">
+            <label class="phm-type">
+              <input type="checkbox" data-phm-enabled="${key}" ${enabled}>
+              <span>${label}</span>
+            </label>
+            <span class="phm-chip" data-phm-chip="${key}">Prévia</span>
+          </summary>
+          <div class="phm-rule-content">
+            <div class="phm-rule-grid">
+            <div class="phm-field">
+              <p class="phm-field-title">Cor de fundo</p>
+              <div class="phm-field-body">
+                <div class="phm-center">
+                  <input type="color" value="${bg}" data-phm-color-bg="${key}" title="Cor de fundo">
+                </div>
+                <div class="phm-options-row">
+                  <label><input type="checkbox" data-phm-nobg="${key}" ${noBg}> Sem fundo</label>
+                </div>
+              </div>
+            </div>
+            <div class="phm-field">
+              <p class="phm-field-title">Texto Mov.</p>
+              <div class="phm-field-body">
+                <div class="phm-center">
+                  <input type="color" value="${fgMov}" data-phm-color-fg-mov="${key}" title="Cor do texto da coluna Movimentação">
+                </div>
+                <div class="phm-options-row">
+                  <label><input type="checkbox" data-phm-target-mov="${key}" ${targetMov}> Aplicar</label>
+                  <label><input type="checkbox" data-phm-bold-mov="${key}" ${boldMov}> Negrito</label>
+                  <label><input type="checkbox" data-phm-italic-mov="${key}" ${italicMov}> Itálico</label>
+                </div>
+              </div>
+            </div>
+            <div class="phm-field">
+              <p class="phm-field-title">Texto Usuário</p>
+              <div class="phm-field-body">
+                <div class="phm-center">
+                  <input type="color" value="${fgUser}" data-phm-color-fg-user="${key}" title="Cor do texto da coluna Usuário">
+                </div>
+                <div class="phm-options-row">
+                  <label><input type="checkbox" data-phm-target-user="${key}" ${targetUser}> Aplicar</label>
+                  <label><input type="checkbox" data-phm-bold-user="${key}" ${boldUser}> Negrito</label>
+                  <label><input type="checkbox" data-phm-italic-user="${key}" ${italicUser}> Itálico</label>
+                </div>
+              </div>
+            </div>
+            </div>
           </div>
-          <div class="phm-center"><input type="color" value="${bg}" data-phm-color-bg="${key}" title="Cor de fundo"></div>
-          <div class="phm-center"><input type="color" value="${fg}" data-phm-color-fg="${key}" title="Cor do texto"></div>
-          <div class="phm-center"><label><input type="checkbox" data-phm-nobg="${key}" ${noBg}> Sem fundo</label></div>
-          <div class="phm-center"><label><input type="checkbox" data-phm-bold="${key}" ${bold}> Negrito</label></div>
-          <div class="phm-center"><span class="phm-chip" data-phm-chip="${key}">Prévia</span></div>
-        </div>
+        </details>
       `;
     }).join('');
 
@@ -649,21 +944,20 @@
         <div class="phm-head-bar">
           <div class="phm-title-wrap">
             <h3 class="phm-title">Ajuste de Movimentações</h3>
-            <p class="phm-subtitle">Configurações visuais do Projudi</p>
+            <p class="phm-subtitle">Configuração por coluna: Movimentação e Usuário</p>
           </div>
           <button class="phm-close" data-phm-action="close" title="Fechar">×</button>
         </div>
       </div>
       <div class="phm-body">
-        <div class="phm-grid-head">
-          <div>Tipo</div>
-          <div>Fundo</div>
-          <div>Texto</div>
-          <div>Opção</div>
-          <div>Peso</div>
-          <div>Prévia</div>
+        <div class="phm-accordion">${items}</div>
+        <div class="phm-global">
+          <p class="phm-global-title">Texto da coluna Movimentação</p>
+          <div class="phm-global-options">
+            <label><input type="radio" name="phm-mov-text-mode" value="first-line" ${CFG.movTextMode !== 'full' ? 'checked' : ''}> Negrito/itálico só na primeira linha</label>
+            <label><input type="radio" name="phm-mov-text-mode" value="full" ${CFG.movTextMode === 'full' ? 'checked' : ''}> Negrito/itálico no texto completo</label>
+          </div>
         </div>
-        ${items}
       </div>
       <div class="phm-foot">
         <button class="phm-btn" data-phm-action="reset">Padrão</button>
@@ -675,16 +969,27 @@
 
   function refreshPanelPreviews(root) {
     TYPES_ORDER.forEach((key) => {
+      const row = root.querySelector(`[data-phm-rule="${CSS.escape(key)}"]`);
       const chip = root.querySelector(`[data-phm-chip="${CSS.escape(key)}"]`);
+      const enabledInput = root.querySelector(`[data-phm-enabled="${CSS.escape(key)}"]`);
       const bgInput = root.querySelector(`[data-phm-color-bg="${CSS.escape(key)}"]`);
-      const fgInput = root.querySelector(`[data-phm-color-fg="${CSS.escape(key)}"]`);
+      const fgMovInput = root.querySelector(`[data-phm-color-fg-mov="${CSS.escape(key)}"]`);
+      const fgUserInput = root.querySelector(`[data-phm-color-fg-user="${CSS.escape(key)}"]`);
       const noBgInput = root.querySelector(`[data-phm-nobg="${CSS.escape(key)}"]`);
-      const boldInput = root.querySelector(`[data-phm-bold="${CSS.escape(key)}"]`);
-      if (!chip || !bgInput || !fgInput || !noBgInput || !boldInput) return;
+      const boldMovInput = root.querySelector(`[data-phm-bold-mov="${CSS.escape(key)}"]`);
+      const italicMovInput = root.querySelector(`[data-phm-italic-mov="${CSS.escape(key)}"]`);
+      const boldUserInput = root.querySelector(`[data-phm-bold-user="${CSS.escape(key)}"]`);
+      const italicUserInput = root.querySelector(`[data-phm-italic-user="${CSS.escape(key)}"]`);
+      const targetMovInput = root.querySelector(`[data-phm-target-mov="${CSS.escape(key)}"]`);
+      const targetUserInput = root.querySelector(`[data-phm-target-user="${CSS.escape(key)}"]`);
+      if (!row || !chip || !enabledInput || !bgInput || !fgMovInput || !fgUserInput || !noBgInput || !boldMovInput || !italicMovInput || !boldUserInput || !italicUserInput || !targetMovInput || !targetUserInput) return;
 
       chip.style.background = noBgInput.checked ? 'transparent' : bgInput.value;
-      chip.style.color = fgInput.value;
-      chip.style.fontWeight = boldInput.checked ? '700' : '600';
+      chip.style.color = targetUserInput.checked && !targetMovInput.checked ? fgUserInput.value : fgMovInput.value;
+      chip.style.fontWeight = (boldMovInput.checked || boldUserInput.checked) ? '700' : '600';
+      chip.style.fontStyle = (italicMovInput.checked || italicUserInput.checked) ? 'italic' : 'normal';
+      chip.style.opacity = (targetMovInput.checked || targetUserInput.checked) ? '1' : '.55';
+      row.classList.toggle('is-disabled', !enabledInput.checked);
     });
   }
 
@@ -711,7 +1016,7 @@
     overlay.addEventListener('input', (ev) => {
       const t = ev.target;
       if (
-        t.matches('[data-phm-color-bg], [data-phm-color-fg], [data-phm-nobg], [data-phm-bold]')
+        t.matches('[data-phm-enabled], [data-phm-color-bg], [data-phm-color-fg-mov], [data-phm-color-fg-user], [data-phm-nobg], [data-phm-bold-mov], [data-phm-italic-mov], [data-phm-bold-user], [data-phm-italic-user], [data-phm-target-mov], [data-phm-target-user], input[name="phm-mov-text-mode"]')
       ) {
         refreshPanelPreviews(overlay);
       }
@@ -750,17 +1055,44 @@
           CFG.colors[inp.getAttribute('data-phm-color-bg')] = inp.value;
         });
 
-        overlay.querySelectorAll('[data-phm-color-fg]').forEach((inp) => {
-          CFG.textColors[inp.getAttribute('data-phm-color-fg')] = inp.value;
+        overlay.querySelectorAll('[data-phm-color-fg-mov]').forEach((inp) => {
+          CFG.textColorsMov[inp.getAttribute('data-phm-color-fg-mov')] = inp.value;
+        });
+
+        overlay.querySelectorAll('[data-phm-color-fg-user]').forEach((inp) => {
+          CFG.textColorsUser[inp.getAttribute('data-phm-color-fg-user')] = inp.value;
         });
 
         overlay.querySelectorAll('[data-phm-nobg]').forEach((inp) => {
           CFG.noBackgroundTypes[inp.getAttribute('data-phm-nobg')] = inp.checked;
         });
 
-        overlay.querySelectorAll('[data-phm-bold]').forEach((inp) => {
-          CFG.boldTypes[inp.getAttribute('data-phm-bold')] = inp.checked;
+        overlay.querySelectorAll('[data-phm-bold-mov]').forEach((inp) => {
+          CFG.boldTypesMov[inp.getAttribute('data-phm-bold-mov')] = inp.checked;
         });
+
+        overlay.querySelectorAll('[data-phm-italic-mov]').forEach((inp) => {
+          CFG.italicTypesMov[inp.getAttribute('data-phm-italic-mov')] = inp.checked;
+        });
+
+        overlay.querySelectorAll('[data-phm-bold-user]').forEach((inp) => {
+          CFG.boldTypesUser[inp.getAttribute('data-phm-bold-user')] = inp.checked;
+        });
+
+        overlay.querySelectorAll('[data-phm-italic-user]').forEach((inp) => {
+          CFG.italicTypesUser[inp.getAttribute('data-phm-italic-user')] = inp.checked;
+        });
+
+        overlay.querySelectorAll('[data-phm-target-mov]').forEach((inp) => {
+          CFG.targets.mov[inp.getAttribute('data-phm-target-mov')] = inp.checked;
+        });
+
+        overlay.querySelectorAll('[data-phm-target-user]').forEach((inp) => {
+          CFG.targets.user[inp.getAttribute('data-phm-target-user')] = inp.checked;
+        });
+
+        const movTextModeInput = overlay.querySelector('input[name="phm-mov-text-mode"]:checked');
+        CFG.movTextMode = movTextModeInput && movTextModeInput.value === 'full' ? 'full' : 'first-line';
 
         saveCfg(CFG);
         reapply();
