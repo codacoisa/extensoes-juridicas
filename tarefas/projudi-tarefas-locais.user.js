@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas locais
 // @namespace    projudi-tarefas-locais.user.js
-// @version      1.9
+// @version      2.0
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -580,19 +580,19 @@
         position: fixed;
         right: 12px;
         top: 12px;
-        width: 390px;
+        width: 382px;
         max-height: 84vh;
         background: #fff;
         border: 1px solid #dbe3ef;
-        border-radius: 14px;
+        border-radius: 12px;
         box-shadow: 0 24px 70px rgba(2, 6, 23, .30);
         z-index: ${Z_UI};
         display: flex;
         flex-direction: column;
         overflow: hidden;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-        font-size: 14px;
-        line-height: 1.35;
+        font-size: 13px;
+        line-height: 1.3;
         overscroll-behavior: contain;
       }
       #pj-todo * { box-sizing: border-box; }
@@ -601,32 +601,32 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 8px;
-        padding: 14px 16px;
+        gap: 6px;
+        padding: 10px 12px;
         background: linear-gradient(135deg, #0f3e75, #1f5ca4);
         color: #fff;
         cursor: move;
         user-select: none;
       }
       #pj-todo-title {
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 700;
         line-height: 1.2;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        max-width: 235px;
+        max-width: 272px;
       }
-      #pj-todo-actions { display: inline-flex; gap: 6px; }
+      #pj-todo-actions { display: inline-flex; gap: 4px; }
       .pj-todo-btn {
-        width: 28px;
-        height: 28px;
+        width: 24px;
+        height: 24px;
         border: none;
         border-radius: 999px;
         background: rgba(255,255,255,.2);
         color: #fff;
         cursor: pointer;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 500;
         line-height: 1.2;
         display: inline-flex;
@@ -636,10 +636,10 @@
       .pj-todo-btn:hover { background: rgba(255,255,255,.3); }
 
       #pj-todo-body {
-        padding: 12px;
+        padding: 8px;
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 8px;
         overflow: hidden;
         flex: 1;
         min-height: 0;
@@ -647,7 +647,7 @@
 
       .pj-section {
         border: 1px solid #dbe3ef;
-        border-radius: 10px;
+        border-radius: 8px;
         overflow: hidden;
         display: flex;
         flex-direction: column;
@@ -655,8 +655,8 @@
       }
 
       .pj-sec-head {
-        padding: 8px 10px;
-        font-size: 12px;
+        padding: 6px 10px;
+        font-size: 11px;
         font-weight: 700;
         background: #f8fafc;
         display: flex;
@@ -665,15 +665,15 @@
         gap: 8px;
       }
       .pj-sec-head small {
-        font-size: 11px;
+        font-size: 10px;
         color: #64748b;
         font-weight: 500;
       }
 
       .pj-new {
         display: flex;
-        gap: 8px;
-        padding: 10px 12px;
+        gap: 6px;
+        padding: 8px 10px;
         border-top: 1px solid #dbe3ef;
         background: #fff;
       }
@@ -681,12 +681,12 @@
         flex: 1;
         border: 1px solid #cbd5e1;
         border-radius: 8px;
-        padding: 6px 8px;
-        font-size: 14px;
+        padding: 5px 8px;
+        font-size: 13px;
         min-width: 0;
       }
       .pj-tag-input {
-        flex: 0 0 100px;
+        flex: 0 0 92px;
       }
       .pj-add {
         border: 1px solid #0f3e75;
@@ -694,11 +694,11 @@
         background: #0f3e75;
         color: #fff;
         cursor: pointer;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 600;
         line-height: 1.2;
-        padding: 7px 11px;
-        min-width: 86px;
+        padding: 6px 10px;
+        min-width: 74px;
         white-space: nowrap;
       }
 
@@ -706,7 +706,7 @@
         overflow: auto;
         min-height: 0;
         max-height: 30vh;
-        padding: 8px;
+        padding: 6px;
         background: #fff;
         overscroll-behavior: contain;
       }
@@ -714,18 +714,20 @@
       .pj-home-layout {
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 8px;
         min-height: 0;
         flex: 1;
       }
       .pj-home-tabs {
-        display: inline-flex;
-        gap: 8px;
-        padding: 4px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        padding: 3px;
         border: 1px solid #dbe3ef;
-        border-radius: 10px;
+        border-radius: 9px;
         background: #f8fafc;
-        width: fit-content;
+        width: 100%;
+        max-width: 370px;
         margin: 0 auto;
       }
       .pj-home-tab {
@@ -734,11 +736,13 @@
         background: #fff;
         color: #334155;
         cursor: pointer;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 500;
         line-height: 1.2;
-        padding: 7px 11px;
-        min-width: 122px;
+        padding: 8px 10px;
+        min-width: 0;
+        width: 100%;
+        text-align: center;
       }
       .pj-home-tab.active {
         border-color: #0f3e75;
@@ -770,6 +774,7 @@
       }
       .pj-home-panel .pj-new {
         flex-wrap: wrap;
+        align-items: stretch;
       }
       .pj-home-panel .pj-new .pj-input {
         flex: 1 1 240px;
@@ -781,7 +786,7 @@
       .pj-home-panel .pj-new .pj-add {
         flex: 1 1 180px;
         max-width: none;
-        min-height: 42px;
+        min-height: 36px;
       }
       @media (max-width: 720px) {
         .pj-home-panel .pj-new .pj-tag-input {
@@ -796,10 +801,10 @@
         display: flex;
         align-items: flex-start;
         gap: 6px;
-        padding: 8px;
+        padding: 7px;
         border-radius: 8px;
         border: 1px solid #dbe3ef;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
       }
       .pj-item:hover { background: #f8fafc; }
 
@@ -826,8 +831,8 @@
 
       .pj-text {
         flex: 1;
-        font-size: 14px;
-        line-height: 1.35;
+        font-size: 13px;
+        line-height: 1.28;
         word-break: break-word;
         white-space: pre-wrap;
         padding-top: 0;
@@ -841,16 +846,16 @@
         min-width: 0;
       }
       .pj-meta {
-        margin-top: 4px;
-        font-size: 11px;
-        line-height: 1.35;
+        margin-top: 3px;
+        font-size: 10px;
+        line-height: 1.25;
         color: #64748b;
       }
       .pj-tags {
         display: flex;
         flex-wrap: wrap;
-        gap: 6px;
-        margin-top: 6px;
+        gap: 5px;
+        margin-top: 5px;
       }
       .pj-tag {
         display: inline-flex;
@@ -859,8 +864,8 @@
         background: #f8fafc;
         color: #334155;
         border-radius: 999px;
-        padding: 2px 7px;
-        font-size: 11px;
+        padding: 1px 7px;
+        font-size: 10px;
         line-height: 1.2;
       }
       .pj-edit-tags {
@@ -890,7 +895,7 @@
         background: transparent;
         cursor: pointer;
         color: #c62828;
-        font-size: 14px;
+        font-size: 13px;
         line-height: 1;
         font-weight: 900;
         display: inline-flex;
@@ -904,8 +909,8 @@
       }
 
       .pj-empty {
-        padding: 6px 4px;
-        font-size: 11px;
+        padding: 5px 4px;
+        font-size: 10px;
         color: rgba(0,0,0,.58);
       }
 
@@ -1692,7 +1697,7 @@
       state.menuRegistered = false;
     }
     try {
-      state.menuCommandId = GM_registerMenuCommand('Tarefas: Abrir Gestão', openManagerPanel);
+      state.menuCommandId = GM_registerMenuCommand('Gerenciar Tarefas', openManagerPanel);
       state.menuRegistered = true;
     } catch (_) {}
   }
