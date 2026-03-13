@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Tarefas locais
+// @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2.0
+// @version      2.1
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -154,9 +154,10 @@
   }
 
   function shouldRunInThisFrame() {
-    if (document.visibilityState !== 'visible') return false;
+    if (document.visibilityState !== 'visible' && !isProcessPage(document) && !isHomeDashboardIframe()) return false;
     const frame = window.frameElement;
     if (!frame) return true;
+    if (isProcessPage(document) || isHomeDashboardIframe()) return true;
     const style = window.getComputedStyle(frame);
     if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return false;
     const rect = frame.getBoundingClientRect();
@@ -602,16 +603,16 @@
         align-items: center;
         justify-content: space-between;
         gap: 6px;
-        padding: 10px 12px;
+        padding: 6px 9px;
         background: linear-gradient(135deg, #0f3e75, #1f5ca4);
         color: #fff;
         cursor: move;
         user-select: none;
       }
       #pj-todo-title {
-        font-size: 14px;
+        font-size: 12px;
         font-weight: 700;
-        line-height: 1.2;
+        line-height: 1.15;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -623,17 +624,33 @@
         height: 24px;
         border: none;
         border-radius: 999px;
-        background: rgba(255,255,255,.2);
+        background: rgba(255,255,255,.18);
         color: #fff;
         cursor: pointer;
-        font-size: 13px;
-        font-weight: 500;
-        line-height: 1.2;
+        font-size: 17px;
+        font-weight: 600;
+        line-height: 1;
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        padding: 0;
+        flex: 0 0 auto;
       }
-      .pj-todo-btn:hover { background: rgba(255,255,255,.3); }
+      .pj-todo-btn:hover { background: rgba(255,255,255,.28); }
+      .pj-todo-close-btn {
+        width: 28px;
+        height: 28px;
+        min-width: 28px;
+        border-radius: 999px;
+        background: rgba(255,255,255,.2);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 1.2;
+      }
+      .pj-todo-close-btn:hover {
+        background: rgba(255,255,255,.28);
+      }
 
       #pj-todo-body {
         padding: 8px;
@@ -719,30 +736,41 @@
         flex: 1;
       }
       .pj-home-tabs {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
+        display: flex;
         gap: 6px;
-        padding: 3px;
+        padding: 6px;
         border: 1px solid #dbe3ef;
-        border-radius: 9px;
+        border-radius: 12px;
         background: #f8fafc;
         width: 100%;
-        max-width: 370px;
+        max-width: 100%;
         margin: 0 auto;
+        overflow: visible;
+        align-items: stretch;
+        min-height: 50px;
       }
       .pj-home-tab {
+        flex: 1 1 0;
         border: 1px solid #cbd5e1;
-        border-radius: 8px;
+        border-radius: 10px;
         background: #fff;
         color: #334155;
         cursor: pointer;
         font-size: 13px;
         font-weight: 500;
         line-height: 1.2;
-        padding: 8px 10px;
+        padding: 0 10px;
         min-width: 0;
-        width: 100%;
+        min-height: 36px;
+        width: auto;
         text-align: center;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0;
+        appearance: none;
+        -webkit-appearance: none;
+        box-shadow: none;
       }
       .pj-home-tab.active {
         border-color: #0f3e75;
@@ -845,6 +873,16 @@
         flex: 1;
         min-width: 0;
       }
+      .pj-item-actions {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        align-self: center;
+        margin-left: auto;
+        padding-left: 6px;
+        flex: 0 0 auto;
+      }
       .pj-meta {
         margin-top: 3px;
         font-size: 10px;
@@ -869,8 +907,8 @@
         line-height: 1.2;
       }
       .pj-edit-tags {
-        width: 18px;
-        height: 18px;
+        width: 20px;
+        height: 20px;
         border: none;
         border-radius: 5px;
         background: transparent;
@@ -882,14 +920,17 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        padding: 0;
+        margin: 0;
+        vertical-align: middle;
       }
       .pj-edit-tags:hover {
         background: #eef2f7;
       }
 
       .pj-del {
-        width: 18px;
-        height: 18px;
+        width: 20px;
+        height: 20px;
         border: none;
         border-radius: 5px;
         background: transparent;
@@ -901,7 +942,9 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        margin-top: 0;
+        padding: 0;
+        margin: 0;
+        vertical-align: middle;
       }
       .pj-del:hover {
         color: #8e0000;
@@ -1247,12 +1290,12 @@
       const tagsBtn = el('button', { className: 'pj-edit-tags', title: 'Editar tags' }, ['#']);
       const delBtn = el('button', { className: 'pj-del', title: 'Excluir' }, ['✕']);
 
+      const actions = el('div', { className: 'pj-item-actions' }, [tagsBtn, delBtn]);
       const row = el('div', { className: 'pj-item', draggable: true, 'data-id': item.id }, [
         drag,
         el('div', { className: 'pj-mini' }, [cb]),
         itemMain,
-        tagsBtn,
-        delBtn
+        actions
       ]);
 
       cb.addEventListener('change', () => onToggle(item.id, cb.checked));
@@ -1438,9 +1481,7 @@
       'i.fa-thumbtack',
       'i.fa-thumb-tack',
       '.fa-thumbtack',
-      '.fa-thumb-tack',
-      'i.fa-star',
-      '.fa-star'
+      '.fa-thumb-tack'
     ];
 
     for (const sel of selectors) {
@@ -1503,11 +1544,11 @@
     if (document.getElementById(ID_PROC_BTN)) return;
     if (mountProcessInlineButton({ onOpen })) return;
     if (mountProcessHeaderButton({ onOpen })) return;
-    mountFloatingMinButton({ onOpen });
+    scheduleEvaluate(350);
   }
 
   function createHeaderActions({ onClose }) {
-    const closeBtn = el('button', { className: 'pj-todo-btn', title: 'Fechar' }, ['×']);
+    const closeBtn = el('button', { className: 'pj-todo-btn pj-todo-close-btn', title: 'Fechar' }, ['×']);
 
     closeBtn.addEventListener('click', onClose);
 
@@ -2007,6 +2048,15 @@
             const x = all.find(a => a.id === id);
             if (!x) return;
             x.text = text;
+            saveItemsByKey(r.key, all);
+            touchIndex({ key: r.key, cnj: r.cnj });
+            renderProcessesPending();
+          },
+          onEditTags: (id, tagsRaw) => {
+            const all = loadItemsByKey(r.key);
+            const x = all.find(a => a.id === id);
+            if (!x) return;
+            updateItemTags(x, tagsRaw);
             saveItemsByKey(r.key, all);
             touchIndex({ key: r.key, cnj: r.cnj });
             renderProcessesPending();
