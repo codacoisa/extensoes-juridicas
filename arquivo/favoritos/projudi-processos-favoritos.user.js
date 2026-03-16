@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Processos Favoritos
 // @namespace    projudi-processos-favoritos.user.js
-// @version      1.4
+// @version      1.5
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca processos favoritos, permite adicionar/remover no detalhe e gerenciar via painel.
 // @author       lourencosv (GPT)
@@ -776,16 +776,16 @@
             <div class="lp-card" style="margin-top:12px;">
               <div class="lp-help" style="margin-bottom:8px;">Backup remoto</div>
               <div class="lp-row" style="justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <span class="lp-help" style="margin:0;">Ativar backup por Gist no Github.</span>
+                <span class="lp-help" style="margin:0;">Ativar backup por Gist no GitHub.</span>
                 <input type="checkbox" id="lp-backup-enabled" />
               </div>
               <div class="lp-row" style="flex-direction:column; align-items:stretch; gap:8px;">
                 <input type="text" id="lp-backup-gist-id" placeholder="Gist ID" />
-                <input type="password" id="lp-backup-token" placeholder="Token GitHub" />
+                <input type="password" id="lp-backup-token" placeholder="Token do GitHub" />
                 <input type="text" id="lp-backup-file-name" placeholder="Nome do arquivo" />
               </div>
               <div class="lp-row" style="justify-content:space-between; align-items:center; margin-top:8px;">
-                <span class="lp-help" style="margin:0;">Enviar backup ao salvar</span>
+                <span class="lp-help" style="margin:0;">Backup automático</span>
                 <input type="checkbox" id="lp-backup-auto" />
               </div>
               <div class="lp-actions" style="margin-top:8px;">
