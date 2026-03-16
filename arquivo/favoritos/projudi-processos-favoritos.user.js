@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Processos Favoritos
 // @namespace    projudi-processos-favoritos.user.js
-// @version      1.2
+// @version      1.3
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca processos favoritos, permite adicionar/remover no detalhe e gerenciar via painel.
 // @author       lourencosv (GPT)
@@ -759,9 +759,9 @@
             </div>
             <div class="lp-status" id="lp-status" aria-live="polite"></div>
             <div class="lp-card" style="margin-top:12px;">
-              <div class="lp-help" style="margin-bottom:8px;">Backup remoto via Gist privado</div>
+              <div class="lp-help" style="margin-bottom:8px;">Backup remoto</div>
               <div class="lp-row" style="justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <span class="lp-help" style="margin:0;">Ativar backup remoto</span>
+                <span class="lp-help" style="margin:0;">Ativar backup por Gist no Github.</span>
                 <input type="checkbox" id="lp-backup-enabled" />
               </div>
               <div class="lp-row" style="flex-direction:column; align-items:stretch; gap:8px;">
@@ -775,7 +775,7 @@
               </div>
               <div class="lp-actions" style="margin-top:8px;">
                 <button type="button" class="lp-btn lp-btn-soft" id="lp-backup-send">Enviar backup</button>
-                <button type="button" class="lp-btn lp-btn-soft" id="lp-backup-restore">Restaurar</button>
+                <button type="button" class="lp-btn lp-btn-soft" id="lp-backup-restore">Restaurar backup</button>
               </div>
               <div class="lp-help" id="lp-backup-status" style="margin-top:8px;"></div>
             </div>
