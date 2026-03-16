@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque Global
 // @namespace    projudi-highlighter.user.js
-// @version      4.6
+// @version      4.7
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaque global, com painel configurável (Ctrl+Shift+H).
 // @author       lourencosv (GPT)
@@ -14,10 +14,12 @@
 // @all-frames   true
 // @grant        GM.getValue
 // @grant        GM.setValue
+// @grant        GM_xmlhttpRequest
 // @grant        GM.registerMenuCommand
 // @grant        GM.unregisterMenuCommand
 // @grant        GM_registerMenuCommand
 // @grant        GM_unregisterMenuCommand
+// @connect      api.github.com
 // ==/UserScript==
 
 (function () {
@@ -31,6 +33,7 @@
   const KEY_TEXT_COLOR = "hl:text_color";
   const KEY_BOLD = "hl:text_bold";
   const KEY_ITALIC = "hl:text_italic";
+  const KEY_BACKUP = "hl:gist_backup";
 
   const MIN_LEN = 3;
   const APPLY_DEBOUNCE_MS = 180;
@@ -41,6 +44,35 @@
 
   const DEFAULT_HIGHLIGHT_COLOR = "#C5E1A5FF";
   const DEFAULT_TEXT_COLOR = "#111111";
+  const SCRIPT_META = (() => {
+    const fallbackName = "Destaque Global";
+    const fallbackId = "projudi-highlighter";
+    try {
+      const script = GM_info && GM_info.script ? GM_info.script : {};
+      const name = String(script.name || fallbackName).trim() || fallbackName;
+      const namespace = String(script.namespace || "").trim();
+      const version = String(script.version || "unknown").trim() || "unknown";
+      const base = (namespace || name || fallbackId)
+        .replace(/\.user\.js$/i, "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .toLowerCase();
+      const id = base || fallbackId;
+      return { name, version, id, fileName: `${id}.json` };
+    } catch {
+      return { name: fallbackName, version: "unknown", id: fallbackId, fileName: `${fallbackId}.json` };
+    }
+  })();
+  const BACKUP_SCHEMA = "projudi-highlighter-backup-v1";
+  const DEFAULT_BACKUP_SETTINGS = {
+    enabled: false,
+    gistId: "",
+    token: "",
+    fileName: SCRIPT_META.fileName,
+    autoBackupOnSave: false
+  };
 
   let highlightColor = DEFAULT_HIGHLIGHT_COLOR;
   let textColor = DEFAULT_TEXT_COLOR;
@@ -53,6 +85,7 @@
   let domObserver = null;
   let observerPaused = false;
   let historyPatched = false;
+  let backupTimer = null;
   let originalPushState = null;
   let originalReplaceState = null;
   let patchedPushState = null;
@@ -230,6 +263,156 @@
       textBold = false;
       textItalic = false;
     }
+  }
+
+  function normalizeBackupSettings(value) {
+    const next = { ...DEFAULT_BACKUP_SETTINGS, ...(value || {}) };
+    next.enabled = !!next.enabled;
+    next.gistId = String(next.gistId || "").trim();
+    next.token = String(next.token || "").trim();
+    next.fileName = String(next.fileName || SCRIPT_META.fileName).trim() || SCRIPT_META.fileName;
+    next.autoBackupOnSave = !!next.autoBackupOnSave;
+    return next;
+  }
+
+  async function loadBackupSettings() {
+    try {
+      return normalizeBackupSettings(await GM.getValue(KEY_BACKUP, DEFAULT_BACKUP_SETTINGS));
+    } catch {
+      return normalizeBackupSettings(DEFAULT_BACKUP_SETTINGS);
+    }
+  }
+
+  async function saveBackupSettings(next) {
+    const normalized = normalizeBackupSettings(next);
+    try {
+      await GM.setValue(KEY_BACKUP, normalized);
+    } catch {}
+    return normalized;
+  }
+
+  function buildBackupPayload() {
+    return {
+      schema: BACKUP_SCHEMA,
+      scriptId: SCRIPT_META.id,
+      scriptName: SCRIPT_META.name,
+      version: SCRIPT_META.version,
+      exportedAt: new Date().toISOString(),
+      host: location.host,
+      settings: {
+        highlightColor,
+        textColor,
+        textBold,
+        textItalic
+      },
+      terms: Array.isArray(termsCache) ? [...termsCache] : []
+    };
+  }
+
+  async function applyBackupPayload(payload) {
+    const settings = payload && payload.settings && typeof payload.settings === "object" ? payload.settings : {};
+    const terms = Array.isArray(payload && payload.terms) ? payload.terms : [];
+    highlightColor = typeof settings.highlightColor === "string" ? settings.highlightColor : DEFAULT_HIGHLIGHT_COLOR;
+    textColor = typeof settings.textColor === "string" ? settings.textColor : DEFAULT_TEXT_COLOR;
+    textBold = !!settings.textBold;
+    textItalic = !!settings.textItalic;
+    await GM.setValue(KEY_HIGHLIGHT_COLOR, highlightColor);
+    await GM.setValue(KEY_TEXT_COLOR, textColor);
+    await GM.setValue(KEY_BOLD, textBold);
+    await GM.setValue(KEY_ITALIC, textItalic);
+    await setBulkTerms(terms);
+    await applyHighlights();
+    broadcastApply();
+  }
+
+  function githubRequest(options) {
+    return new Promise((resolve, reject) => {
+      if (typeof GM_xmlhttpRequest !== "function") {
+        reject(new Error("GM_xmlhttpRequest indisponivel."));
+        return;
+      }
+      GM_xmlhttpRequest({
+        method: options.method || "GET",
+        url: options.url,
+        headers: options.headers || {},
+        data: options.data,
+        onload: resolve,
+        onerror: () => reject(new Error("Falha de rede ao acessar o GitHub.")),
+        ontimeout: () => reject(new Error("Tempo esgotado ao acessar o GitHub."))
+      });
+    });
+  }
+
+  function parseGithubError(response) {
+    try {
+      const parsed = JSON.parse(response.responseText || "{}");
+      if (parsed && parsed.message) return parsed.message;
+    } catch {}
+    return `GitHub respondeu com status ${response.status}.`;
+  }
+
+  async function pushBackupToGist(backupSettings, payload) {
+    if (!backupSettings.gistId) throw new Error("Informe o Gist ID.");
+    if (!backupSettings.token) throw new Error("Informe o token do GitHub.");
+    const response = await githubRequest({
+      method: "PATCH",
+      url: `https://api.github.com/gists/${encodeURIComponent(backupSettings.gistId)}`,
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${backupSettings.token}`,
+        "Content-Type": "application/json"
+      },
+      data: JSON.stringify({
+        files: {
+          [backupSettings.fileName]: {
+            content: JSON.stringify(payload, null, 2)
+          }
+        }
+      })
+    });
+    if (response.status < 200 || response.status >= 300) throw new Error(parseGithubError(response));
+  }
+
+  async function readBackupFromGist(backupSettings) {
+    if (!backupSettings.gistId) throw new Error("Informe o Gist ID.");
+    if (!backupSettings.token) throw new Error("Informe o token do GitHub.");
+    const response = await githubRequest({
+      method: "GET",
+      url: `https://api.github.com/gists/${encodeURIComponent(backupSettings.gistId)}`,
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${backupSettings.token}`
+      }
+    });
+    if (response.status < 200 || response.status >= 300) throw new Error(parseGithubError(response));
+    const gist = JSON.parse(response.responseText || "{}");
+    const file = gist && gist.files ? gist.files[backupSettings.fileName] : null;
+    if (!file || !file.content) throw new Error("Arquivo de backup nao encontrado no Gist.");
+    return JSON.parse(file.content);
+  }
+
+  function htmlEscapeAttr(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  function scheduleAutoBackup() {
+    clearTimeout(backupTimer);
+    backupTimer = null;
+    if (!IS_TOP) return;
+    backupTimer = setTimeout(async () => {
+      backupTimer = null;
+      const backupSettings = await loadBackupSettings();
+      if (!backupSettings.enabled || !backupSettings.autoBackupOnSave) return;
+      try {
+        const terms = await loadTerms();
+        termsCache = terms;
+        await pushBackupToGist(backupSettings, buildBackupPayload());
+      } catch {}
+    }, 400);
   }
 
 
@@ -938,6 +1121,69 @@
         gap: 8px;
       }
 
+      #${PANEL_OVERLAY_ID} .vhp-backup-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      #${PANEL_OVERLAY_ID} .vhp-backup-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      #${PANEL_OVERLAY_ID} .vhp-backup-field--full {
+        grid-column: 1 / -1;
+      }
+
+      #${PANEL_OVERLAY_ID} .vhp-backup-field label,
+      #${PANEL_OVERLAY_ID} .vhp-backup-toggle label {
+        font-size: 12px;
+        color: #334155;
+        font-weight: 600;
+      }
+
+      #${PANEL_OVERLAY_ID} .vhp-backup-field input {
+        width: 100%;
+        min-width: 0;
+        padding: 6px 8px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        outline: none;
+        font-size: 14px;
+        line-height: 1.35;
+      }
+
+      #${PANEL_OVERLAY_ID} .vhp-backup-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: flex-start;
+        margin-top: 10px;
+      }
+
+      #${PANEL_OVERLAY_ID} .vhp-backup-toggle {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 14px;
+        flex: 1 1 100%;
+        min-width: 0;
+      }
+
+      #${PANEL_OVERLAY_ID} .vhp-backup-toggle label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 500;
+      }
+
+      #${PANEL_OVERLAY_ID} .vhp-backup-status {
+        flex: 1 1 100%;
+        font-size: 12px;
+        color: #475569;
+      }
+
       #${PANEL_OVERLAY_ID} .vhp-item {
         display: flex;
         align-items: center;
@@ -1016,6 +1262,8 @@
       }
     `;
 
+    const backupSettings = await loadBackupSettings();
+
     panel.innerHTML = `
       <div style="flex:0 0 auto; padding:14px 16px; background:linear-gradient(135deg,#0f3e75,#1f5ca4); color:#fff; border-bottom:1px solid #dbe3ef;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
@@ -1085,6 +1333,34 @@
         </div>
 
         <div class="vhp-sec">
+          <div class="vhp-title">Backup remoto</div>
+          <div style="font-size:12px; color:#64748b; margin-bottom:10px;">Use um unico Gist no Github e um arquivo separado para este script.</div>
+          <div class="vhp-backup-grid">
+            <div class="vhp-backup-field">
+              <label for="vhp-backup-gist">Gist ID</label>
+              <input id="vhp-backup-gist" type="text" value="${htmlEscapeAttr(backupSettings.gistId)}" placeholder="Cole o Gist ID" />
+            </div>
+            <div class="vhp-backup-field">
+              <label for="vhp-backup-file">Arquivo</label>
+              <input id="vhp-backup-file" type="text" value="${htmlEscapeAttr(backupSettings.fileName)}" placeholder="${SCRIPT_META.fileName}" />
+            </div>
+            <div class="vhp-backup-field vhp-backup-field--full">
+              <label for="vhp-backup-token">Token do GitHub</label>
+              <input id="vhp-backup-token" type="password" value="${htmlEscapeAttr(backupSettings.token)}" placeholder="ghp_..." />
+            </div>
+          </div>
+          <div class="vhp-backup-row">
+            <div class="vhp-backup-toggle">
+              <label><input id="vhp-backup-enabled" type="checkbox" ${backupSettings.enabled ? "checked" : ""} /> Ativar backup por Gist no Github.</label>
+              <label><input id="vhp-backup-auto" type="checkbox" ${backupSettings.autoBackupOnSave ? "checked" : ""} /> Backup automatico</label>
+            </div>
+            <button id="vhp-backup-send" class="vhp-btn" type="button">Enviar backup</button>
+            <button id="vhp-backup-restore" class="vhp-btn" type="button">Restaurar backup</button>
+            <div id="vhp-backup-status" class="vhp-backup-status"></div>
+          </div>
+        </div>
+
+        <div class="vhp-sec">
           <div class="vhp-title">Lista de destaques</div>
           <div id="vhp-list" class="vhp-list"></div>
         </div>
@@ -1118,10 +1394,35 @@
     const txPrev = $("#vhp-tx-preview");
     const italicInput = $("#vhp-italic-toggle");
     const boldInput = $("#vhp-bold-toggle");
+    const backupStatus = $("#vhp-backup-status");
 
     function syncSwatches() {
       if (hlPrev) hlPrev.style.background = cssColorFromHexRgba(highlightColor);
       if (txPrev) txPrev.style.background = textColor || DEFAULT_TEXT_COLOR;
+    }
+
+    function setBackupStatus(message, isError) {
+      if (!backupStatus) return;
+      backupStatus.textContent = message || "";
+      backupStatus.style.color = isError ? "#b42318" : "#475569";
+    }
+
+    async function readBackupSettingsFromPanel() {
+      return saveBackupSettings({
+        enabled: !!$("#vhp-backup-enabled")?.checked,
+        autoBackupOnSave: !!$("#vhp-backup-auto")?.checked,
+        gistId: $("#vhp-backup-gist")?.value || "",
+        token: $("#vhp-backup-token")?.value || "",
+        fileName: $("#vhp-backup-file")?.value || ""
+      });
+    }
+
+    async function runBackupNow() {
+      termsCache = await loadTerms();
+      const nextSettings = await readBackupSettingsFromPanel();
+      setBackupStatus("Enviando backup...");
+      await pushBackupToGist(nextSettings, buildBackupPayload());
+      setBackupStatus("Backup enviado.");
     }
 
     async function refreshList() {
@@ -1148,6 +1449,7 @@
             await refreshList();
             await applyHighlights();
             broadcastApply();
+            scheduleAutoBackup();
           }
         };
 
@@ -1167,6 +1469,7 @@
         await refreshList();
         await applyHighlights();
         broadcastApply();
+        scheduleAutoBackup();
       }
     };
 
@@ -1179,6 +1482,7 @@
         await refreshList();
         await applyHighlights();
         broadcastApply();
+        scheduleAutoBackup();
       }
     };
 
@@ -1194,6 +1498,7 @@
       await refreshList();
       await applyHighlights();
       broadcastApply();
+      scheduleAutoBackup();
     };
 
     $("#vhp-export").onclick = async () => {
@@ -1233,6 +1538,7 @@
         await refreshList();
         await applyHighlights();
         broadcastApply();
+        scheduleAutoBackup();
       } catch (e) {
         alert("Importação falhou: " + (e && e.message ? e.message : e));
       }
@@ -1251,6 +1557,7 @@
         syncSwatches();
         await applyHighlights();
         broadcastApply();
+        scheduleAutoBackup();
       });
     }
 
@@ -1265,6 +1572,7 @@
         syncSwatches();
         await applyHighlights();
         broadcastApply();
+        scheduleAutoBackup();
       });
     }
 
@@ -1276,6 +1584,7 @@
         await GM.setValue(KEY_ITALIC, textItalic);
         await applyHighlights();
         broadcastApply();
+        scheduleAutoBackup();
       });
     }
 
@@ -1287,8 +1596,41 @@
         await GM.setValue(KEY_BOLD, textBold);
         await applyHighlights();
         broadcastApply();
+        scheduleAutoBackup();
       });
     }
+
+    [
+      $("#vhp-backup-enabled"),
+      $("#vhp-backup-auto"),
+      $("#vhp-backup-gist"),
+      $("#vhp-backup-token"),
+      $("#vhp-backup-file")
+    ].forEach((el) => {
+      if (!el) return;
+      el.addEventListener(el.type === "checkbox" ? "change" : "input", () => {
+        readBackupSettingsFromPanel().catch(() => {});
+      });
+    });
+
+    $("#vhp-backup-send").addEventListener("click", () => {
+      runBackupNow().catch((error) => {
+        setBackupStatus(error && error.message ? error.message : "Falha ao enviar backup.", true);
+      });
+    });
+
+    $("#vhp-backup-restore").addEventListener("click", async () => {
+      try {
+        const nextSettings = await readBackupSettingsFromPanel();
+        setBackupStatus("Restaurando backup...");
+        const payload = await readBackupFromGist(nextSettings);
+        await applyBackupPayload(payload);
+        closePanel();
+        await openPanel();
+      } catch (error) {
+        setBackupStatus(error && error.message ? error.message : "Falha ao restaurar backup.", true);
+      }
+    });
 
     $("#vhp-close").addEventListener("click", closePanel);
     $("#vhp-cancel").addEventListener("click", closePanel);
