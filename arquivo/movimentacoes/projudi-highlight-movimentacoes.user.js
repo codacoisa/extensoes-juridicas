@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque de Movimentações
 // @namespace    projudi-highlight-movimentacoes.user.js
-// @version      2.2
+// @version      2.3
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca as movimentações processuais em cores definidas.
 // @author       lourencosv (GPT)
@@ -13,8 +13,6 @@
 // @grant        GM_addStyle
 // @grant        GM_registerMenuCommand
 // @grant        GM_unregisterMenuCommand
-// @grant        GM_xmlhttpRequest
-// @connect      api.github.com
 // ==/UserScript==
 
 (function () {
@@ -23,27 +21,6 @@
   if (window.top !== window.self) return;
 
   const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
-  const SCRIPT_META = (() => {
-    const fallbackName = 'Destaque de Movimentacoes';
-    const fallbackId = 'projudi-highlight-movimentacoes';
-    try {
-      const script = GM_info && GM_info.script ? GM_info.script : {};
-      const name = String(script.name || fallbackName).trim() || fallbackName;
-      const namespace = String(script.namespace || '').trim();
-      const version = String(script.version || 'unknown').trim() || 'unknown';
-      const base = (namespace || name || fallbackId)
-        .replace(/\.user\.js$/i, '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-zA-Z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .toLowerCase();
-      const id = base || fallbackId;
-      return { name, version, id, fileName: `${id}.json` };
-    } catch {
-      return { name: fallbackName, version: 'unknown', id: fallbackId, fileName: `${fallbackId}.json` };
-    }
-  })();
   const ARROW_STR = '(?:-\\s*>|→|⇒|»|›)';
 
   const TYPES_ORDER = [
@@ -133,15 +110,6 @@
   };
 
   const STORAGE_KEY = 'projudi_highlight_movs_cfg_v28';
-  const BACKUP_STORAGE_KEY = 'projudi_highlight_movs_backup_v1';
-  const BACKUP_SCHEMA = 'projudi-highlight-movimentacoes-backup-v1';
-  const DEFAULT_BACKUP_SETTINGS = {
-    enabled: false,
-    gistId: '',
-    token: '',
-    fileName: SCRIPT_META.fileName,
-    autoBackupOnSave: false
-  };
   const DOC_STYLE_ID = 'phm-doc-style-v28';
   const PANEL_OVERLAY_ID = 'phm-overlay-root';
   const MOV_TABLE_ROWS_SELECTOR = '#TabelaArquivos tbody tr, #tabListaProcesso tr';
@@ -227,109 +195,6 @@
 
   function saveCfg(cfg) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
-  }
-
-  function normalizeBackupSettings(value) {
-    const next = { ...DEFAULT_BACKUP_SETTINGS, ...(value || {}) };
-    next.enabled = !!next.enabled;
-    next.gistId = String(next.gistId || '').trim();
-    next.token = String(next.token || '').trim();
-    next.fileName = String(next.fileName || SCRIPT_META.fileName).trim() || SCRIPT_META.fileName;
-    next.autoBackupOnSave = !!next.autoBackupOnSave;
-    return next;
-  }
-
-  function loadBackupSettings() {
-    try {
-      return normalizeBackupSettings(JSON.parse(localStorage.getItem(BACKUP_STORAGE_KEY) || 'null'));
-    } catch {
-      return normalizeBackupSettings(DEFAULT_BACKUP_SETTINGS);
-    }
-  }
-
-  function saveBackupSettings(next) {
-    const normalized = normalizeBackupSettings(next);
-    localStorage.setItem(BACKUP_STORAGE_KEY, JSON.stringify(normalized));
-    return normalized;
-  }
-
-  function buildBackupPayload(cfg = CFG) {
-    return {
-      schema: BACKUP_SCHEMA,
-      scriptId: SCRIPT_META.id,
-      scriptName: SCRIPT_META.name,
-      version: SCRIPT_META.version,
-      exportedAt: new Date().toISOString(),
-      host: location.host,
-      config: deepClone(cfg)
-    };
-  }
-
-  function applyBackupPayload(payload) {
-    const nextCfg = payload && payload.config && typeof payload.config === 'object' ? payload.config : payload;
-    CFG = deepMerge(deepClone(DEFAULTS), nextCfg && typeof nextCfg === 'object' ? nextCfg : {});
-    saveCfg(CFG);
-    reapply();
-  }
-
-  function githubRequest(options) {
-    return new Promise((resolve, reject) => {
-      if (typeof GM_xmlhttpRequest !== 'function') {
-        reject(new Error('GM_xmlhttpRequest indisponivel.'));
-        return;
-      }
-      GM_xmlhttpRequest({
-        method: options.method || 'GET',
-        url: options.url,
-        headers: options.headers || {},
-        data: options.data,
-        onload: resolve,
-        onerror: () => reject(new Error('Falha de rede ao acessar o GitHub.')),
-        ontimeout: () => reject(new Error('Tempo esgotado ao acessar o GitHub.'))
-      });
-    });
-  }
-
-  function parseGithubError(response) {
-    try {
-      const parsed = JSON.parse(response.responseText || '{}');
-      if (parsed && parsed.message) return parsed.message;
-    } catch {}
-    return `GitHub respondeu com status ${response.status}.`;
-  }
-
-  async function pushBackupToGist(backupSettings, payload) {
-    if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
-    if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
-    const response = await githubRequest({
-      method: 'PATCH',
-      url: `https://api.github.com/gists/${encodeURIComponent(backupSettings.gistId)}`,
-      headers: {
-        Accept: 'application/vnd.github+json',
-        Authorization: `Bearer ${backupSettings.token}`,
-        'Content-Type': 'application/json'
-      },
-      data: JSON.stringify({ files: { [backupSettings.fileName]: { content: JSON.stringify(payload, null, 2) } } })
-    });
-    if (response.status < 200 || response.status >= 300) throw new Error(parseGithubError(response));
-  }
-
-  async function readBackupFromGist(backupSettings) {
-    if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
-    if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
-    const response = await githubRequest({
-      method: 'GET',
-      url: `https://api.github.com/gists/${encodeURIComponent(backupSettings.gistId)}`,
-      headers: {
-        Accept: 'application/vnd.github+json',
-        Authorization: `Bearer ${backupSettings.token}`
-      }
-    });
-    if (response.status < 200 || response.status >= 300) throw new Error(parseGithubError(response));
-    const gist = JSON.parse(response.responseText || '{}');
-    const file = gist && gist.files ? gist.files[backupSettings.fileName] : null;
-    if (!file || !file.content) throw new Error('Arquivo de backup nao encontrado no Gist.');
-    return JSON.parse(file.content);
   }
 
   function toHexColor(any) {
@@ -1093,21 +958,6 @@
             <label><input type="radio" name="phm-mov-text-mode" value="full" ${CFG.movTextMode === 'full' ? 'checked' : ''}> Negrito/itálico no texto completo</label>
           </div>
         </div>
-        <div class="phm-global">
-          <p class="phm-global-title">Backup remoto</p>
-          <div class="phm-global-options" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
-            <label style="display:flex;flex-direction:column;gap:4px;">Gist ID<input data-phm-backup-gist type="text" value="${htmlEscapeAttr(loadBackupSettings().gistId)}" placeholder="Cole o Gist ID"></label>
-            <label style="display:flex;flex-direction:column;gap:4px;">Arquivo<input data-phm-backup-file type="text" value="${htmlEscapeAttr(loadBackupSettings().fileName)}" placeholder="projudi-highlight-movimentacoes.json"></label>
-            <label style="display:flex;flex-direction:column;gap:4px;grid-column:1 / -1;">Token do GitHub<input data-phm-backup-token type="password" value="${htmlEscapeAttr(loadBackupSettings().token)}" placeholder="ghp_..."></label>
-            <label><input data-phm-backup-enabled type="checkbox" ${loadBackupSettings().enabled ? 'checked' : ''}> Ativar backup</label>
-            <label><input data-phm-backup-auto type="checkbox" ${loadBackupSettings().autoBackupOnSave ? 'checked' : ''}> Backup automatico</label>
-          </div>
-          <div class="phm-global-options" style="display:flex;gap:8px;align-items:center;margin-top:10px;">
-            <button class="phm-btn" data-phm-action="backup-send">Enviar backup</button>
-            <button class="phm-btn" data-phm-action="backup-restore">Restaurar</button>
-            <span data-phm-backup-status style="font-size:12px;color:#475569;"></span>
-          </div>
-        </div>
       </div>
       <div class="phm-foot">
         <button class="phm-btn" data-phm-action="reset">Padrão</button>
@@ -1150,14 +1000,6 @@
     overlay.remove();
   }
 
-  function htmlEscapeAttr(value) {
-    return String(value == null ? '' : value)
-      .replace(/&/g, '&amp;')
-      .replace(/"/g, '&quot;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-  }
-
   function ensurePanel() {
     if (document.getElementById(PANEL_OVERLAY_ID)) return;
 
@@ -1178,47 +1020,12 @@
       ) {
         refreshPanelPreviews(overlay);
       }
-      if (t.matches('[data-phm-backup-gist], [data-phm-backup-file], [data-phm-backup-token]')) {
-        saveBackupSettings({
-          enabled: !!overlay.querySelector('[data-phm-backup-enabled]')?.checked,
-          autoBackupOnSave: !!overlay.querySelector('[data-phm-backup-auto]')?.checked,
-          gistId: overlay.querySelector('[data-phm-backup-gist]')?.value || '',
-          token: overlay.querySelector('[data-phm-backup-token]')?.value || '',
-          fileName: overlay.querySelector('[data-phm-backup-file]')?.value || ''
-        });
-      }
-    });
-
-    overlay.addEventListener('change', (ev) => {
-      const t = ev.target;
-      if (t.matches('[data-phm-backup-enabled], [data-phm-backup-auto]')) {
-        saveBackupSettings({
-          enabled: !!overlay.querySelector('[data-phm-backup-enabled]')?.checked,
-          autoBackupOnSave: !!overlay.querySelector('[data-phm-backup-auto]')?.checked,
-          gistId: overlay.querySelector('[data-phm-backup-gist]')?.value || '',
-          token: overlay.querySelector('[data-phm-backup-token]')?.value || '',
-          fileName: overlay.querySelector('[data-phm-backup-file]')?.value || ''
-        });
-      }
     });
 
     overlay.addEventListener('click', (ev) => {
       const btn = ev.target.closest('[data-phm-action]');
       if (!btn) return;
       const action = btn.getAttribute('data-phm-action');
-      const setBackupStatus = (message, isError) => {
-        const statusEl = overlay.querySelector('[data-phm-backup-status]');
-        if (!statusEl) return;
-        statusEl.textContent = message || '';
-        statusEl.style.color = isError ? '#b42318' : '#475569';
-      };
-      const readBackupSettingsFromPanel = () => saveBackupSettings({
-        enabled: !!overlay.querySelector('[data-phm-backup-enabled]')?.checked,
-        autoBackupOnSave: !!overlay.querySelector('[data-phm-backup-auto]')?.checked,
-        gistId: overlay.querySelector('[data-phm-backup-gist]')?.value || '',
-        token: overlay.querySelector('[data-phm-backup-token]')?.value || '',
-        fileName: overlay.querySelector('[data-phm-backup-file]')?.value || ''
-      });
 
       if (action === 'close') {
         closePanel();
@@ -1289,36 +1096,8 @@
 
         saveCfg(CFG);
         reapply();
-        const backupSettings = readBackupSettingsFromPanel();
-        if (backupSettings.enabled && backupSettings.autoBackupOnSave) {
-          setBackupStatus('Enviando backup...');
-          pushBackupToGist(backupSettings, buildBackupPayload(CFG))
-            .then(() => setBackupStatus('Backup enviado.'))
-            .catch((error) => setBackupStatus(error && error.message ? error.message : 'Falha ao enviar backup.', true));
-        }
         closePanel();
         return;
-      }
-
-      if (action === 'backup-send') {
-        const backupSettings = readBackupSettingsFromPanel();
-        setBackupStatus('Enviando backup...');
-        pushBackupToGist(backupSettings, buildBackupPayload(CFG))
-          .then(() => setBackupStatus('Backup enviado.'))
-          .catch((error) => setBackupStatus(error && error.message ? error.message : 'Falha ao enviar backup.', true));
-        return;
-      }
-
-      if (action === 'backup-restore') {
-        const backupSettings = readBackupSettingsFromPanel();
-        setBackupStatus('Restaurando backup...');
-        readBackupFromGist(backupSettings)
-          .then((payload) => {
-            applyBackupPayload(payload);
-            closePanel();
-            ensurePanel();
-          })
-          .catch((error) => setBackupStatus(error && error.message ? error.message : 'Falha ao restaurar backup.', true));
       }
     });
 
