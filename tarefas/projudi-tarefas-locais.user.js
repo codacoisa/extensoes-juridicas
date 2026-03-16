@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2.2
+// @version      2.3
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -1760,9 +1760,9 @@
         </div>
         <div class="pjm-card">
           <div class="pjm-row" style="justify-content:space-between; align-items:center;">
-            <strong>Backup remoto por Gist privado</strong>
+            <strong>Backup remoto</strong>
             <label style="display:flex; align-items:center; gap:8px;">
-              <span style="font-size:12px; color:#5f6f83;">Ativar</span>
+              <span style="font-size:12px; color:#5f6f83;">Ativar backup por Gist no Github.</span>
               <input type="checkbox" id="pjm-backup-enabled">
             </label>
           </div>
@@ -1777,7 +1777,7 @@
           </div>
           <div class="pjm-row">
             <button class="pjm-btn" id="pjm-backup-send">Enviar backup</button>
-            <button class="pjm-btn" id="pjm-backup-restore">Restaurar</button>
+            <button class="pjm-btn" id="pjm-backup-restore">Restaurar backup</button>
           </div>
           <div class="pjm-item-meta" id="pjm-backup-status"></div>
         </div>
