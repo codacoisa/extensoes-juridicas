@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque de Prazos
 // @namespace    projudi-highlight-hoje.user.js
-// @version      4.2
+// @version      4.3
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Realça possíveis vencimentos no projudi, com cores definidas.
 // @author       louencosv (GPT)
@@ -15,6 +15,8 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_deleteValue
+// @grant        GM_xmlhttpRequest
+// @connect      api.github.com
 // ==/UserScript==
 
 (function () {
@@ -30,6 +32,36 @@
   const FILTER_RANGE_END_KEY = "projudi_highlight_filter_range_end_v1";
   const SETTINGS_SYNC_EVENT = "projudi:deadline-settings-changed";
   const RUNTIME_KEY = "__tm_hl7d_runtime_v1";
+  const SCRIPT_META = (() => {
+    const fallbackName = "Destaque de Prazos";
+    const fallbackId = "projudi-highlight-hoje";
+    try {
+      const script = GM_info && GM_info.script ? GM_info.script : {};
+      const name = String(script.name || fallbackName).trim() || fallbackName;
+      const namespace = String(script.namespace || "").trim();
+      const version = String(script.version || "unknown").trim() || "unknown";
+      const base = (namespace || name || fallbackId)
+        .replace(/\.user\.js$/i, "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .toLowerCase();
+      const id = base || fallbackId;
+      return { name, version, id, fileName: `${id}.json` };
+    } catch {
+      return { name: fallbackName, version: "unknown", id: fallbackId, fileName: `${fallbackId}.json` };
+    }
+  })();
+  const BACKUP_SETTINGS_KEY = "projudi_highlight_hoje_backup_v1";
+  const BACKUP_SCHEMA = "projudi-highlight-hoje-backup-v1";
+  const DEFAULT_BACKUP_SETTINGS = {
+    enabled: false,
+    gistId: "",
+    token: "",
+    fileName: SCRIPT_META.fileName,
+    autoBackupOnSave: false
+  };
 
   try {
     if (window[RUNTIME_KEY]?.cleanup) window[RUNTIME_KEY].cleanup();
@@ -209,6 +241,133 @@
 
   function clearStoredFilterRangeEnd() {
     clearStored(FILTER_RANGE_END_KEY);
+  }
+
+  function normalizeBackupSettings(value) {
+    const next = { ...DEFAULT_BACKUP_SETTINGS, ...(value || {}) };
+    next.enabled = !!next.enabled;
+    next.gistId = String(next.gistId || "").trim();
+    next.token = String(next.token || "").trim();
+    next.fileName = String(next.fileName || SCRIPT_META.fileName).trim() || SCRIPT_META.fileName;
+    next.autoBackupOnSave = !!next.autoBackupOnSave;
+    return next;
+  }
+
+  function loadBackupSettings() {
+    let raw = null;
+    try {
+      raw = hasGM() ? GM_getValue(BACKUP_SETTINGS_KEY, null) : localStorage.getItem(BACKUP_SETTINGS_KEY);
+    } catch {}
+    if (typeof raw === "string") {
+      try {
+        raw = JSON.parse(raw);
+      } catch {
+        raw = null;
+      }
+    }
+    return normalizeBackupSettings(raw);
+  }
+
+  function saveBackupSettings(next) {
+    const normalized = normalizeBackupSettings(next);
+    try {
+      if (hasGM()) GM_setValue(BACKUP_SETTINGS_KEY, normalized);
+      else localStorage.setItem(BACKUP_SETTINGS_KEY, JSON.stringify(normalized));
+    } catch {}
+    return normalized;
+  }
+
+  function buildBackupPayload() {
+    return {
+      schema: BACKUP_SCHEMA,
+      scriptId: SCRIPT_META.id,
+      scriptName: SCRIPT_META.name,
+      version: SCRIPT_META.version,
+      exportedAt: new Date().toISOString(),
+      host: location.host,
+      settings: {
+        fixedDate: getStoredFixedDate(),
+        filterDate: getStoredFilterDate(),
+        filterEnabled: getStoredFilterEnabled(),
+        filterMode: getStoredFilterMode(),
+        filterRangeStart: getStoredFilterRangeStart(),
+        filterRangeEnd: getStoredFilterRangeEnd()
+      }
+    };
+  }
+
+  function applyBackupPayload(payload) {
+    const settings = payload && payload.settings && typeof payload.settings === "object" ? payload.settings : payload;
+    const next = settings && typeof settings === "object" ? settings : {};
+    next.fixedDate ? setStoredFixedDate(String(next.fixedDate)) : clearStoredFixedDate();
+    next.filterDate ? setStoredFilterDate(String(next.filterDate)) : clearStoredFilterDate();
+    next.filterRangeStart ? setStoredFilterRangeStart(String(next.filterRangeStart)) : clearStoredFilterRangeStart();
+    next.filterRangeEnd ? setStoredFilterRangeEnd(String(next.filterRangeEnd)) : clearStoredFilterRangeEnd();
+    setStoredFilterEnabled(!!next.filterEnabled);
+    setStoredFilterMode(String(next.filterMode || "exact"));
+    clearVisualFilterNowInWindow(getTopWindowSafe());
+    broadcastSettingsSyncBurst();
+    rebuildStateAndRehighlight();
+  }
+
+  function githubRequest(options) {
+    return new Promise((resolve, reject) => {
+      if (typeof GM_xmlhttpRequest !== "function") {
+        reject(new Error("GM_xmlhttpRequest indisponivel."));
+        return;
+      }
+      GM_xmlhttpRequest({
+        method: options.method || "GET",
+        url: options.url,
+        headers: options.headers || {},
+        data: options.data,
+        onload: resolve,
+        onerror: () => reject(new Error("Falha de rede ao acessar o GitHub.")),
+        ontimeout: () => reject(new Error("Tempo esgotado ao acessar o GitHub."))
+      });
+    });
+  }
+
+  function parseGithubError(response) {
+    try {
+      const parsed = JSON.parse(response.responseText || "{}");
+      if (parsed && parsed.message) return parsed.message;
+    } catch {}
+    return `GitHub respondeu com status ${response.status}.`;
+  }
+
+  async function pushBackupToGist(backupSettings, payload) {
+    if (!backupSettings.gistId) throw new Error("Informe o Gist ID.");
+    if (!backupSettings.token) throw new Error("Informe o token do GitHub.");
+    const response = await githubRequest({
+      method: "PATCH",
+      url: `https://api.github.com/gists/${encodeURIComponent(backupSettings.gistId)}`,
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${backupSettings.token}`,
+        "Content-Type": "application/json"
+      },
+      data: JSON.stringify({ files: { [backupSettings.fileName]: { content: JSON.stringify(payload, null, 2) } } })
+    });
+    if (response.status < 200 || response.status >= 300) throw new Error(parseGithubError(response));
+  }
+
+  async function readBackupFromGist(backupSettings) {
+    if (!backupSettings.gistId) throw new Error("Informe o Gist ID.");
+    if (!backupSettings.token) throw new Error("Informe o token do GitHub.");
+    const response = await githubRequest({
+      method: "GET",
+      url: `https://api.github.com/gists/${encodeURIComponent(backupSettings.gistId)}`,
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${backupSettings.token}`
+      }
+    });
+    if (response.status < 200 || response.status >= 300) throw new Error(parseGithubError(response));
+    const gist = JSON.parse(response.responseText || "{}");
+    const file = gist && gist.files ? gist.files[backupSettings.fileName] : null;
+    if (!file || !file.content) throw new Error("Arquivo de backup nao encontrado no Gist.");
+    return JSON.parse(file.content);
   }
 
   const pad2 = (n) => (n < 10 ? "0" + n : "" + n);
@@ -1150,6 +1309,7 @@
     `;
 
     const fixed = getStoredFixedDate();
+    const backupSettings = loadBackupSettings();
     const filterDateStored = getStoredFilterDate();
     const filterRangeStartStored = getStoredFilterRangeStart();
     const filterRangeEndStored = getStoredFilterRangeEnd();
@@ -1207,6 +1367,26 @@
           </div>
         </div>
 
+        <div class="tm-card">
+          <div class="tm-card-title">BACKUP REMOTO</div>
+          <div class="tm-card-desc">Use um unico Gist privado e um arquivo separado para este script.</div>
+          <div class="tm-inline-row">
+            <input id="${CLASS_PREFIX}-backup-gist" type="text" value="${backupSettings.gistId}" placeholder="Cole o Gist ID">
+            <input id="${CLASS_PREFIX}-backup-file" type="text" value="${backupSettings.fileName}" placeholder="projudi-highlight-hoje.json">
+          </div>
+          <div class="tm-inline-row">
+            <input id="${CLASS_PREFIX}-backup-token" type="password" value="${backupSettings.token}" placeholder="ghp_...">
+            <button id="${CLASS_PREFIX}-backup-send" class="btn-primary tm-action-main">Enviar backup</button>
+          </div>
+          <div class="tm-inline-row">
+            <div style="display:flex;gap:14px;flex-wrap:wrap;">
+              <label><input id="${CLASS_PREFIX}-backup-enabled" type="checkbox" ${backupSettings.enabled ? "checked" : ""}> Ativar backup</label>
+              <label><input id="${CLASS_PREFIX}-backup-auto" type="checkbox" ${backupSettings.autoBackupOnSave ? "checked" : ""}> Backup automatico</label>
+            </div>
+            <button id="${CLASS_PREFIX}-backup-restore" class="btn-ghost tm-action-main">Restaurar</button>
+          </div>
+        </div>
+
         <div id="${CLASS_PREFIX}-status" class="tm-status"></div>
         <div class="tm-note">Destaque automático: hoje + próximos ${WINDOW_DAYS - 1} dias.</div>
       </div>
@@ -1231,6 +1411,33 @@
     const setStatus = (msg) => {
       if (statusEl) statusEl.textContent = msg || "";
     };
+    const readBackupSettingsFromPanel = () => saveBackupSettings({
+      enabled: !!$(`${CLASS_PREFIX}-backup-enabled`)?.checked,
+      autoBackupOnSave: !!$(`${CLASS_PREFIX}-backup-auto`)?.checked,
+      gistId: $(`${CLASS_PREFIX}-backup-gist`)?.value || "",
+      token: $(`${CLASS_PREFIX}-backup-token`)?.value || "",
+      fileName: $(`${CLASS_PREFIX}-backup-file`)?.value || ""
+    });
+
+    const runBackupNow = async () => {
+      const nextSettings = readBackupSettingsFromPanel();
+      setStatus("Enviando backup...");
+      await pushBackupToGist(nextSettings, buildBackupPayload());
+      setStatus("Backup enviado.");
+    };
+    [
+      $(`${CLASS_PREFIX}-backup-enabled`),
+      $(`${CLASS_PREFIX}-backup-auto`),
+      $(`${CLASS_PREFIX}-backup-gist`),
+      $(`${CLASS_PREFIX}-backup-token`),
+      $(`${CLASS_PREFIX}-backup-file`)
+    ].forEach((el) => {
+      if (!el) return;
+      const eventName = el.type === "checkbox" ? "change" : "input";
+      el.addEventListener(eventName, () => {
+        readBackupSettingsFromPanel();
+      });
+    });
 
     function refreshStatus() {
       const fixedY = getStoredFixedDate();
@@ -1287,6 +1494,10 @@
       setStoredFixedDate(v);
       broadcastSettingsSyncBurst();
       refreshStatus();
+      const backupSettings = readBackupSettingsFromPanel();
+      if (backupSettings.enabled && backupSettings.autoBackupOnSave) {
+        pushBackupToGist(backupSettings, buildBackupPayload()).catch(() => {});
+      }
     });
 
     $(`${CLASS_PREFIX}-apply-filter`).addEventListener("click", () => {
@@ -1298,6 +1509,10 @@
       setStoredFilterEnabled(true);
       broadcastSettingsSyncBurst();
       refreshStatus();
+      const backupSettings = readBackupSettingsFromPanel();
+      if (backupSettings.enabled && backupSettings.autoBackupOnSave) {
+        pushBackupToGist(backupSettings, buildBackupPayload()).catch(() => {});
+      }
     });
 
     $(`${CLASS_PREFIX}-apply-range-filter`).addEventListener("click", () => {
@@ -1314,6 +1529,10 @@
       setStoredFilterEnabled(true);
       broadcastSettingsSyncBurst();
       refreshStatus();
+      const backupSettings = readBackupSettingsFromPanel();
+      if (backupSettings.enabled && backupSettings.autoBackupOnSave) {
+        pushBackupToGist(backupSettings, buildBackupPayload()).catch(() => {});
+      }
     });
 
     $(`${CLASS_PREFIX}-apply-missing-filter`).addEventListener("click", () => {
@@ -1321,6 +1540,10 @@
       setStoredFilterEnabled(true);
       broadcastSettingsSyncBurst();
       refreshStatus();
+      const backupSettings = readBackupSettingsFromPanel();
+      if (backupSettings.enabled && backupSettings.autoBackupOnSave) {
+        pushBackupToGist(backupSettings, buildBackupPayload()).catch(() => {});
+      }
     });
 
     $(`${CLASS_PREFIX}-clear-all`).addEventListener("click", () => {
@@ -1339,6 +1562,29 @@
       clearVisualFilterNowInWindow(getTopWindowSafe());
       broadcastSettingsSyncBurst();
       refreshStatus();
+      const backupSettings = readBackupSettingsFromPanel();
+      if (backupSettings.enabled && backupSettings.autoBackupOnSave) {
+        pushBackupToGist(backupSettings, buildBackupPayload()).catch(() => {});
+      }
+    });
+
+    $(`${CLASS_PREFIX}-backup-send`).addEventListener("click", () => {
+      runBackupNow().catch((error) => setStatus(error && error.message ? error.message : "Falha ao enviar backup."));
+    });
+
+    $(`${CLASS_PREFIX}-backup-restore`).addEventListener("click", () => {
+      const nextSettings = readBackupSettingsFromPanel();
+      setStatus("Restaurando backup...");
+      readBackupFromGist(nextSettings)
+        .then((payload) => {
+          applyBackupPayload(payload);
+          $(`${CLASS_PREFIX}-date-input`).value = getStoredFixedDate();
+          $(`${CLASS_PREFIX}-filter-date`).value = getStoredFilterDate() || todayYMD;
+          $(`${CLASS_PREFIX}-range-start`).value = getStoredFilterRangeStart() || todayYMD;
+          $(`${CLASS_PREFIX}-range-end`).value = getStoredFilterRangeEnd() || todayYMD;
+          refreshStatus();
+        })
+        .catch((error) => setStatus(error && error.message ? error.message : "Falha ao restaurar backup."));
     });
 
     overlay.addEventListener("click", (e) => {
