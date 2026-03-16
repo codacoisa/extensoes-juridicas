@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque Global
 // @namespace    projudi-highlighter.user.js
-// @version      4.7
+// @version      4.8
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaque global, com painel configurável (Ctrl+Shift+H).
 // @author       lourencosv (GPT)
@@ -387,7 +387,7 @@
     if (response.status < 200 || response.status >= 300) throw new Error(parseGithubError(response));
     const gist = JSON.parse(response.responseText || "{}");
     const file = gist && gist.files ? gist.files[backupSettings.fileName] : null;
-    if (!file || !file.content) throw new Error("Arquivo de backup nao encontrado no Gist.");
+    if (!file || !file.content) throw new Error("Arquivo de backup não encontrado no Gist.");
     return JSON.parse(file.content);
   }
 
@@ -1334,7 +1334,7 @@
 
         <div class="vhp-sec">
           <div class="vhp-title">Backup remoto</div>
-          <div style="font-size:12px; color:#64748b; margin-bottom:10px;">Use um unico Gist no Github e um arquivo separado para este script.</div>
+          <div style="font-size:12px; color:#64748b; margin-bottom:10px;">Use um único Gist no GitHub e um arquivo separado para este script.</div>
           <div class="vhp-backup-grid">
             <div class="vhp-backup-field">
               <label for="vhp-backup-gist">Gist ID</label>
@@ -1351,8 +1351,8 @@
           </div>
           <div class="vhp-backup-row">
             <div class="vhp-backup-toggle">
-              <label><input id="vhp-backup-enabled" type="checkbox" ${backupSettings.enabled ? "checked" : ""} /> Ativar backup por Gist no Github.</label>
-              <label><input id="vhp-backup-auto" type="checkbox" ${backupSettings.autoBackupOnSave ? "checked" : ""} /> Backup automatico</label>
+              <label><input id="vhp-backup-enabled" type="checkbox" ${backupSettings.enabled ? "checked" : ""} /> Ativar backup por Gist no GitHub.</label>
+              <label><input id="vhp-backup-auto" type="checkbox" ${backupSettings.autoBackupOnSave ? "checked" : ""} /> Backup automático</label>
             </div>
             <button id="vhp-backup-send" class="vhp-btn" type="button">Enviar backup</button>
             <button id="vhp-backup-restore" class="vhp-btn" type="button">Restaurar backup</button>
