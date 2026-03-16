@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Processos Favoritos
 // @namespace    projudi-processos-favoritos.user.js
-// @version      1.3
+// @version      1.4
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca processos favoritos, permite adicionar/remover no detalhe e gerenciar via painel.
 // @author       lourencosv (GPT)
@@ -59,6 +59,7 @@
   let menuCommandId = null;
   let menuRegistered = false;
   let initialized = false;
+  let backupTimer = null;
 
   const refreshTimers = new WeakMap();
   const docObservers = new WeakMap();
@@ -127,6 +128,7 @@
     storeCache = normalized.slice();
     favSetCache = null;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+    scheduleFavoritesAutoBackup();
     refreshAll();
   }
 
@@ -154,6 +156,19 @@
     const normalized = normalizeBackupSettings(next);
     localStorage.setItem(BACKUP_STORAGE_KEY, JSON.stringify(normalized));
     return normalized;
+  }
+
+  function scheduleFavoritesAutoBackup() {
+    clearTimeout(backupTimer);
+    backupTimer = null;
+    const backupSettings = loadBackupSettings();
+    if (!backupSettings.enabled || !backupSettings.autoBackupOnSave) return;
+    backupTimer = setTimeout(async () => {
+      backupTimer = null;
+      try {
+        await pushBackupToGist(backupSettings, buildExportPayload());
+      } catch (_) {}
+    }, 700);
   }
 
   function githubRequest(options) {
