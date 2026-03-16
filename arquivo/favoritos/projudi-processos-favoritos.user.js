@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Processos Favoritos
 // @namespace    projudi-processos-favoritos.user.js
-// @version      1.1
+// @version      1.2
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca processos favoritos, permite adicionar/remover no detalhe e gerenciar via painel.
 // @author       lourencosv (GPT)
@@ -12,6 +12,8 @@
 // @run-at       document-idle
 // @grant        GM_registerMenuCommand
 // @grant        GM_unregisterMenuCommand
+// @grant        GM_xmlhttpRequest
+// @connect      api.github.com
 // ==/UserScript==
 
 (function () {
@@ -20,9 +22,39 @@
   if (window.top !== window.self) return;
 
   const STORAGE_KEY = 'lp_procs_favoritos_v2';
+  const SCRIPT_META = (() => {
+    const fallbackName = 'Processos Favoritos';
+    const fallbackId = 'projudi-processos-favoritos';
+    try {
+      const script = GM_info && GM_info.script ? GM_info.script : {};
+      const name = String(script.name || fallbackName).trim() || fallbackName;
+      const namespace = String(script.namespace || '').trim();
+      const version = String(script.version || 'unknown').trim() || 'unknown';
+      const base = (namespace || name || fallbackId)
+        .replace(/\.user\.js$/i, '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .toLowerCase();
+      const id = base || fallbackId;
+      return { name, version, id, fileName: `${id}.json` };
+    } catch {
+      return { name: fallbackName, version: 'unknown', id: fallbackId, fileName: `${fallbackId}.json` };
+    }
+  })();
+  const BACKUP_STORAGE_KEY = 'lp_procs_favoritos_v2::gist-backup';
   const STYLE_ID = 'lp-style-favoritos';
   const BTN_ID = 'lp-toggle-proc-btn';
   const PANEL_OVERLAY_ID = 'lp-fav-panel-overlay';
+  const BACKUP_SCHEMA = 'projudi-processos-favoritos-backup-v1';
+  const DEFAULT_BACKUP_SETTINGS = {
+    enabled: false,
+    gistId: '',
+    token: '',
+    fileName: SCRIPT_META.fileName,
+    autoBackupOnSave: false
+  };
 
   let menuCommandId = null;
   let menuRegistered = false;
@@ -96,6 +128,103 @@
     favSetCache = null;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
     refreshAll();
+  }
+
+  function normalizeBackupSettings(value) {
+    const next = { ...DEFAULT_BACKUP_SETTINGS, ...(value || {}) };
+    next.enabled = !!next.enabled;
+    next.gistId = String(next.gistId || '').trim();
+    next.token = String(next.token || '').trim();
+    next.fileName = String(next.fileName || SCRIPT_META.fileName).trim() || SCRIPT_META.fileName;
+    next.autoBackupOnSave = !!next.autoBackupOnSave;
+    return next;
+  }
+
+  function loadBackupSettings() {
+    try {
+      const raw = localStorage.getItem(BACKUP_STORAGE_KEY);
+      if (!raw) return normalizeBackupSettings(DEFAULT_BACKUP_SETTINGS);
+      return normalizeBackupSettings(JSON.parse(raw));
+    } catch (_) {
+      return normalizeBackupSettings(DEFAULT_BACKUP_SETTINGS);
+    }
+  }
+
+  function saveBackupSettings(next) {
+    const normalized = normalizeBackupSettings(next);
+    localStorage.setItem(BACKUP_STORAGE_KEY, JSON.stringify(normalized));
+    return normalized;
+  }
+
+  function githubRequest(options) {
+    return new Promise((resolve, reject) => {
+      if (typeof GM_xmlhttpRequest !== 'function') {
+        reject(new Error('GM_xmlhttpRequest indisponível.'));
+        return;
+      }
+      GM_xmlhttpRequest({
+        method: options.method || 'GET',
+        url: options.url,
+        headers: options.headers || {},
+        data: options.data,
+        onload: resolve,
+        onerror: () => reject(new Error('Falha de rede ao acessar o GitHub.')),
+        ontimeout: () => reject(new Error('Tempo esgotado ao acessar o GitHub.'))
+      });
+    });
+  }
+
+  function parseGithubError(response) {
+    try {
+      const parsed = JSON.parse(response.responseText || '{}');
+      if (parsed && parsed.message) return parsed.message;
+    } catch (_) {}
+    return `GitHub respondeu com status ${response.status}.`;
+  }
+
+  async function pushBackupToGist(backupSettings, payload) {
+    if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
+    if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
+    const response = await githubRequest({
+      method: 'PATCH',
+      url: `https://api.github.com/gists/${encodeURIComponent(backupSettings.gistId)}`,
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${backupSettings.token}`,
+        'Content-Type': 'application/json'
+      },
+      data: JSON.stringify({
+        files: {
+          [backupSettings.fileName]: {
+            content: JSON.stringify(payload, null, 2)
+          }
+        }
+      })
+    });
+    if (response.status < 200 || response.status >= 300) {
+      throw new Error(parseGithubError(response));
+    }
+    return JSON.parse(response.responseText || '{}');
+  }
+
+  async function readBackupFromGist(backupSettings) {
+    if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
+    if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
+    const response = await githubRequest({
+      method: 'GET',
+      url: `https://api.github.com/gists/${encodeURIComponent(backupSettings.gistId)}`,
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${backupSettings.token}`
+      }
+    });
+    if (response.status < 200 || response.status >= 300) {
+      throw new Error(parseGithubError(response));
+    }
+    const gist = JSON.parse(response.responseText || '{}');
+    const file = gist && gist.files ? gist.files[backupSettings.fileName] : null;
+    if (!file || !file.content) throw new Error('Arquivo de backup não encontrado no Gist.');
+    return JSON.parse(file.content);
   }
 
   function normalizeFull(num) {
@@ -629,6 +758,27 @@
               <input type="file" id="lp-import-file" accept=".json,application/json" style="display:none" />
             </div>
             <div class="lp-status" id="lp-status" aria-live="polite"></div>
+            <div class="lp-card" style="margin-top:12px;">
+              <div class="lp-help" style="margin-bottom:8px;">Backup remoto via Gist privado</div>
+              <div class="lp-row" style="justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <span class="lp-help" style="margin:0;">Ativar backup remoto</span>
+                <input type="checkbox" id="lp-backup-enabled" />
+              </div>
+              <div class="lp-row" style="flex-direction:column; align-items:stretch; gap:8px;">
+                <input type="text" id="lp-backup-gist-id" placeholder="Gist ID" />
+                <input type="password" id="lp-backup-token" placeholder="Token GitHub" />
+                <input type="text" id="lp-backup-file-name" placeholder="Nome do arquivo" />
+              </div>
+              <div class="lp-row" style="justify-content:space-between; align-items:center; margin-top:8px;">
+                <span class="lp-help" style="margin:0;">Enviar backup ao salvar</span>
+                <input type="checkbox" id="lp-backup-auto" />
+              </div>
+              <div class="lp-actions" style="margin-top:8px;">
+                <button type="button" class="lp-btn lp-btn-soft" id="lp-backup-send">Enviar backup</button>
+                <button type="button" class="lp-btn lp-btn-soft" id="lp-backup-restore">Restaurar</button>
+              </div>
+              <div class="lp-help" id="lp-backup-status" style="margin-top:8px;"></div>
+            </div>
           </div>
           <div class="lp-list-wrap">
             <ul id="lp-list"></ul>
@@ -665,6 +815,20 @@
     const saveBtn = overlay.querySelector('#lp-save');
     const ul = overlay.querySelector('#lp-list');
     const count = overlay.querySelector('#lp-count');
+    const backupEnabled = overlay.querySelector('#lp-backup-enabled');
+    const backupGistId = overlay.querySelector('#lp-backup-gist-id');
+    const backupToken = overlay.querySelector('#lp-backup-token');
+    const backupFileName = overlay.querySelector('#lp-backup-file-name');
+    const backupAuto = overlay.querySelector('#lp-backup-auto');
+    const backupSend = overlay.querySelector('#lp-backup-send');
+    const backupRestore = overlay.querySelector('#lp-backup-restore');
+    const backupStatus = overlay.querySelector('#lp-backup-status');
+    let backupSettings = loadBackupSettings();
+    backupEnabled.checked = backupSettings.enabled;
+    backupGistId.value = backupSettings.gistId;
+    backupToken.value = backupSettings.token;
+    backupFileName.value = backupSettings.fileName;
+    backupAuto.checked = backupSettings.autoBackupOnSave;
 
     function canonicalizeFull(value) {
       const text = String(value || '').trim();
@@ -676,6 +840,28 @@
       status.textContent = String(message || '');
       status.classList.remove('ok', 'err');
       if (type) status.classList.add(type);
+    }
+
+    function showBackupStatus(message, type) {
+      backupStatus.textContent = String(message || '');
+      backupStatus.style.color = type === 'err' ? '#b42318' : type === 'ok' ? '#067647' : '';
+    }
+
+    function readBackupSettingsFromPanel() {
+      return normalizeBackupSettings({
+        enabled: backupEnabled.checked,
+        gistId: backupGistId.value,
+        token: backupToken.value,
+        fileName: backupFileName.value,
+        autoBackupOnSave: backupAuto.checked
+      });
+    }
+
+    async function runBackupNow() {
+      backupSettings = saveBackupSettings(readBackupSettingsFromPanel());
+      showBackupStatus('Enviando backup...', 'muted');
+      await pushBackupToGist(backupSettings, buildExportPayload());
+      showBackupStatus('Backup enviado com sucesso.', 'ok');
     }
 
     function sortAndUniqByKey(list) {
@@ -692,6 +878,10 @@
     function buildExportPayload() {
       const favorites = sortAndUniqByKey(readStore());
       return {
+        schema: BACKUP_SCHEMA,
+        scriptId: SCRIPT_META.id,
+        scriptName: SCRIPT_META.name,
+        version: SCRIPT_META.version,
         exportedAt: new Date().toISOString(),
         total: favorites.length,
         favorites
@@ -771,6 +961,12 @@
       throw new Error('JSON sem lista de favoritos.');
     }
 
+    function restoreImportedPayload(text) {
+      const favorites = sortAndUniqByKey(parseImportedPayload(text));
+      writeStore(favorites);
+      return favorites;
+    }
+
     function importJsonFile(file) {
       if (!file) return;
       const reader = new FileReader();
@@ -816,6 +1012,25 @@
       const file = importInput.files && importInput.files[0];
       importJsonFile(file);
     });
+    backupSend.addEventListener('click', async function () {
+      try {
+        await runBackupNow();
+      } catch (error) {
+        showBackupStatus(error && error.message ? error.message : 'Falha ao enviar backup.', 'err');
+      }
+    });
+    backupRestore.addEventListener('click', async function () {
+      try {
+        backupSettings = saveBackupSettings(readBackupSettingsFromPanel());
+        showBackupStatus('Lendo backup...', 'muted');
+        const payload = await readBackupFromGist(backupSettings);
+        const restored = restoreImportedPayload(JSON.stringify(payload));
+        renderList();
+        showBackupStatus(`Backup restaurado: ${restored.length} favorito(s).`, 'ok');
+      } catch (error) {
+        showBackupStatus(error && error.message ? error.message : 'Falha ao restaurar backup.', 'err');
+      }
+    });
 
     clearBtn.addEventListener('click', function () {
       writeStore([]);
@@ -825,7 +1040,15 @@
 
     closeBtn.addEventListener('click', closePanel);
     cancelBtn.addEventListener('click', closePanel);
-    saveBtn.addEventListener('click', closePanel);
+    saveBtn.addEventListener('click', function () {
+      backupSettings = saveBackupSettings(readBackupSettingsFromPanel());
+      if (backupSettings.enabled && backupSettings.autoBackupOnSave) {
+        runBackupNow().catch((error) => {
+          showBackupStatus(error && error.message ? error.message : 'Falha ao enviar backup.', 'err');
+        });
+      }
+      closePanel();
+    });
     overlay.addEventListener('click', function (e) {
       if (e.target === overlay) closePanel();
     });
