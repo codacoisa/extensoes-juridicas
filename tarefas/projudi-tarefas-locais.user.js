@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2.3
+// @version      2.4
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -1762,17 +1762,17 @@
           <div class="pjm-row" style="justify-content:space-between; align-items:center;">
             <strong>Backup remoto</strong>
             <label style="display:flex; align-items:center; gap:8px;">
-              <span style="font-size:12px; color:#5f6f83;">Ativar backup por Gist no Github.</span>
+              <span style="font-size:12px; color:#5f6f83;">Ativar backup por Gist no GitHub.</span>
               <input type="checkbox" id="pjm-backup-enabled">
             </label>
           </div>
           <div class="pjm-row" style="flex-direction:column; align-items:stretch;">
             <input class="pjm-input" id="pjm-backup-gist-id" placeholder="Gist ID">
-            <input class="pjm-input" id="pjm-backup-token" type="password" placeholder="Token GitHub">
+            <input class="pjm-input" id="pjm-backup-token" type="password" placeholder="Token do GitHub">
             <input class="pjm-input" id="pjm-backup-file-name" placeholder="Nome do arquivo">
           </div>
           <div class="pjm-row" style="justify-content:space-between; align-items:center;">
-            <span class="pjm-item-meta">Enviar backup ao salvar</span>
+            <span class="pjm-item-meta">Backup automático</span>
             <input type="checkbox" id="pjm-backup-auto">
           </div>
           <div class="pjm-row">
