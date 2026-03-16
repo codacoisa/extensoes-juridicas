@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2.1
+// @version      2.2
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -16,18 +16,50 @@
 // @grant        GM_deleteValue
 // @grant        GM_registerMenuCommand
 // @grant        GM_unregisterMenuCommand
+// @grant        GM_xmlhttpRequest
+// @connect      api.github.com
 // ==/UserScript==
 
 (function () {
   'use strict';
 
   const Z_UI = 2147483001;
+  const SCRIPT_META = (() => {
+    const fallbackName = 'Tarefas';
+    const fallbackId = 'projudi-tarefas-locais';
+    try {
+      const script = GM_info && GM_info.script ? GM_info.script : {};
+      const name = String(script.name || fallbackName).trim() || fallbackName;
+      const namespace = String(script.namespace || '').trim();
+      const version = String(script.version || 'unknown').trim() || 'unknown';
+      const base = (namespace || name || fallbackId)
+        .replace(/\.user\.js$/i, '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .toLowerCase();
+      const id = base || fallbackId;
+      return { name, version, id, fileName: `${id}.json` };
+    } catch {
+      return { name: fallbackName, version: 'unknown', id: fallbackId, fileName: `${fallbackId}.json` };
+    }
+  })();
   const KEY_PREFIX = 'projudi_todo::';
   const KEY_INDEX = `${KEY_PREFIX}index`;
   const KEY_GLOBAL_ITEMS = `${KEY_PREFIX}global::items`;
   const KEY_GLOBAL_UI = `${KEY_PREFIX}global::ui`;
+  const KEY_BACKUP = `${KEY_PREFIX}gist-backup`;
   const DEFAULT_UI = { minimized: true, right: 12, top: 12 };
   const EXPORT_SCHEMA = 'projudi-tarefas-export-v1';
+  const BACKUP_SCHEMA = 'projudi-tarefas-gist-backup-v1';
+  const DEFAULT_BACKUP_SETTINGS = {
+    enabled: false,
+    gistId: '',
+    token: '',
+    fileName: SCRIPT_META.fileName,
+    autoBackupOnSave: false
+  };
   const FA_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css';
   const FAB_UI = {
     right: 16,
@@ -193,6 +225,93 @@
     }
   };
 
+  function normalizeBackupSettings(value) {
+    const next = { ...DEFAULT_BACKUP_SETTINGS, ...(value || {}) };
+    next.enabled = !!next.enabled;
+    next.gistId = String(next.gistId || '').trim();
+    next.token = String(next.token || '').trim();
+    next.fileName = String(next.fileName || SCRIPT_META.fileName).trim() || SCRIPT_META.fileName;
+    next.autoBackupOnSave = !!next.autoBackupOnSave;
+    return next;
+  }
+
+  function loadBackupSettings() {
+    return normalizeBackupSettings(storage.get(KEY_BACKUP, DEFAULT_BACKUP_SETTINGS));
+  }
+
+  function saveBackupSettings(next) {
+    const normalized = normalizeBackupSettings(next);
+    storage.set(KEY_BACKUP, normalized);
+    return normalized;
+  }
+
+  function githubRequest(options) {
+    return new Promise((resolve, reject) => {
+      if (typeof GM_xmlhttpRequest !== 'function') {
+        reject(new Error('GM_xmlhttpRequest indisponível.'));
+        return;
+      }
+      GM_xmlhttpRequest({
+        method: options.method || 'GET',
+        url: options.url,
+        headers: options.headers || {},
+        data: options.data,
+        onload: resolve,
+        onerror: () => reject(new Error('Falha de rede ao acessar o GitHub.')),
+        ontimeout: () => reject(new Error('Tempo esgotado ao acessar o GitHub.'))
+      });
+    });
+  }
+
+  function parseGithubError(response) {
+    try {
+      const parsed = JSON.parse(response.responseText || '{}');
+      if (parsed && parsed.message) return parsed.message;
+    } catch (_) {}
+    return `GitHub respondeu com status ${response.status}.`;
+  }
+
+  async function pushBackupToGist(backupSettings, payload) {
+    if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
+    if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
+    const response = await githubRequest({
+      method: 'PATCH',
+      url: `https://api.github.com/gists/${encodeURIComponent(backupSettings.gistId)}`,
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${backupSettings.token}`,
+        'Content-Type': 'application/json'
+      },
+      data: JSON.stringify({
+        files: {
+          [backupSettings.fileName]: {
+            content: JSON.stringify(payload, null, 2)
+          }
+        }
+      })
+    });
+    if (response.status < 200 || response.status >= 300) throw new Error(parseGithubError(response));
+    return JSON.parse(response.responseText || '{}');
+  }
+
+  async function readBackupFromGist(backupSettings) {
+    if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
+    if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
+    const response = await githubRequest({
+      method: 'GET',
+      url: `https://api.github.com/gists/${encodeURIComponent(backupSettings.gistId)}`,
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${backupSettings.token}`
+      }
+    });
+    if (response.status < 200 || response.status >= 300) throw new Error(parseGithubError(response));
+    const gist = JSON.parse(response.responseText || '{}');
+    const file = gist && gist.files ? gist.files[backupSettings.fileName] : null;
+    if (!file || !file.content) throw new Error('Arquivo de backup não encontrado no Gist.');
+    return JSON.parse(file.content);
+  }
+
   function getCNJFromDocument(doc) {
     const text = doc.body && doc.body.innerText ? doc.body.innerText : '';
     const match = text.match(/\b\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\b/);
@@ -354,6 +473,7 @@
 
   function saveItemsByKey(ctxKey, items) {
     storage.set(todosKey(ctxKey), normalizeTodoItems(items));
+    scheduleTodoAutoBackup();
   }
 
   function loadUIByKey(ctxKey) {
@@ -378,6 +498,7 @@
 
   function saveGlobalItems(items) {
     storage.set(KEY_GLOBAL_ITEMS, normalizeTodoItems(items));
+    scheduleTodoAutoBackup();
   }
 
   function loadGlobalUI() {
@@ -424,7 +545,7 @@
     return [...set];
   }
 
-  function exportTodoData() {
+  function exportTodoPayload() {
     const data = {};
     const keys = listTodoKeys();
 
@@ -432,11 +553,26 @@
       data[key] = storage.get(key, null);
     }
 
-    const payload = {
+    return {
       schema: EXPORT_SCHEMA,
       exportedAt: new Date().toISOString(),
       data
     };
+  }
+
+  function buildTodoBackupPayload() {
+    return {
+      schema: BACKUP_SCHEMA,
+      scriptId: SCRIPT_META.id,
+      scriptName: SCRIPT_META.name,
+      version: SCRIPT_META.version,
+      host: location.host,
+      ...exportTodoPayload()
+    };
+  }
+
+  function exportTodoData() {
+    const payload = exportTodoPayload();
 
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -491,6 +627,42 @@
     } catch (_) {
       alert('Falha ao importar JSON. Verifique o arquivo.');
     }
+  }
+
+  function importTodoPayloadObject(parsed) {
+    const data = parsed && typeof parsed === 'object' && parsed.data && typeof parsed.data === 'object' ? parsed.data : parsed;
+
+    if (!data || typeof data !== 'object') {
+      throw new Error('JSON inválido para importação.');
+    }
+
+    const importedKeys = Object.keys(data).filter(k => k.startsWith(KEY_PREFIX));
+    if (!importedKeys.length) {
+      throw new Error('Nenhuma chave de Tarefas encontrada no JSON.');
+    }
+
+    const existing = listTodoKeys();
+    for (const key of existing) storage.del(key);
+
+    for (const key of importedKeys) {
+      storage.set(key, data[key]);
+    }
+
+    unmount();
+    scheduleEvaluate(50);
+    return importedKeys.length;
+  }
+
+  let backupTimer = null;
+
+  function scheduleTodoAutoBackup() {
+    const backupSettings = loadBackupSettings();
+    if (!backupSettings.enabled || !backupSettings.autoBackupOnSave) return;
+    if (backupTimer) clearTimeout(backupTimer);
+    backupTimer = setTimeout(() => {
+      backupTimer = null;
+      pushBackupToGist(backupSettings, buildTodoBackupPayload()).catch(() => {});
+    }, 500);
   }
 
   function toggleDoneState(item, done) {
@@ -1587,6 +1759,29 @@
           </div>
         </div>
         <div class="pjm-card">
+          <div class="pjm-row" style="justify-content:space-between; align-items:center;">
+            <strong>Backup remoto por Gist privado</strong>
+            <label style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:12px; color:#5f6f83;">Ativar</span>
+              <input type="checkbox" id="pjm-backup-enabled">
+            </label>
+          </div>
+          <div class="pjm-row" style="flex-direction:column; align-items:stretch;">
+            <input class="pjm-input" id="pjm-backup-gist-id" placeholder="Gist ID">
+            <input class="pjm-input" id="pjm-backup-token" type="password" placeholder="Token GitHub">
+            <input class="pjm-input" id="pjm-backup-file-name" placeholder="Nome do arquivo">
+          </div>
+          <div class="pjm-row" style="justify-content:space-between; align-items:center;">
+            <span class="pjm-item-meta">Enviar backup ao salvar</span>
+            <input type="checkbox" id="pjm-backup-auto">
+          </div>
+          <div class="pjm-row">
+            <button class="pjm-btn" id="pjm-backup-send">Enviar backup</button>
+            <button class="pjm-btn" id="pjm-backup-restore">Restaurar</button>
+          </div>
+          <div class="pjm-item-meta" id="pjm-backup-status"></div>
+        </div>
+        <div class="pjm-card">
           <div class="pjm-row">
             <span id="pjm-stats" class="pjm-item-meta"></span>
           </div>
@@ -1604,6 +1799,42 @@
     const statsEl = panel.querySelector('#pjm-stats');
     const stateFilterEl = panel.querySelector('#pjm-filter-state');
     const searchEl = panel.querySelector('#pjm-search');
+    const backupEnabled = panel.querySelector('#pjm-backup-enabled');
+    const backupGistId = panel.querySelector('#pjm-backup-gist-id');
+    const backupToken = panel.querySelector('#pjm-backup-token');
+    const backupFileName = panel.querySelector('#pjm-backup-file-name');
+    const backupAuto = panel.querySelector('#pjm-backup-auto');
+    const backupSend = panel.querySelector('#pjm-backup-send');
+    const backupRestore = panel.querySelector('#pjm-backup-restore');
+    const backupStatus = panel.querySelector('#pjm-backup-status');
+    let backupSettings = loadBackupSettings();
+    backupEnabled.checked = backupSettings.enabled;
+    backupGistId.value = backupSettings.gistId;
+    backupToken.value = backupSettings.token;
+    backupFileName.value = backupSettings.fileName;
+    backupAuto.checked = backupSettings.autoBackupOnSave;
+
+    function showBackupStatus(message, tone) {
+      backupStatus.textContent = message || '';
+      backupStatus.style.color = tone === 'err' ? '#b42318' : tone === 'ok' ? '#067647' : '';
+    }
+
+    function readBackupSettingsFromPanel() {
+      return normalizeBackupSettings({
+        enabled: backupEnabled.checked,
+        gistId: backupGistId.value,
+        token: backupToken.value,
+        fileName: backupFileName.value,
+        autoBackupOnSave: backupAuto.checked
+      });
+    }
+
+    async function runBackupNow() {
+      backupSettings = saveBackupSettings(readBackupSettingsFromPanel());
+      showBackupStatus('Enviando backup...', 'muted');
+      await pushBackupToGist(backupSettings, buildTodoBackupPayload());
+      showBackupStatus('Backup enviado com sucesso.', 'ok');
+    }
 
     function persistRow(row) {
       if (row.scopeType === 'global') {
@@ -1715,6 +1946,25 @@
     panel.querySelector('#pjm-import').addEventListener('click', async () => {
       await importTodoData();
       renderManagerRows();
+    });
+    backupSend.addEventListener('click', async () => {
+      try {
+        await runBackupNow();
+      } catch (error) {
+        showBackupStatus(error && error.message ? error.message : 'Falha ao enviar backup.', 'err');
+      }
+    });
+    backupRestore.addEventListener('click', async () => {
+      try {
+        backupSettings = saveBackupSettings(readBackupSettingsFromPanel());
+        showBackupStatus('Lendo backup...', 'muted');
+        const payload = await readBackupFromGist(backupSettings);
+        const total = importTodoPayloadObject(payload);
+        renderManagerRows();
+        showBackupStatus(`Backup restaurado: ${total} chave(s).`, 'ok');
+      } catch (error) {
+        showBackupStatus(error && error.message ? error.message : 'Falha ao restaurar backup.', 'err');
+      }
     });
     stateFilterEl.addEventListener('change', renderManagerRows);
     searchEl.addEventListener('input', renderManagerRows);
