@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque Global
 // @namespace    projudi-highlighter.user.js
-// @version      4.8
+// @version      4.9
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaque global, com painel configurável (Ctrl+Shift+H).
 // @author       lourencosv (GPT)
@@ -1356,6 +1356,7 @@
             </div>
             <button id="vhp-backup-send" class="vhp-btn" type="button">Enviar backup</button>
             <button id="vhp-backup-restore" class="vhp-btn" type="button">Restaurar backup</button>
+            <button id="vhp-backup-clear" class="vhp-btn" type="button">Limpar backup</button>
             <div id="vhp-backup-status" class="vhp-backup-status"></div>
           </div>
         </div>
@@ -1630,6 +1631,16 @@
       } catch (error) {
         setBackupStatus(error && error.message ? error.message : "Falha ao restaurar backup.", true);
       }
+    });
+
+    $("#vhp-backup-clear").addEventListener("click", async () => {
+      const nextSettings = await saveBackupSettings(DEFAULT_BACKUP_SETTINGS);
+      $("#vhp-backup-enabled").checked = nextSettings.enabled;
+      $("#vhp-backup-auto").checked = nextSettings.autoBackupOnSave;
+      $("#vhp-backup-gist").value = nextSettings.gistId;
+      $("#vhp-backup-token").value = nextSettings.token;
+      $("#vhp-backup-file").value = nextSettings.fileName;
+      setBackupStatus("Configuração de backup removida.");
     });
 
     $("#vhp-close").addEventListener("click", closePanel);
