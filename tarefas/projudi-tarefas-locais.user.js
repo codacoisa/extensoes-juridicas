@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2.5
+// @version      2.6
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -59,7 +59,8 @@
     gistId: '',
     token: '',
     fileName: SCRIPT_META.fileName,
-    autoBackupOnSave: false
+    autoBackupOnSave: false,
+    lastBackupAt: ''
   };
   const FA_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css';
   const FAB_UI = {
@@ -233,7 +234,15 @@
     next.token = String(next.token || '').trim();
     next.fileName = String(next.fileName || SCRIPT_META.fileName).trim() || SCRIPT_META.fileName;
     next.autoBackupOnSave = !!next.autoBackupOnSave;
+    next.lastBackupAt = String(next.lastBackupAt || '').trim();
     return next;
+  }
+
+  function formatLastBackupLabel(value) {
+    if (!value) return 'Último backup: ainda não enviado.';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Último backup: ainda não enviado.';
+    return `Último backup: ${date.toLocaleString('pt-BR')}.`;
   }
 
   function loadBackupSettings() {
@@ -663,7 +672,9 @@
     if (backupTimer) clearTimeout(backupTimer);
     backupTimer = setTimeout(() => {
       backupTimer = null;
-      pushBackupToGist(backupSettings, buildTodoBackupPayload()).catch(() => {});
+      pushBackupToGist(backupSettings, buildTodoBackupPayload())
+        .then(() => saveBackupSettings({ ...backupSettings, lastBackupAt: new Date().toISOString() }))
+        .catch(() => {});
     }, 500);
   }
 
@@ -1783,6 +1794,7 @@
             <button class="pjm-btn" id="pjm-backup-clear">Limpar backup</button>
           </div>
           <div class="pjm-item-meta" id="pjm-backup-status"></div>
+          <div class="pjm-item-meta" id="pjm-backup-last">${formatLastBackupLabel(backupSettings.lastBackupAt)}</div>
         </div>
         <div class="pjm-card">
           <div class="pjm-row">
@@ -1811,6 +1823,7 @@
     const backupRestore = panel.querySelector('#pjm-backup-restore');
     const backupClear = panel.querySelector('#pjm-backup-clear');
     const backupStatus = panel.querySelector('#pjm-backup-status');
+    const backupLast = panel.querySelector('#pjm-backup-last');
     let backupSettings = loadBackupSettings();
     backupEnabled.checked = backupSettings.enabled;
     backupGistId.value = backupSettings.gistId;
@@ -1821,6 +1834,9 @@
     function showBackupStatus(message, tone) {
       backupStatus.textContent = message || '';
       backupStatus.style.color = tone === 'err' ? '#b42318' : tone === 'ok' ? '#067647' : '';
+    }
+    function updateBackupLast() {
+      backupLast.textContent = formatLastBackupLabel(backupSettings.lastBackupAt);
     }
 
     function readBackupSettingsFromPanel() {
@@ -1837,8 +1853,11 @@
       backupSettings = saveBackupSettings(readBackupSettingsFromPanel());
       showBackupStatus('Enviando backup...', 'muted');
       await pushBackupToGist(backupSettings, buildTodoBackupPayload());
+      backupSettings = saveBackupSettings({ ...backupSettings, lastBackupAt: new Date().toISOString() });
+      updateBackupLast();
       showBackupStatus('Backup enviado com sucesso.', 'ok');
     }
+    updateBackupLast();
 
     function clearBackupSettingsFromPanel() {
       backupSettings = saveBackupSettings(DEFAULT_BACKUP_SETTINGS);
@@ -1847,6 +1866,7 @@
       backupToken.value = backupSettings.token;
       backupFileName.value = backupSettings.fileName;
       backupAuto.checked = backupSettings.autoBackupOnSave;
+      updateBackupLast();
       showBackupStatus('Configuração de backup removida.', 'ok');
     }
 
