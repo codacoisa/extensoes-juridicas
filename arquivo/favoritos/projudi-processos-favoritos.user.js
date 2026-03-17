@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Processos Favoritos
 // @namespace    projudi-processos-favoritos.user.js
-// @version      1.6
+// @version      1.7
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca processos favoritos, permite adicionar/remover no detalhe e gerenciar via painel.
 // @author       lourencosv (GPT)
@@ -53,7 +53,8 @@
     gistId: '',
     token: '',
     fileName: SCRIPT_META.fileName,
-    autoBackupOnSave: false
+    autoBackupOnSave: false,
+    lastBackupAt: ''
   };
 
   let menuCommandId = null;
@@ -139,7 +140,15 @@
     next.token = String(next.token || '').trim();
     next.fileName = String(next.fileName || SCRIPT_META.fileName).trim() || SCRIPT_META.fileName;
     next.autoBackupOnSave = !!next.autoBackupOnSave;
+    next.lastBackupAt = String(next.lastBackupAt || '').trim();
     return next;
+  }
+
+  function formatLastBackupLabel(value) {
+    if (!value) return 'Último backup: ainda não enviado.';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Último backup: ainda não enviado.';
+    return `Último backup: ${date.toLocaleString('pt-BR')}.`;
   }
 
   function loadBackupSettings() {
@@ -167,6 +176,7 @@
       backupTimer = null;
       try {
         await pushBackupToGist(backupSettings, buildExportPayload());
+        saveBackupSettings({ ...backupSettings, lastBackupAt: new Date().toISOString() });
       } catch (_) {}
     }, 700);
   }
@@ -794,6 +804,7 @@
                 <button type="button" class="lp-btn lp-btn-soft" id="lp-backup-clear">Limpar backup</button>
               </div>
               <div class="lp-help" id="lp-backup-status" style="margin-top:8px;"></div>
+              <div class="lp-help" id="lp-backup-last" style="margin-top:4px;">${formatLastBackupLabel(backupSettings.lastBackupAt)}</div>
             </div>
           </div>
           <div class="lp-list-wrap">
@@ -840,6 +851,7 @@
     const backupRestore = overlay.querySelector('#lp-backup-restore');
     const backupClear = overlay.querySelector('#lp-backup-clear');
     const backupStatus = overlay.querySelector('#lp-backup-status');
+    const backupLast = overlay.querySelector('#lp-backup-last');
     let backupSettings = loadBackupSettings();
     backupEnabled.checked = backupSettings.enabled;
     backupGistId.value = backupSettings.gistId;
@@ -863,6 +875,9 @@
       backupStatus.textContent = String(message || '');
       backupStatus.style.color = type === 'err' ? '#b42318' : type === 'ok' ? '#067647' : '';
     }
+    function updateBackupLast() {
+      backupLast.textContent = formatLastBackupLabel(backupSettings.lastBackupAt);
+    }
 
     function readBackupSettingsFromPanel() {
       return normalizeBackupSettings({
@@ -878,8 +893,11 @@
       backupSettings = saveBackupSettings(readBackupSettingsFromPanel());
       showBackupStatus('Enviando backup...', 'muted');
       await pushBackupToGist(backupSettings, buildExportPayload());
+      backupSettings = saveBackupSettings({ ...backupSettings, lastBackupAt: new Date().toISOString() });
+      updateBackupLast();
       showBackupStatus('Backup enviado com sucesso.', 'ok');
     }
+    updateBackupLast();
 
     function sortAndUniqByKey(list) {
       const map = new Map();
@@ -1055,6 +1073,7 @@
       backupToken.value = backupSettings.token;
       backupFileName.value = backupSettings.fileName;
       backupAuto.checked = backupSettings.autoBackupOnSave;
+      updateBackupLast();
       showBackupStatus('Configuração de backup removida.', 'ok');
     });
 
