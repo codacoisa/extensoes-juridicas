@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2.8
+// @version      3.0
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -60,7 +60,8 @@
     token: '',
     fileName: SCRIPT_META.fileName,
     autoBackupOnSave: false,
-    lastBackupAt: ''
+    lastBackupAt: '',
+    lastBackupSignature: ''
   };
   const FA_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css';
   const FAB_UI = {
@@ -235,6 +236,7 @@
     next.fileName = String(next.fileName || SCRIPT_META.fileName).trim() || SCRIPT_META.fileName;
     next.autoBackupOnSave = !!next.autoBackupOnSave;
     next.lastBackupAt = String(next.lastBackupAt || '').trim();
+    next.lastBackupSignature = String(next.lastBackupSignature || '').trim();
     return next;
   }
 
@@ -561,6 +563,7 @@
 
     for (const key of keys) {
       if (EXPORT_EXCLUDED_KEYS.has(key)) continue;
+      if (key === KEY_GLOBAL_UI || /::ui$/i.test(key)) continue;
       data[key] = storage.get(key, null);
     }
 
@@ -580,6 +583,15 @@
       host: location.host,
       ...exportTodoPayload()
     };
+  }
+
+  function buildTodoBackupSignature() {
+    const payload = exportTodoPayload();
+    const ordered = {};
+    Object.keys(payload.data || {}).sort((a, b) => a.localeCompare(b, 'pt-BR')).forEach(key => {
+      ordered[key] = payload.data[key];
+    });
+    return JSON.stringify({ schema: payload.schema, data: ordered });
   }
 
   function exportTodoData() {
@@ -669,11 +681,13 @@
   function scheduleTodoAutoBackup() {
     const backupSettings = loadBackupSettings();
     if (!backupSettings.enabled || !backupSettings.autoBackupOnSave) return;
+    const backupSignature = buildTodoBackupSignature();
+    if (backupSignature === backupSettings.lastBackupSignature) return;
     if (backupTimer) clearTimeout(backupTimer);
     backupTimer = setTimeout(() => {
       backupTimer = null;
       pushBackupToGist(backupSettings, buildTodoBackupPayload())
-        .then(() => saveBackupSettings({ ...backupSettings, lastBackupAt: new Date().toISOString() }))
+        .then(() => saveBackupSettings({ ...backupSettings, lastBackupAt: new Date().toISOString(), lastBackupSignature: backupSignature }))
         .catch(() => {});
     }, 500);
   }
@@ -1869,8 +1883,9 @@
     async function runBackupNow() {
       backupSettings = saveBackupSettings(readBackupSettingsFromPanel());
       showBackupStatus('Enviando backup...', 'muted');
+      const backupSignature = buildTodoBackupSignature();
       await pushBackupToGist(backupSettings, buildTodoBackupPayload());
-      backupSettings = saveBackupSettings({ ...backupSettings, lastBackupAt: new Date().toISOString() });
+      backupSettings = saveBackupSettings({ ...backupSettings, lastBackupAt: new Date().toISOString(), lastBackupSignature: backupSignature });
       updateBackupLast();
       showBackupStatus('Backup enviado com sucesso.', 'ok');
     }
@@ -2016,6 +2031,7 @@
           showBackupStatus('Lendo backup...', 'muted');
           const payload = await readBackupFromGist(backupSettings);
           const total = importTodoPayloadObject(payload);
+          backupSettings = saveBackupSettings({ ...backupSettings, lastBackupSignature: buildTodoBackupSignature() });
           renderManagerRows();
           showBackupStatus(`Backup restaurado: ${total} chave(s).`, 'ok');
         } catch (error) {
