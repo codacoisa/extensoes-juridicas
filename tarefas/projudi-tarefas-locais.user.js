@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2.6
+// @version      2.7
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -1825,21 +1825,38 @@
     const backupStatus = panel.querySelector('#pjm-backup-status');
     const backupLast = panel.querySelector('#pjm-backup-last');
     let backupSettings = loadBackupSettings();
-    backupEnabled.checked = backupSettings.enabled;
-    backupGistId.value = backupSettings.gistId;
-    backupToken.value = backupSettings.token;
-    backupFileName.value = backupSettings.fileName;
-    backupAuto.checked = backupSettings.autoBackupOnSave;
+    const hasBackupUi = [
+      backupEnabled,
+      backupGistId,
+      backupToken,
+      backupFileName,
+      backupAuto,
+      backupSend,
+      backupRestore,
+      backupClear,
+      backupStatus,
+      backupLast
+    ].every(Boolean);
+    if (hasBackupUi) {
+      backupEnabled.checked = backupSettings.enabled;
+      backupGistId.value = backupSettings.gistId;
+      backupToken.value = backupSettings.token;
+      backupFileName.value = backupSettings.fileName;
+      backupAuto.checked = backupSettings.autoBackupOnSave;
+    }
 
     function showBackupStatus(message, tone) {
+      if (!hasBackupUi) return;
       backupStatus.textContent = message || '';
       backupStatus.style.color = tone === 'err' ? '#b42318' : tone === 'ok' ? '#067647' : '';
     }
     function updateBackupLast() {
+      if (!hasBackupUi) return;
       backupLast.textContent = formatLastBackupLabel(backupSettings.lastBackupAt);
     }
 
     function readBackupSettingsFromPanel() {
+      if (!hasBackupUi) return backupSettings;
       return normalizeBackupSettings({
         enabled: backupEnabled.checked,
         gistId: backupGistId.value,
@@ -1899,7 +1916,9 @@
       }
     }
 
-    backupClear.addEventListener('click', clearBackupSettingsFromPanel);
+    if (hasBackupUi) {
+      backupClear.addEventListener('click', clearBackupSettingsFromPanel);
+    }
 
     function renderManagerRows() {
       const allRows = collectTaskRows();
@@ -1983,25 +2002,27 @@
       await importTodoData();
       renderManagerRows();
     });
-    backupSend.addEventListener('click', async () => {
-      try {
-        await runBackupNow();
-      } catch (error) {
-        showBackupStatus(error && error.message ? error.message : 'Falha ao enviar backup.', 'err');
-      }
-    });
-    backupRestore.addEventListener('click', async () => {
-      try {
-        backupSettings = saveBackupSettings(readBackupSettingsFromPanel());
-        showBackupStatus('Lendo backup...', 'muted');
-        const payload = await readBackupFromGist(backupSettings);
-        const total = importTodoPayloadObject(payload);
-        renderManagerRows();
-        showBackupStatus(`Backup restaurado: ${total} chave(s).`, 'ok');
-      } catch (error) {
-        showBackupStatus(error && error.message ? error.message : 'Falha ao restaurar backup.', 'err');
-      }
-    });
+    if (hasBackupUi) {
+      backupSend.addEventListener('click', async () => {
+        try {
+          await runBackupNow();
+        } catch (error) {
+          showBackupStatus(error && error.message ? error.message : 'Falha ao enviar backup.', 'err');
+        }
+      });
+      backupRestore.addEventListener('click', async () => {
+        try {
+          backupSettings = saveBackupSettings(readBackupSettingsFromPanel());
+          showBackupStatus('Lendo backup...', 'muted');
+          const payload = await readBackupFromGist(backupSettings);
+          const total = importTodoPayloadObject(payload);
+          renderManagerRows();
+          showBackupStatus(`Backup restaurado: ${total} chave(s).`, 'ok');
+        } catch (error) {
+          showBackupStatus(error && error.message ? error.message : 'Falha ao restaurar backup.', 'err');
+        }
+      });
+    }
     stateFilterEl.addEventListener('change', renderManagerRows);
     searchEl.addEventListener('input', renderManagerRows);
     panel.querySelectorAll('[data-pjm-action="close"]').forEach(btn => {
