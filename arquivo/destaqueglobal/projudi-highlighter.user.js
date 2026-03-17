@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque Global
 // @namespace    projudi-highlighter.user.js
-// @version      5.1
+// @version      5.3
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaque global, com painel configurável (Ctrl+Shift+H).
 // @author       lourencosv (GPT)
@@ -72,7 +72,8 @@
     token: "",
     fileName: SCRIPT_META.fileName,
     autoBackupOnSave: false,
-    lastBackupAt: ""
+    lastBackupAt: "",
+    lastBackupSignature: ""
   };
 
   let highlightColor = DEFAULT_HIGHLIGHT_COLOR;
@@ -274,6 +275,7 @@
     next.fileName = String(next.fileName || SCRIPT_META.fileName).trim() || SCRIPT_META.fileName;
     next.autoBackupOnSave = !!next.autoBackupOnSave;
     next.lastBackupAt = String(next.lastBackupAt || "").trim();
+    next.lastBackupSignature = String(next.lastBackupSignature || "").trim();
     return next;
   }
 
@@ -316,6 +318,20 @@
       },
       terms: Array.isArray(termsCache) ? [...termsCache] : []
     };
+  }
+
+  function buildBackupSignature() {
+    const terms = Array.isArray(termsCache) ? [...termsCache] : [];
+    return JSON.stringify({
+      schema: BACKUP_SCHEMA,
+      settings: {
+        highlightColor,
+        textColor,
+        textBold,
+        textItalic
+      },
+      terms
+    });
   }
 
   async function applyBackupPayload(payload) {
@@ -419,8 +435,10 @@
       try {
         const terms = await loadTerms();
         termsCache = terms;
+        const backupSignature = buildBackupSignature();
+        if (backupSignature === backupSettings.lastBackupSignature) return;
         await pushBackupToGist(backupSettings, buildBackupPayload());
-        await saveBackupSettings({ ...backupSettings, lastBackupAt: new Date().toISOString() });
+        await saveBackupSettings({ ...backupSettings, lastBackupAt: new Date().toISOString(), lastBackupSignature: backupSignature });
       } catch {}
     }, 400);
   }
@@ -1459,9 +1477,10 @@
     async function runBackupNow() {
       termsCache = await loadTerms();
       let nextSettings = await readBackupSettingsFromPanel();
+      const backupSignature = buildBackupSignature();
       setBackupStatus("Enviando backup...");
       await pushBackupToGist(nextSettings, buildBackupPayload());
-      nextSettings = await saveBackupSettings({ ...nextSettings, lastBackupAt: new Date().toISOString() });
+      nextSettings = await saveBackupSettings({ ...nextSettings, lastBackupAt: new Date().toISOString(), lastBackupSignature: backupSignature });
       backupSettings = nextSettings;
       updateBackupLast(nextSettings);
       setBackupStatus("Backup enviado.");
@@ -1664,10 +1683,11 @@
 
       backupRestoreBtn.addEventListener("click", async () => {
         try {
-          const nextSettings = await readBackupSettingsFromPanel();
+          let nextSettings = await readBackupSettingsFromPanel();
           setBackupStatus("Restaurando backup...");
           const payload = await readBackupFromGist(nextSettings);
           await applyBackupPayload(payload);
+          nextSettings = await saveBackupSettings({ ...nextSettings, lastBackupSignature: buildBackupSignature() });
           closePanel();
           await openPanel();
         } catch (error) {
