@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Processos Favoritos
 // @namespace    projudi-processos-favoritos.user.js
-// @version      1.5
+// @version      1.6
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca processos favoritos, permite adicionar/remover no detalhe e gerenciar via painel.
 // @author       lourencosv (GPT)
@@ -791,6 +791,7 @@
               <div class="lp-actions" style="margin-top:8px;">
                 <button type="button" class="lp-btn lp-btn-soft" id="lp-backup-send">Enviar backup</button>
                 <button type="button" class="lp-btn lp-btn-soft" id="lp-backup-restore">Restaurar backup</button>
+                <button type="button" class="lp-btn lp-btn-soft" id="lp-backup-clear">Limpar backup</button>
               </div>
               <div class="lp-help" id="lp-backup-status" style="margin-top:8px;"></div>
             </div>
@@ -837,6 +838,7 @@
     const backupAuto = overlay.querySelector('#lp-backup-auto');
     const backupSend = overlay.querySelector('#lp-backup-send');
     const backupRestore = overlay.querySelector('#lp-backup-restore');
+    const backupClear = overlay.querySelector('#lp-backup-clear');
     const backupStatus = overlay.querySelector('#lp-backup-status');
     let backupSettings = loadBackupSettings();
     backupEnabled.checked = backupSettings.enabled;
@@ -1045,6 +1047,15 @@
       } catch (error) {
         showBackupStatus(error && error.message ? error.message : 'Falha ao restaurar backup.', 'err');
       }
+    });
+    backupClear.addEventListener('click', function () {
+      backupSettings = saveBackupSettings(DEFAULT_BACKUP_SETTINGS);
+      backupEnabled.checked = backupSettings.enabled;
+      backupGistId.value = backupSettings.gistId;
+      backupToken.value = backupSettings.token;
+      backupFileName.value = backupSettings.fileName;
+      backupAuto.checked = backupSettings.autoBackupOnSave;
+      showBackupStatus('Configuração de backup removida.', 'ok');
     });
 
     clearBtn.addEventListener('click', function () {
