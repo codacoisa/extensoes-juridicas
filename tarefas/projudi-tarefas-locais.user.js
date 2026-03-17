@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2.7
+// @version      2.8
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -1744,6 +1744,7 @@
     const existing = document.getElementById(ID_MANAGER_OVERLAY);
     if (existing) return;
 
+    let backupSettings = loadBackupSettings();
     const overlay = el('div', { id: ID_MANAGER_OVERLAY });
     const panel = el('div', { className: 'pjm-panel', role: 'dialog', 'aria-modal': 'true' });
     panel.innerHTML = `
@@ -1824,7 +1825,6 @@
     const backupClear = panel.querySelector('#pjm-backup-clear');
     const backupStatus = panel.querySelector('#pjm-backup-status');
     const backupLast = panel.querySelector('#pjm-backup-last');
-    let backupSettings = loadBackupSettings();
     const hasBackupUi = [
       backupEnabled,
       backupGistId,
