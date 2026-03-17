@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Processos Favoritos
 // @namespace    projudi-processos-favoritos.user.js
-// @version      1.7
+// @version      1.8
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca processos favoritos, permite adicionar/remover no detalhe e gerenciar via painel.
 // @author       lourencosv (GPT)
@@ -853,11 +853,25 @@
     const backupStatus = overlay.querySelector('#lp-backup-status');
     const backupLast = overlay.querySelector('#lp-backup-last');
     let backupSettings = loadBackupSettings();
-    backupEnabled.checked = backupSettings.enabled;
-    backupGistId.value = backupSettings.gistId;
-    backupToken.value = backupSettings.token;
-    backupFileName.value = backupSettings.fileName;
-    backupAuto.checked = backupSettings.autoBackupOnSave;
+    const hasBackupUi = [
+      backupEnabled,
+      backupGistId,
+      backupToken,
+      backupFileName,
+      backupAuto,
+      backupSend,
+      backupRestore,
+      backupClear,
+      backupStatus,
+      backupLast
+    ].every(Boolean);
+    if (hasBackupUi) {
+      backupEnabled.checked = backupSettings.enabled;
+      backupGistId.value = backupSettings.gistId;
+      backupToken.value = backupSettings.token;
+      backupFileName.value = backupSettings.fileName;
+      backupAuto.checked = backupSettings.autoBackupOnSave;
+    }
 
     function canonicalizeFull(value) {
       const text = String(value || '').trim();
@@ -872,14 +886,17 @@
     }
 
     function showBackupStatus(message, type) {
+      if (!hasBackupUi) return;
       backupStatus.textContent = String(message || '');
       backupStatus.style.color = type === 'err' ? '#b42318' : type === 'ok' ? '#067647' : '';
     }
     function updateBackupLast() {
+      if (!hasBackupUi) return;
       backupLast.textContent = formatLastBackupLabel(backupSettings.lastBackupAt);
     }
 
     function readBackupSettingsFromPanel() {
+      if (!hasBackupUi) return backupSettings;
       return normalizeBackupSettings({
         enabled: backupEnabled.checked,
         gistId: backupGistId.value,
@@ -1047,35 +1064,37 @@
       const file = importInput.files && importInput.files[0];
       importJsonFile(file);
     });
-    backupSend.addEventListener('click', async function () {
-      try {
-        await runBackupNow();
-      } catch (error) {
-        showBackupStatus(error && error.message ? error.message : 'Falha ao enviar backup.', 'err');
-      }
-    });
-    backupRestore.addEventListener('click', async function () {
-      try {
-        backupSettings = saveBackupSettings(readBackupSettingsFromPanel());
-        showBackupStatus('Lendo backup...', 'muted');
-        const payload = await readBackupFromGist(backupSettings);
-        const restored = restoreImportedPayload(JSON.stringify(payload));
-        renderList();
-        showBackupStatus(`Backup restaurado: ${restored.length} favorito(s).`, 'ok');
-      } catch (error) {
-        showBackupStatus(error && error.message ? error.message : 'Falha ao restaurar backup.', 'err');
-      }
-    });
-    backupClear.addEventListener('click', function () {
-      backupSettings = saveBackupSettings(DEFAULT_BACKUP_SETTINGS);
-      backupEnabled.checked = backupSettings.enabled;
-      backupGistId.value = backupSettings.gistId;
-      backupToken.value = backupSettings.token;
-      backupFileName.value = backupSettings.fileName;
-      backupAuto.checked = backupSettings.autoBackupOnSave;
-      updateBackupLast();
-      showBackupStatus('Configuração de backup removida.', 'ok');
-    });
+    if (hasBackupUi) {
+      backupSend.addEventListener('click', async function () {
+        try {
+          await runBackupNow();
+        } catch (error) {
+          showBackupStatus(error && error.message ? error.message : 'Falha ao enviar backup.', 'err');
+        }
+      });
+      backupRestore.addEventListener('click', async function () {
+        try {
+          backupSettings = saveBackupSettings(readBackupSettingsFromPanel());
+          showBackupStatus('Lendo backup...', 'muted');
+          const payload = await readBackupFromGist(backupSettings);
+          const restored = restoreImportedPayload(JSON.stringify(payload));
+          renderList();
+          showBackupStatus(`Backup restaurado: ${restored.length} favorito(s).`, 'ok');
+        } catch (error) {
+          showBackupStatus(error && error.message ? error.message : 'Falha ao restaurar backup.', 'err');
+        }
+      });
+      backupClear.addEventListener('click', function () {
+        backupSettings = saveBackupSettings(DEFAULT_BACKUP_SETTINGS);
+        backupEnabled.checked = backupSettings.enabled;
+        backupGistId.value = backupSettings.gistId;
+        backupToken.value = backupSettings.token;
+        backupFileName.value = backupSettings.fileName;
+        backupAuto.checked = backupSettings.autoBackupOnSave;
+        updateBackupLast();
+        showBackupStatus('Configuração de backup removida.', 'ok');
+      });
+    }
 
     clearBtn.addEventListener('click', function () {
       writeStore([]);
