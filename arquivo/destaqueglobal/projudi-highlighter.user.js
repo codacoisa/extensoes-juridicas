@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque Global
 // @namespace    projudi-highlighter.user.js
-// @version      5.0
+// @version      5.1
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaque global, com painel configurável (Ctrl+Shift+H).
 // @author       lourencosv (GPT)
@@ -1272,7 +1272,7 @@
       }
     `;
 
-    const backupSettings = await loadBackupSettings();
+    let backupSettings = await loadBackupSettings();
 
     panel.innerHTML = `
       <div style="flex:0 0 auto; padding:14px 16px; background:linear-gradient(135deg,#0f3e75,#1f5ca4); color:#fff; border-bottom:1px solid #dbe3ef;">
@@ -1408,6 +1408,26 @@
     const boldInput = $("#vhp-bold-toggle");
     const backupStatus = $("#vhp-backup-status");
     const backupLast = $("#vhp-backup-last");
+    const backupEnabledInput = $("#vhp-backup-enabled");
+    const backupAutoInput = $("#vhp-backup-auto");
+    const backupGistInput = $("#vhp-backup-gist");
+    const backupTokenInput = $("#vhp-backup-token");
+    const backupFileInput = $("#vhp-backup-file");
+    const backupSendBtn = $("#vhp-backup-send");
+    const backupRestoreBtn = $("#vhp-backup-restore");
+    const backupClearBtn = $("#vhp-backup-clear");
+    const hasBackupUi = [
+      backupStatus,
+      backupLast,
+      backupEnabledInput,
+      backupAutoInput,
+      backupGistInput,
+      backupTokenInput,
+      backupFileInput,
+      backupSendBtn,
+      backupRestoreBtn,
+      backupClearBtn
+    ].every(Boolean);
 
     function syncSwatches() {
       if (hlPrev) hlPrev.style.background = cssColorFromHexRgba(highlightColor);
@@ -1426,12 +1446,13 @@
     }
 
     async function readBackupSettingsFromPanel() {
+      if (!hasBackupUi) return backupSettings;
       return saveBackupSettings({
-        enabled: !!$("#vhp-backup-enabled")?.checked,
-        autoBackupOnSave: !!$("#vhp-backup-auto")?.checked,
-        gistId: $("#vhp-backup-gist")?.value || "",
-        token: $("#vhp-backup-token")?.value || "",
-        fileName: $("#vhp-backup-file")?.value || ""
+        enabled: !!backupEnabledInput.checked,
+        autoBackupOnSave: !!backupAutoInput.checked,
+        gistId: backupGistInput.value || "",
+        token: backupTokenInput.value || "",
+        fileName: backupFileInput.value || ""
       });
     }
 
@@ -1622,48 +1643,49 @@
       });
     }
 
-    [
-      $("#vhp-backup-enabled"),
-      $("#vhp-backup-auto"),
-      $("#vhp-backup-gist"),
-      $("#vhp-backup-token"),
-      $("#vhp-backup-file")
-    ].forEach((el) => {
-      if (!el) return;
-      el.addEventListener(el.type === "checkbox" ? "change" : "input", () => {
-        readBackupSettingsFromPanel().catch(() => {});
+    if (hasBackupUi) {
+      [
+        backupEnabledInput,
+        backupAutoInput,
+        backupGistInput,
+        backupTokenInput,
+        backupFileInput
+      ].forEach((el) => {
+        el.addEventListener(el.type === "checkbox" ? "change" : "input", () => {
+          readBackupSettingsFromPanel().catch(() => {});
+        });
       });
-    });
 
-    $("#vhp-backup-send").addEventListener("click", () => {
-      runBackupNow().catch((error) => {
-        setBackupStatus(error && error.message ? error.message : "Falha ao enviar backup.", true);
+      backupSendBtn.addEventListener("click", () => {
+        runBackupNow().catch((error) => {
+          setBackupStatus(error && error.message ? error.message : "Falha ao enviar backup.", true);
+        });
       });
-    });
 
-    $("#vhp-backup-restore").addEventListener("click", async () => {
-      try {
-        const nextSettings = await readBackupSettingsFromPanel();
-        setBackupStatus("Restaurando backup...");
-        const payload = await readBackupFromGist(nextSettings);
-        await applyBackupPayload(payload);
-        closePanel();
-        await openPanel();
-      } catch (error) {
-        setBackupStatus(error && error.message ? error.message : "Falha ao restaurar backup.", true);
-      }
-    });
+      backupRestoreBtn.addEventListener("click", async () => {
+        try {
+          const nextSettings = await readBackupSettingsFromPanel();
+          setBackupStatus("Restaurando backup...");
+          const payload = await readBackupFromGist(nextSettings);
+          await applyBackupPayload(payload);
+          closePanel();
+          await openPanel();
+        } catch (error) {
+          setBackupStatus(error && error.message ? error.message : "Falha ao restaurar backup.", true);
+        }
+      });
 
-    $("#vhp-backup-clear").addEventListener("click", async () => {
-      const nextSettings = await saveBackupSettings(DEFAULT_BACKUP_SETTINGS);
-      $("#vhp-backup-enabled").checked = nextSettings.enabled;
-      $("#vhp-backup-auto").checked = nextSettings.autoBackupOnSave;
-      $("#vhp-backup-gist").value = nextSettings.gistId;
-      $("#vhp-backup-token").value = nextSettings.token;
-      $("#vhp-backup-file").value = nextSettings.fileName;
-      updateBackupLast(nextSettings);
-      setBackupStatus("Configuração de backup removida.");
-    });
+      backupClearBtn.addEventListener("click", async () => {
+        const nextSettings = await saveBackupSettings(DEFAULT_BACKUP_SETTINGS);
+        backupEnabledInput.checked = nextSettings.enabled;
+        backupAutoInput.checked = nextSettings.autoBackupOnSave;
+        backupGistInput.value = nextSettings.gistId;
+        backupTokenInput.value = nextSettings.token;
+        backupFileInput.value = nextSettings.fileName;
+        updateBackupLast(nextSettings);
+        setBackupStatus("Configuração de backup removida.");
+      });
+    }
 
     $("#vhp-close").addEventListener("click", closePanel);
     $("#vhp-cancel").addEventListener("click", closePanel);
