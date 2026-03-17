@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2.4
+// @version      2.5
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -50,6 +50,7 @@
   const KEY_GLOBAL_ITEMS = `${KEY_PREFIX}global::items`;
   const KEY_GLOBAL_UI = `${KEY_PREFIX}global::ui`;
   const KEY_BACKUP = `${KEY_PREFIX}gist-backup`;
+  const EXPORT_EXCLUDED_KEYS = new Set([KEY_BACKUP]);
   const DEFAULT_UI = { minimized: true, right: 12, top: 12 };
   const EXPORT_SCHEMA = 'projudi-tarefas-export-v1';
   const BACKUP_SCHEMA = 'projudi-tarefas-gist-backup-v1';
@@ -550,6 +551,7 @@
     const keys = listTodoKeys();
 
     for (const key of keys) {
+      if (EXPORT_EXCLUDED_KEYS.has(key)) continue;
       data[key] = storage.get(key, null);
     }
 
@@ -606,7 +608,7 @@
         return;
       }
 
-      const importedKeys = Object.keys(data).filter(k => k.startsWith(KEY_PREFIX));
+      const importedKeys = Object.keys(data).filter(k => k.startsWith(KEY_PREFIX) && !EXPORT_EXCLUDED_KEYS.has(k));
       if (!importedKeys.length) {
         alert('Nenhuma chave de Tarefas encontrada no JSON.');
         return;
@@ -636,7 +638,7 @@
       throw new Error('JSON inválido para importação.');
     }
 
-    const importedKeys = Object.keys(data).filter(k => k.startsWith(KEY_PREFIX));
+    const importedKeys = Object.keys(data).filter(k => k.startsWith(KEY_PREFIX) && !EXPORT_EXCLUDED_KEYS.has(k));
     if (!importedKeys.length) {
       throw new Error('Nenhuma chave de Tarefas encontrada no JSON.');
     }
@@ -1778,6 +1780,7 @@
           <div class="pjm-row">
             <button class="pjm-btn" id="pjm-backup-send">Enviar backup</button>
             <button class="pjm-btn" id="pjm-backup-restore">Restaurar backup</button>
+            <button class="pjm-btn" id="pjm-backup-clear">Limpar backup</button>
           </div>
           <div class="pjm-item-meta" id="pjm-backup-status"></div>
         </div>
@@ -1806,6 +1809,7 @@
     const backupAuto = panel.querySelector('#pjm-backup-auto');
     const backupSend = panel.querySelector('#pjm-backup-send');
     const backupRestore = panel.querySelector('#pjm-backup-restore');
+    const backupClear = panel.querySelector('#pjm-backup-clear');
     const backupStatus = panel.querySelector('#pjm-backup-status');
     let backupSettings = loadBackupSettings();
     backupEnabled.checked = backupSettings.enabled;
@@ -1836,6 +1840,16 @@
       showBackupStatus('Backup enviado com sucesso.', 'ok');
     }
 
+    function clearBackupSettingsFromPanel() {
+      backupSettings = saveBackupSettings(DEFAULT_BACKUP_SETTINGS);
+      backupEnabled.checked = backupSettings.enabled;
+      backupGistId.value = backupSettings.gistId;
+      backupToken.value = backupSettings.token;
+      backupFileName.value = backupSettings.fileName;
+      backupAuto.checked = backupSettings.autoBackupOnSave;
+      showBackupStatus('Configuração de backup removida.', 'ok');
+    }
+
     function persistRow(row) {
       if (row.scopeType === 'global') {
         const items = loadGlobalItems();
@@ -1864,6 +1878,8 @@
         maybeRemoveFromIndexIfEmpty({ key: row.key, cnj: row.cnj });
       }
     }
+
+    backupClear.addEventListener('click', clearBackupSettingsFromPanel);
 
     function renderManagerRows() {
       const allRows = collectTaskRows();
