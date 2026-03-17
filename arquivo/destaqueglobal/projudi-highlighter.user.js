@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque Global
 // @namespace    projudi-highlighter.user.js
-// @version      4.9
+// @version      5.0
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaque global, com painel configurável (Ctrl+Shift+H).
 // @author       lourencosv (GPT)
@@ -71,7 +71,8 @@
     gistId: "",
     token: "",
     fileName: SCRIPT_META.fileName,
-    autoBackupOnSave: false
+    autoBackupOnSave: false,
+    lastBackupAt: ""
   };
 
   let highlightColor = DEFAULT_HIGHLIGHT_COLOR;
@@ -272,7 +273,15 @@
     next.token = String(next.token || "").trim();
     next.fileName = String(next.fileName || SCRIPT_META.fileName).trim() || SCRIPT_META.fileName;
     next.autoBackupOnSave = !!next.autoBackupOnSave;
+    next.lastBackupAt = String(next.lastBackupAt || "").trim();
     return next;
+  }
+
+  function formatLastBackupLabel(value) {
+    if (!value) return "Último backup: ainda não enviado.";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Último backup: ainda não enviado.";
+    return `Último backup: ${date.toLocaleString("pt-BR")}.`;
   }
 
   async function loadBackupSettings() {
@@ -411,6 +420,7 @@
         const terms = await loadTerms();
         termsCache = terms;
         await pushBackupToGist(backupSettings, buildBackupPayload());
+        await saveBackupSettings({ ...backupSettings, lastBackupAt: new Date().toISOString() });
       } catch {}
     }, 400);
   }
@@ -1359,6 +1369,7 @@
             <button id="vhp-backup-clear" class="vhp-btn" type="button">Limpar backup</button>
             <div id="vhp-backup-status" class="vhp-backup-status"></div>
           </div>
+          <div id="vhp-backup-last" class="vhp-backup-status">${formatLastBackupLabel(backupSettings.lastBackupAt)}</div>
         </div>
 
         <div class="vhp-sec">
@@ -1396,6 +1407,7 @@
     const italicInput = $("#vhp-italic-toggle");
     const boldInput = $("#vhp-bold-toggle");
     const backupStatus = $("#vhp-backup-status");
+    const backupLast = $("#vhp-backup-last");
 
     function syncSwatches() {
       if (hlPrev) hlPrev.style.background = cssColorFromHexRgba(highlightColor);
@@ -1406,6 +1418,11 @@
       if (!backupStatus) return;
       backupStatus.textContent = message || "";
       backupStatus.style.color = isError ? "#b42318" : "#475569";
+    }
+
+    function updateBackupLast(nextSettings) {
+      if (!backupLast) return;
+      backupLast.textContent = formatLastBackupLabel((nextSettings || backupSettings).lastBackupAt);
     }
 
     async function readBackupSettingsFromPanel() {
@@ -1420,11 +1437,15 @@
 
     async function runBackupNow() {
       termsCache = await loadTerms();
-      const nextSettings = await readBackupSettingsFromPanel();
+      let nextSettings = await readBackupSettingsFromPanel();
       setBackupStatus("Enviando backup...");
       await pushBackupToGist(nextSettings, buildBackupPayload());
+      nextSettings = await saveBackupSettings({ ...nextSettings, lastBackupAt: new Date().toISOString() });
+      backupSettings = nextSettings;
+      updateBackupLast(nextSettings);
       setBackupStatus("Backup enviado.");
     }
+    updateBackupLast(backupSettings);
 
     async function refreshList() {
       const terms = await loadTerms();
@@ -1640,6 +1661,7 @@
       $("#vhp-backup-gist").value = nextSettings.gistId;
       $("#vhp-backup-token").value = nextSettings.token;
       $("#vhp-backup-file").value = nextSettings.fileName;
+      updateBackupLast(nextSettings);
       setBackupStatus("Configuração de backup removida.");
     });
 
