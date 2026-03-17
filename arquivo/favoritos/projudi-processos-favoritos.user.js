@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Processos Favoritos
 // @namespace    projudi-processos-favoritos.user.js
-// @version      1.8
+// @version      1.9
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca processos favoritos, permite adicionar/remover no detalhe e gerenciar via painel.
 // @author       lourencosv (GPT)
@@ -755,6 +755,7 @@
 
     closePanel();
     injectStyles(doc);
+    let backupSettings = loadBackupSettings();
 
     const overlay = doc.createElement('div');
     overlay.id = PANEL_OVERLAY_ID;
@@ -852,7 +853,6 @@
     const backupClear = overlay.querySelector('#lp-backup-clear');
     const backupStatus = overlay.querySelector('#lp-backup-status');
     const backupLast = overlay.querySelector('#lp-backup-last');
-    let backupSettings = loadBackupSettings();
     const hasBackupUi = [
       backupEnabled,
       backupGistId,
