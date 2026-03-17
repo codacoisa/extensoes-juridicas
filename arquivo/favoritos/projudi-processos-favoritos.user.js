@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Processos Favoritos
 // @namespace    projudi-processos-favoritos.user.js
-// @version      1.9
+// @version      2.1
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca processos favoritos, permite adicionar/remover no detalhe e gerenciar via painel.
 // @author       lourencosv (GPT)
@@ -54,7 +54,8 @@
     token: '',
     fileName: SCRIPT_META.fileName,
     autoBackupOnSave: false,
-    lastBackupAt: ''
+    lastBackupAt: '',
+    lastBackupSignature: ''
   };
 
   let menuCommandId = null;
@@ -141,6 +142,7 @@
     next.fileName = String(next.fileName || SCRIPT_META.fileName).trim() || SCRIPT_META.fileName;
     next.autoBackupOnSave = !!next.autoBackupOnSave;
     next.lastBackupAt = String(next.lastBackupAt || '').trim();
+    next.lastBackupSignature = String(next.lastBackupSignature || '').trim();
     return next;
   }
 
@@ -172,11 +174,13 @@
     backupTimer = null;
     const backupSettings = loadBackupSettings();
     if (!backupSettings.enabled || !backupSettings.autoBackupOnSave) return;
+    const backupSignature = buildFavoritesBackupSignature();
+    if (backupSignature === backupSettings.lastBackupSignature) return;
     backupTimer = setTimeout(async () => {
       backupTimer = null;
       try {
         await pushBackupToGist(backupSettings, buildExportPayload());
-        saveBackupSettings({ ...backupSettings, lastBackupAt: new Date().toISOString() });
+        saveBackupSettings({ ...backupSettings, lastBackupAt: new Date().toISOString(), lastBackupSignature: backupSignature });
       } catch (_) {}
     }, 700);
   }
@@ -908,9 +912,10 @@
 
     async function runBackupNow() {
       backupSettings = saveBackupSettings(readBackupSettingsFromPanel());
+      const backupSignature = buildFavoritesBackupSignature();
       showBackupStatus('Enviando backup...', 'muted');
       await pushBackupToGist(backupSettings, buildExportPayload());
-      backupSettings = saveBackupSettings({ ...backupSettings, lastBackupAt: new Date().toISOString() });
+      backupSettings = saveBackupSettings({ ...backupSettings, lastBackupAt: new Date().toISOString(), lastBackupSignature: backupSignature });
       updateBackupLast();
       showBackupStatus('Backup enviado com sucesso.', 'ok');
     }
@@ -938,6 +943,11 @@
         total: favorites.length,
         favorites
       };
+    }
+
+    function buildFavoritesBackupSignature() {
+      const favorites = sortAndUniqByKey(readStore());
+      return JSON.stringify({ schema: BACKUP_SCHEMA, favorites });
     }
 
     function renderList() {
@@ -1078,6 +1088,10 @@
           showBackupStatus('Lendo backup...', 'muted');
           const payload = await readBackupFromGist(backupSettings);
           const restored = restoreImportedPayload(JSON.stringify(payload));
+          backupSettings = saveBackupSettings({
+            ...backupSettings,
+            lastBackupSignature: JSON.stringify({ schema: BACKUP_SCHEMA, favorites: restored })
+          });
           renderList();
           showBackupStatus(`Backup restaurado: ${restored.length} favorito(s).`, 'ok');
         } catch (error) {
