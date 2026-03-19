@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Remove Scrollbar
 // @namespace    projudi-scrollbar.user.js
-// @version      1.2
+// @version      1.3
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Esconde as barras do iframe, mantendo o scroll.
 // @author       lourencosv (GPT)
@@ -19,11 +19,29 @@
   const STYLE_ID = 'tm-no-scrollbar-style';
   const CSS = 'html,body{-ms-overflow-style:none!important;scrollbar-width:none!important;}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none!important;width:0!important;height:0!important;background:transparent!important;}';
   const BIND_DEBOUNCE_MS = 80;
+  const LOG_PREFIX = '[Remove Scrollbar]';
 
   let initialized = false;
   let rootObserver = null;
   let bindTimer = null;
   const boundIframes = new WeakSet();
+
+  function logWarn(message, meta) {
+    if (meta === undefined) {
+      console.warn(LOG_PREFIX, message);
+      return;
+    }
+    console.warn(LOG_PREFIX, message, meta);
+  }
+
+  function safeRun(label, task, fallbackValue) {
+    try {
+      return task();
+    } catch (error) {
+      logWarn(label, error);
+      return fallbackValue;
+    }
+  }
 
   function inject(doc) {
     if (!doc || doc.getElementById(STYLE_ID)) return;
@@ -40,14 +58,16 @@
   }
 
   function findIframe() {
+    const byId = document.getElementById('Principal');
+    if (byId && byId.tagName === 'IFRAME') return byId;
     return document.querySelector(SELECTOR);
   }
 
   function applyToIframe(iframe) {
     if (!iframe) return;
-    try {
+    safeRun('Falha ao aplicar estilo no iframe principal.', () => {
       inject(iframe.contentDocument);
-    } catch (_) {}
+    });
   }
 
   function bind(iframe) {
@@ -78,8 +98,8 @@
       for (const node of changedNodes) {
         if (!node || node.nodeType !== 1) continue;
         const el = node;
-        if (el.matches && el.matches(SELECTOR)) return true;
-        if (el.querySelector && el.querySelector(SELECTOR)) return true;
+        if ((el.id === 'Principal' && el.tagName === 'IFRAME') || (el.matches && el.matches(SELECTOR))) return true;
+        if (el.querySelector && (el.querySelector('#Principal') || el.querySelector(SELECTOR))) return true;
       }
     }
     return false;
