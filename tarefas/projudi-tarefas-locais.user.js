@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      3.0
+// @version      3.1
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -84,6 +84,8 @@
   const ID_HEADER_MENU = 'pj-todo-header-menu';
   const ID_MANAGER_OVERLAY = 'pj-task-manager-overlay';
   const MSG_OPEN_TODO = 'pj-todo-open-panel';
+  const LOG_PREFIX = '[Tarefas]';
+  const PROCESS_CONTEXT_SELECTOR = '#span_proc_numero, #Principal, button.notaProcesso, button[onclick*="criarNota"], #pj-add-btn';
 
   const state = {
     mounted: false,
@@ -92,8 +94,30 @@
     ctxKey: null,
     panelCleanup: null,
     menuRegistered: false,
-    menuCommandId: null
+    menuCommandId: null,
+    lastCnj: null
   };
+
+  function logWarn(message, meta) {
+    if (meta === undefined) {
+      console.warn(LOG_PREFIX, message);
+      return;
+    }
+    console.warn(LOG_PREFIX, message, meta);
+  }
+
+  function logError(message, error) {
+    console.error(LOG_PREFIX, message, error);
+  }
+
+  function safeRun(label, task, fallbackValue) {
+    try {
+      return task();
+    } catch (error) {
+      logError(label, error);
+      return fallbackValue;
+    }
+  }
 
   function parseTags(raw) {
     const text = String(raw || '').trim();
@@ -143,7 +167,9 @@
     if (typeof state.panelCleanup !== 'function') return;
     try {
       state.panelCleanup();
-    } catch (_) {}
+    } catch (error) {
+      logWarn('Falha ao limpar painel ativo.', error);
+    }
     state.panelCleanup = null;
   }
 
@@ -159,7 +185,9 @@
       for (const fn of list) {
         try {
           fn();
-        } catch (_) {}
+        } catch (error) {
+          logWarn('Falha em cleanup do painel.', error);
+        }
       }
     };
   }
@@ -169,9 +197,7 @@
       if (typeof removeLauncher === 'function') removeLauncher();
       onOpen();
     } catch (err) {
-      try {
-        console.error('[Projudi Tarefas] Falha ao abrir painel:', err);
-      } catch (_) {}
+      logError('Falha ao abrir painel.', err);
       scheduleEvaluate(50);
     }
   }
@@ -205,26 +231,37 @@
     get(key, fallback) {
       try {
         if (typeof GM_getValue === 'function') return GM_getValue(key, fallback);
-      } catch (_) {}
+      } catch (error) {
+        logWarn(`Falha ao ler ${key} via GM_getValue.`, error);
+      }
       const raw = localStorage.getItem(key);
       if (raw === null || typeof raw === 'undefined') return fallback;
       try {
         return JSON.parse(raw);
-      } catch (_) {
+      } catch (error) {
+        logWarn(`Falha ao interpretar ${key} do localStorage.`, error);
         return fallback;
       }
     },
     set(key, value) {
       try {
         if (typeof GM_setValue === 'function') return GM_setValue(key, value);
-      } catch (_) {}
-      localStorage.setItem(key, JSON.stringify(value));
+      } catch (error) {
+        logWarn(`Falha ao salvar ${key} via GM_setValue.`, error);
+      }
+      safeRun(`Falha ao salvar ${key} no localStorage.`, () => {
+        localStorage.setItem(key, JSON.stringify(value));
+      });
     },
     del(key) {
       try {
         if (typeof GM_deleteValue === 'function') return GM_deleteValue(key);
-      } catch (_) {}
-      localStorage.removeItem(key);
+      } catch (error) {
+        logWarn(`Falha ao remover ${key} via GM_deleteValue.`, error);
+      }
+      safeRun(`Falha ao remover ${key} do localStorage.`, () => {
+        localStorage.removeItem(key);
+      });
     }
   };
 
@@ -325,9 +362,28 @@
   }
 
   function getCNJFromDocument(doc) {
-    const text = doc.body && doc.body.innerText ? doc.body.innerText : '';
-    const match = text.match(/\b\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\b/);
-    return match ? match[0] : null;
+    if (!doc) return null;
+    const direct = doc.querySelector('#span_proc_numero');
+    if (direct) {
+      const directText = String(direct.textContent || '');
+      const directMatch = directText.match(/\b\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\b/);
+      if (directMatch) return directMatch[0];
+    }
+
+    const hints = [
+      doc.querySelector('.Titulo'),
+      doc.querySelector('.titulo'),
+      doc.querySelector('form[name="Formulario"]'),
+      doc.body
+    ].filter(Boolean);
+
+    for (const hint of hints) {
+      const text = hint && hint.textContent ? hint.textContent : '';
+      const match = text.match(/\b\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\b/);
+      if (match) return match[0];
+    }
+
+    return null;
   }
 
   function isProcessPage(doc) {
@@ -688,7 +744,9 @@
       backupTimer = null;
       pushBackupToGist(backupSettings, buildTodoBackupPayload())
         .then(() => saveBackupSettings({ ...backupSettings, lastBackupAt: new Date().toISOString(), lastBackupSignature: backupSignature }))
-        .catch(() => {});
+        .catch((error) => {
+          logWarn('Falha no backup automático das tarefas.', error);
+        });
     }, 500);
   }
 
@@ -2475,6 +2533,7 @@
     }
 
     const cnj = getCNJFromDocument(document);
+    state.lastCnj = cnj || null;
     if (cnj) {
       const ctx = processCtxFromCnj(cnj);
       if (!ctx) return;
@@ -2503,12 +2562,19 @@
     if (!mutations || !mutations.length) return true;
     for (const m of mutations) {
       if (!m) continue;
-      if (m.target instanceof Element && !isOwnUiNode(m.target)) return false;
+      if (m.target instanceof Element) {
+        if (isOwnUiNode(m.target)) continue;
+        if (m.target.matches(PROCESS_CONTEXT_SELECTOR) || m.target.querySelector(PROCESS_CONTEXT_SELECTOR)) return false;
+      }
       for (const n of m.addedNodes || []) {
-        if (!isOwnUiNode(n)) return false;
+        if (!(n instanceof Element)) continue;
+        if (isOwnUiNode(n)) continue;
+        if (n.matches(PROCESS_CONTEXT_SELECTOR) || n.querySelector(PROCESS_CONTEXT_SELECTOR)) return false;
       }
       for (const n of m.removedNodes || []) {
-        if (!isOwnUiNode(n)) return false;
+        if (!(n instanceof Element)) continue;
+        if (isOwnUiNode(n)) continue;
+        if (n.matches(PROCESS_CONTEXT_SELECTOR) || n.querySelector(PROCESS_CONTEXT_SELECTOR)) return false;
       }
     }
     return true;
@@ -2516,14 +2582,13 @@
 
   window.addEventListener('load', () => scheduleEvaluate(300));
   document.addEventListener('visibilitychange', () => scheduleEvaluate(100));
-  window.addEventListener('focus', () => scheduleEvaluate(100));
-  window.addEventListener('resize', () => scheduleEvaluate(100));
+  window.addEventListener('focus', () => scheduleEvaluate(140));
 
   const obs = new MutationObserver(mutations => {
     if (shouldIgnoreMutations(mutations)) return;
     scheduleEvaluate(250);
   });
-  obs.observe(document.documentElement, { childList: true, subtree: true });
+  obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
 
   window.addEventListener('message', e => {
     const data = e && e.data;
@@ -2537,7 +2602,9 @@
       openPanel: () => openTodoPanelForCurrentPage(),
       refresh: () => scheduleEvaluate(0)
     };
-  } catch (_) {}
+  } catch (error) {
+    logWarn('Falha ao expor API global de tarefas.', error);
+  }
 
   evaluate();
 })();
