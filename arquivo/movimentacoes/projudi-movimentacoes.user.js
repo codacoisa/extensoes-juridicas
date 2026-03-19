@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name         Destaque de Movimentações
-// @namespace    projudi-highlight-movimentacoes.user.js
-// @version      2.3
+// @name         Movimentações
+// @namespace    projudi-movimentacoes.user.js
+// @version      2.4
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca as movimentações processuais em cores definidas.
 // @author       lourencosv (GPT)
 // @license      CC BY-NC 4.0
-// @updateURL    https://gist.githubusercontent.com/lourencosv/5ffde04a50de4c905c398bee2b9ae2ed/raw/projudi-highlight-movimentacoes.user.js
-// @downloadURL  https://gist.githubusercontent.com/lourencosv/5ffde04a50de4c905c398bee2b9ae2ed/raw/projudi-highlight-movimentacoes.user.js
+// @updateURL    https://gist.githubusercontent.com/lourencosv/5ffde04a50de4c905c398bee2b9ae2ed/raw/projudi-movimentacoes.user.js
+// @downloadURL  https://gist.githubusercontent.com/lourencosv/5ffde04a50de4c905c398bee2b9ae2ed/raw/projudi-movimentacoes.user.js
 // @match        *://projudi.tjgo.jus.br/*
 // @run-at       document-end
 // @grant        GM_addStyle
@@ -113,7 +113,38 @@
   const DOC_STYLE_ID = 'phm-doc-style-v28';
   const PANEL_OVERLAY_ID = 'phm-overlay-root';
   const MOV_TABLE_ROWS_SELECTOR = '#TabelaArquivos tbody tr, #tabListaProcesso tr';
+  const MOV_TABLES_SELECTOR = '#TabelaArquivos, #tabListaProcesso';
+  const LOG_PREFIX = '[Movimentações]';
   let menuCommandId = null;
+
+  function logInfo(message, meta) {
+    if (meta === undefined) {
+      console.info(LOG_PREFIX, message);
+      return;
+    }
+    console.info(LOG_PREFIX, message, meta);
+  }
+
+  function logWarn(message, meta) {
+    if (meta === undefined) {
+      console.warn(LOG_PREFIX, message);
+      return;
+    }
+    console.warn(LOG_PREFIX, message, meta);
+  }
+
+  function logError(message, error) {
+    console.error(LOG_PREFIX, message, error);
+  }
+
+  function safeRun(label, task, fallbackValue) {
+    try {
+      return task();
+    } catch (error) {
+      logError(label, error);
+      return fallbackValue;
+    }
+  }
 
   function lockBodyScroll(doc = document) {
     const body = doc && doc.body;
@@ -188,13 +219,16 @@
       }
 
       return cfg;
-    } catch {
+    } catch (error) {
+      logWarn('Falha ao ler configuração. Voltando para o padrão.', error);
       return deepClone(DEFAULTS);
     }
   }
 
   function saveCfg(cfg) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+    safeRun('Falha ao salvar configuração.', () => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+    });
   }
 
   function toHexColor(any) {
@@ -606,7 +640,7 @@
   `);
 
   function ensureDocStyle(doc) {
-    try {
+    safeRun('Falha ao injetar estilo do documento.', () => {
       if (!doc || !doc.head) return;
       if (doc.getElementById(DOC_STYLE_ID)) return;
       const style = doc.createElement('style');
@@ -616,7 +650,7 @@
         .phm-italic-fragment, .phm-italic-fragment * { font-style: italic !important; }
       `;
       doc.head.appendChild(style);
-    } catch {}
+    });
   }
 
   const PADROES_MOV = [
@@ -830,43 +864,90 @@
     walk(window);
   }
 
-  function processDoc(doc) {
-    if (!CFG.enabled) return;
-    ensureDocStyle(doc);
-
-    const rows = doc.querySelectorAll(MOV_TABLE_ROWS_SELECTOR);
-
-    rows.forEach((tr) => {
-      const movTd = getMovCell(tr);
-      const userTd = getUserCell(tr);
-      if (!movTd) return;
-
-      const kind = matchKind(movTd.textContent || '');
-
-      if (!kind) {
-        clearStyles(tr, movTd, userTd);
-        return;
-      }
-
-      styleRow(tr, kind);
-      styleCell(movTd, kind);
-      styleUserCell(userTd, kind);
-      tr.setAttribute('data-phm-styled', '1');
+  function buildConfigSignature() {
+    return JSON.stringify({
+      enabled: CFG.enabled,
+      padding: CFG.padding,
+      colors: CFG.colors,
+      textColorsMov: CFG.textColorsMov,
+      textColorsUser: CFG.textColorsUser,
+      enabledTypes: CFG.enabledTypes,
+      noBackgroundTypes: CFG.noBackgroundTypes,
+      boldTypesMov: CFG.boldTypesMov,
+      italicTypesMov: CFG.italicTypesMov,
+      boldTypesUser: CFG.boldTypesUser,
+      italicTypesUser: CFG.italicTypesUser,
+      targets: CFG.targets,
+      movTextMode: CFG.movTextMode
     });
   }
 
+  function buildRowSignature(movText, userText, kind, configSignature) {
+    return [kind || '', movText.trim(), userText.trim(), configSignature].join('||');
+  }
+
+  const rowStateCache = new WeakMap();
+  let configSignature = buildConfigSignature();
+
+  /**
+   * Applies or clears styling for a single table row based on cached state.
+   * @param {HTMLTableRowElement} row
+   */
+  function processRow(row) {
+    const movTd = getMovCell(row);
+    const userTd = getUserCell(row);
+    if (!movTd) return;
+
+    const movText = movTd.textContent || '';
+    const userText = userTd ? (userTd.textContent || '') : '';
+    const kind = CFG.enabled ? matchKind(movText) : null;
+    const signature = buildRowSignature(movText, userText, kind, configSignature);
+    const previous = rowStateCache.get(row);
+
+    if (previous && previous.signature === signature) return;
+
+    if (!kind) {
+      clearStyles(row, movTd, userTd);
+      rowStateCache.set(row, { signature, kind: null });
+      return;
+    }
+
+    styleRow(row, kind);
+    styleCell(movTd, kind);
+    styleUserCell(userTd, kind);
+    row.setAttribute('data-phm-styled', '1');
+    rowStateCache.set(row, { signature, kind });
+  }
+
+  /**
+   * Processes all movement rows contained in a table.
+   * @param {Document} doc
+   * @param {Element} table
+   */
+  function processTable(doc, table) {
+    ensureDocStyle(doc);
+    const rows = table.querySelectorAll('tbody tr, tr');
+    rows.forEach((row) => processRow(row));
+  }
+
+  function processDoc(doc) {
+    if (!doc) return;
+    const tables = doc.querySelectorAll(MOV_TABLES_SELECTOR);
+    tables.forEach((table) => processTable(doc, table));
+  }
+
   function reapply() {
+    configSignature = buildConfigSignature();
     walkDocuments((doc) => {
-      ensureDocStyle(doc);
-
-      const rows = doc.querySelectorAll('tr[data-phm-styled="1"]');
-      rows.forEach((tr) => {
-        const movTd = getMovCell(tr);
-        const userTd = getUserCell(tr);
-        clearStyles(tr, movTd, userTd);
+      safeRun('Falha ao reaplicar destaques.', () => {
+        ensureDocStyle(doc);
+        const rows = doc.querySelectorAll('tr[data-phm-styled="1"]');
+        rows.forEach((row) => {
+          rowStateCache.delete(row);
+          clearStyles(row, getMovCell(row), getUserCell(row));
+        });
+        processDoc(doc);
       });
-
-      processDoc(doc);
     });
   }
 
@@ -1127,47 +1208,91 @@
 
   const docObservers = new WeakMap();
   const frameListeners = new WeakSet();
-  let processRaf = 0;
+  const docProcessState = new WeakMap();
 
-  function scheduleProcess() {
-    if (processRaf) return;
-    processRaf = requestAnimationFrame(() => {
-      processRaf = 0;
-      CFG = readCfg();
-      walkDocuments((doc) => processDoc(doc));
-      ensureObservers();
+  function getDocProcessState(doc) {
+    const existing = docProcessState.get(doc);
+    if (existing) return existing;
+    const created = { raf: 0 };
+    docProcessState.set(doc, created);
+    return created;
+  }
+
+  function isRelevantMutationNode(node) {
+    if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;
+    const element = /** @type {Element} */ (node);
+    return Boolean(
+      (element.matches && (
+        element.matches('iframe, frame') ||
+        element.matches(MOV_TABLES_SELECTOR) ||
+        element.matches('tbody, tr') ||
+        element.matches('td.filtro_coluna_movimentacao')
+      )) ||
+      (element.querySelector && (
+        element.querySelector('iframe, frame') ||
+        element.querySelector(MOV_TABLES_SELECTOR) ||
+        element.querySelector('td.filtro_coluna_movimentacao')
+      ))
+    );
+  }
+
+  function scheduleProcessDoc(doc) {
+    const state = getDocProcessState(doc);
+    if (state.raf) return;
+    state.raf = requestAnimationFrame(() => {
+      state.raf = 0;
+      safeRun('Falha ao processar documento.', () => {
+        CFG = readCfg();
+        configSignature = buildConfigSignature();
+        processDoc(doc);
+        ensureObservers();
+      });
     });
   }
 
   function observeDoc(doc) {
     if (!doc || !doc.documentElement || docObservers.has(doc)) return;
     ensureDocStyle(doc);
-    const obs = new MutationObserver(() => scheduleProcess());
-    obs.observe(doc.documentElement, { subtree: true, childList: true, characterData: true });
-    docObservers.set(doc, obs);
+    const observer = new MutationObserver((mutations) => {
+      const hasRelevantMutation = mutations.some((mutation) => {
+        if (mutation.type !== 'childList') return false;
+        if (isRelevantMutationNode(mutation.target)) return true;
+        return Array.from(mutation.addedNodes).some((node) => isRelevantMutationNode(node));
+      });
+      if (!hasRelevantMutation) return;
+      scheduleProcessDoc(doc);
+    });
+    observer.observe(doc.documentElement, { subtree: true, childList: true });
+    docObservers.set(doc, observer);
   }
 
   function ensureObservers() {
     walkDocuments((doc) => {
       observeDoc(doc);
       const frames = doc.querySelectorAll('iframe, frame');
-      frames.forEach((fr) => {
-        if (frameListeners.has(fr)) return;
-        frameListeners.add(fr);
-        fr.addEventListener('load', () => scheduleProcess(), true);
+      frames.forEach((frame) => {
+        if (frameListeners.has(frame)) return;
+        frameListeners.add(frame);
+        frame.addEventListener('load', () => {
+          safeRun('Falha ao processar frame carregado.', () => {
+            if (frame.contentWindow && frame.contentWindow.document) {
+              scheduleProcessDoc(frame.contentWindow.document);
+            }
+          });
+        }, true);
       });
     });
   }
 
   function reviveAfterReturn() {
     registerMenu(true);
-    scheduleProcess();
+    walkDocuments((doc) => scheduleProcessDoc(doc));
   }
 
   function boot() {
     registerMenu(false);
     ensureObservers();
-    scheduleProcess();
+    walkDocuments((doc) => scheduleProcessDoc(doc));
 
     window.addEventListener('pageshow', reviveAfterReturn, true);
     window.addEventListener('focus', reviveAfterReturn, true);
