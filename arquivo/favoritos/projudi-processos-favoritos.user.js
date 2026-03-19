@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Processos Favoritos
 // @namespace    projudi-processos-favoritos.user.js
-// @version      2.1
+// @version      2.2
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca processos favoritos, permite adicionar/remover no detalhe e gerenciar via painel.
 // @author       lourencosv (GPT)
@@ -62,6 +62,7 @@
   let menuRegistered = false;
   let initialized = false;
   let backupTimer = null;
+  const LOG_PREFIX = '[Processos Favoritos]';
 
   const refreshTimers = new WeakMap();
   const docObservers = new WeakMap();
@@ -79,6 +80,27 @@
   };
   let storeCache = null;
   let favSetCache = null;
+
+  function logWarn(message, meta) {
+    if (meta === undefined) {
+      console.warn(LOG_PREFIX, message);
+      return;
+    }
+    console.warn(LOG_PREFIX, message, meta);
+  }
+
+  function logError(message, error) {
+    console.error(LOG_PREFIX, message, error);
+  }
+
+  function safeRun(label, task, fallbackValue) {
+    try {
+      return task();
+    } catch (error) {
+      logError(label, error);
+      return fallbackValue;
+    }
+  }
 
   function lockBodyScroll(doc = document) {
     const body = doc && doc.body;
@@ -118,7 +140,8 @@
       storeCache = list;
       favSetCache = null;
       return list.slice();
-    } catch {
+    } catch (error) {
+      logWarn('Falha ao ler favoritos. Voltando para a lista vazia.', error);
       storeCache = [];
       favSetCache = null;
       return [];
@@ -165,7 +188,9 @@
 
   function saveBackupSettings(next) {
     const normalized = normalizeBackupSettings(next);
-    localStorage.setItem(BACKUP_STORAGE_KEY, JSON.stringify(normalized));
+    safeRun('Falha ao salvar configurações de backup.', () => {
+      localStorage.setItem(BACKUP_STORAGE_KEY, JSON.stringify(normalized));
+    });
     return normalized;
   }
 
@@ -181,7 +206,9 @@
       try {
         await pushBackupToGist(backupSettings, buildExportPayload());
         saveBackupSettings({ ...backupSettings, lastBackupAt: new Date().toISOString(), lastBackupSignature: backupSignature });
-      } catch (_) {}
+      } catch (error) {
+        logWarn('Falha no backup automático dos favoritos.', error);
+      }
     }, 700);
   }
 
@@ -595,6 +622,29 @@
     `;
 
     doc.head.appendChild(style);
+  }
+
+  function isRelevantMutationNode(node) {
+    if (!node) return false;
+    if (node.nodeType === Node.TEXT_NODE) return !!node.parentElement && isRelevantMutationNode(node.parentElement);
+    if (node.nodeType !== Node.ELEMENT_NODE) return false;
+    const element = node;
+    return Boolean(
+      (element.id === 'span_proc_numero') ||
+      (element.id === PANEL_OVERLAY_ID) ||
+      (element.id === STYLE_ID) ||
+      (element.matches && (
+        element.matches('a') ||
+        element.matches(`#${BTN_ID}`) ||
+        element.matches('img[onclick*="copiarNumeroProcessoAreaTransferencia"]')
+      )) ||
+      (element.querySelector && (
+        element.querySelector('a') ||
+        element.querySelector('#span_proc_numero') ||
+        element.querySelector(`#${BTN_ID}`) ||
+        element.querySelector('img[onclick*="copiarNumeroProcessoAreaTransferencia"]')
+      ))
+    );
   }
 
   function highlightLinksInDoc(doc) {
@@ -1167,15 +1217,15 @@
   }
 
   function refreshAll() {
-    try {
+    safeRun('Falha ao atualizar favoritos no documento principal.', () => {
       refreshDoc(window.document);
-    } catch {}
+    });
 
     const iframe = document.getElementById('Principal');
     if (iframe && iframe.contentDocument) {
-      try {
+      safeRun('Falha ao atualizar favoritos no iframe principal.', () => {
         refreshDoc(iframe.contentDocument);
-      } catch {}
+      });
     }
   }
 
@@ -1215,28 +1265,24 @@
       let relevant = false;
       for (const m of mutations) {
         const target = m.target && m.target.nodeType === 1 ? m.target : m.target && m.target.parentElement;
-        if (
-          target &&
-          (
-            target.id === PANEL_OVERLAY_ID ||
-            target.closest(`#${PANEL_OVERLAY_ID}`) ||
-            target.id === STYLE_ID
-          )
-        ) {
+        if (target && (target.id === PANEL_OVERLAY_ID || target.closest(`#${PANEL_OVERLAY_ID}`) || target.id === STYLE_ID)) {
           continue;
         }
-        if (m.type === 'characterData') {
+        if (isRelevantMutationNode(target)) {
           relevant = true;
           break;
         }
-        if (m.type === 'childList' && ((m.addedNodes && m.addedNodes.length) || (m.removedNodes && m.removedNodes.length))) {
+        if (m.type === 'childList' && (
+          Array.from(m.addedNodes || []).some((node) => isRelevantMutationNode(node)) ||
+          Array.from(m.removedNodes || []).some((node) => isRelevantMutationNode(node))
+        )) {
           relevant = true;
           break;
         }
       }
       if (relevant) scheduleRefresh(doc);
     });
-    mo.observe(doc.body, { childList: true, characterData: true, subtree: true });
+    mo.observe(doc.body, { childList: true, subtree: true });
     docObservers.set(doc, mo);
   }
 
@@ -1250,12 +1296,16 @@
       const d = iframe.contentDocument;
       if (!d) return;
       clearDocArtifacts(d);
-      refreshDoc(d);
+      safeRun('Falha ao atualizar favoritos após recarregar o iframe.', () => {
+        refreshDoc(d);
+      });
       observeDoc(d);
     });
 
     if (iframe.contentDocument) {
-      refreshDoc(iframe.contentDocument);
+      safeRun('Falha ao atualizar favoritos no iframe inicial.', () => {
+        refreshDoc(iframe.contentDocument);
+      });
       observeDoc(iframe.contentDocument);
     }
   }
