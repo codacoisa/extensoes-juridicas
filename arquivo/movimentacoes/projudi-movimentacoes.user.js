@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Movimentações
 // @namespace    projudi-movimentacoes.user.js
-// @version      2.4
+// @version      2.5
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca as movimentações processuais em cores definidas.
 // @author       lourencosv (GPT)
@@ -836,32 +836,48 @@
     return cells[3];
   }
 
-  function walkDocuments(callback) {
-    const visited = new Set();
+  /**
+   * Returns the document of a same-origin frame when it is accessible.
+   * Cross-origin or not-yet-ready frames are skipped silently.
+   * @param {HTMLIFrameElement|HTMLFrameElement} frame
+   * @returns {Document|null}
+   */
+  function getAccessibleFrameDocument(frame) {
+    if (!frame) return null;
+    try {
+      const frameDoc = frame.contentDocument;
+      if (frameDoc && frameDoc.documentElement) return frameDoc;
+    } catch {
+      return null;
+    }
 
-    function walk(win) {
-      if (!win || visited.has(win)) return;
-      visited.add(win);
-
-      let doc;
-      try {
-        doc = win.document;
-      } catch {
-        return;
+    try {
+      const frameWindow = frame.contentWindow;
+      if (!frameWindow || !frameWindow.document || !frameWindow.document.documentElement) {
+        return null;
       }
-      if (!doc) return;
+      return frameWindow.document;
+    } catch {
+      return null;
+    }
+  }
 
+  function walkDocuments(callback) {
+    const visited = new WeakSet();
+
+    function walk(doc) {
+      if (!doc || visited.has(doc)) return;
+      visited.add(doc);
       callback(doc);
 
       const frames = doc.querySelectorAll('iframe, frame');
       frames.forEach((fr) => {
-        try {
-          if (fr.contentWindow) walk(fr.contentWindow);
-        } catch {}
+        const frameDoc = getAccessibleFrameDocument(fr);
+        if (frameDoc) walk(frameDoc);
       });
     }
 
-    walk(window);
+    walk(document);
   }
 
   function buildConfigSignature() {
@@ -1274,11 +1290,9 @@
         if (frameListeners.has(frame)) return;
         frameListeners.add(frame);
         frame.addEventListener('load', () => {
-          safeRun('Falha ao processar frame carregado.', () => {
-            if (frame.contentWindow && frame.contentWindow.document) {
-              scheduleProcessDoc(frame.contentWindow.document);
-            }
-          });
+          const frameDoc = getAccessibleFrameDocument(frame);
+          if (!frameDoc) return;
+          scheduleProcessDoc(frameDoc);
         }, true);
       });
     });
