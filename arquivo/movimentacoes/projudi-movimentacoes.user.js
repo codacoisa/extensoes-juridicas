@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Movimentações
 // @namespace    projudi-movimentacoes.user.js
-// @version      2.5
+// @version      2.6
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca as movimentações processuais em cores definidas.
 // @author       lourencosv (GPT)
@@ -115,6 +115,7 @@
   const MOV_TABLE_ROWS_SELECTOR = '#TabelaArquivos tbody tr, #tabListaProcesso tr';
   const MOV_TABLES_SELECTOR = '#TabelaArquivos, #tabListaProcesso';
   const LOG_PREFIX = '[Movimentações]';
+  const PAGE_ORIGIN = window.location.origin;
   let menuCommandId = null;
 
   function logInfo(message, meta) {
@@ -837,6 +838,35 @@
   }
 
   /**
+   * Resolves the frame src using the owner document base URI.
+   * @param {HTMLIFrameElement|HTMLFrameElement} frame
+   * @returns {URL|null}
+   */
+  function resolveFrameUrl(frame) {
+    if (!frame || typeof frame.getAttribute !== 'function') return null;
+    const rawSrc = String(frame.getAttribute('src') || '').trim();
+    if (!rawSrc) return null;
+    try {
+      return new URL(rawSrc, (frame.ownerDocument && frame.ownerDocument.baseURI) || document.baseURI);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Avoids touching frames that are explicitly cross-origin, such as file previews hosted on S3.
+   * @param {HTMLIFrameElement|HTMLFrameElement} frame
+   * @returns {boolean}
+   */
+  function isTrackableFrame(frame) {
+    const frameUrl = resolveFrameUrl(frame);
+    if (!frameUrl) return true;
+    if (frameUrl.protocol === 'about:') return frameUrl.href === 'about:blank';
+    if (frameUrl.protocol !== 'http:' && frameUrl.protocol !== 'https:') return false;
+    return frameUrl.origin === PAGE_ORIGIN;
+  }
+
+  /**
    * Returns the document of a same-origin frame when it is accessible.
    * Cross-origin or not-yet-ready frames are skipped silently.
    * @param {HTMLIFrameElement|HTMLFrameElement} frame
@@ -844,6 +874,7 @@
    */
   function getAccessibleFrameDocument(frame) {
     if (!frame) return null;
+    if (!isTrackableFrame(frame)) return null;
     try {
       const frameDoc = frame.contentDocument;
       if (frameDoc && frameDoc.documentElement) return frameDoc;
@@ -872,6 +903,7 @@
 
       const frames = doc.querySelectorAll('iframe, frame');
       frames.forEach((fr) => {
+        if (!isTrackableFrame(fr)) return;
         const frameDoc = getAccessibleFrameDocument(fr);
         if (frameDoc) walk(frameDoc);
       });
@@ -1287,9 +1319,11 @@
       observeDoc(doc);
       const frames = doc.querySelectorAll('iframe, frame');
       frames.forEach((frame) => {
+        if (!isTrackableFrame(frame)) return;
         if (frameListeners.has(frame)) return;
         frameListeners.add(frame);
         frame.addEventListener('load', () => {
+          if (!isTrackableFrame(frame)) return;
           const frameDoc = getAccessibleFrameDocument(frame);
           if (!frameDoc) return;
           scheduleProcessDoc(frameDoc);
