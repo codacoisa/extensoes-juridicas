@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Movimentações
 // @namespace    projudi-movimentacoes.user.js
-// @version      2.6
+// @version      2.7
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca as movimentações processuais em cores definidas.
 // @author       lourencosv (GPT)
@@ -114,6 +114,7 @@
   const PANEL_OVERLAY_ID = 'phm-overlay-root';
   const MOV_TABLE_ROWS_SELECTOR = '#TabelaArquivos tbody tr, #tabListaProcesso tr';
   const MOV_TABLES_SELECTOR = '#TabelaArquivos, #tabListaProcesso';
+  const PRIMARY_FRAME_SELECTOR = 'iframe#Principal, iframe[name="userMainFrame"], frame#Principal, frame[name="userMainFrame"]';
   const LOG_PREFIX = '[Movimentações]';
   const PAGE_ORIGIN = window.location.origin;
   let menuCommandId = null;
@@ -893,23 +894,29 @@
     }
   }
 
+  /**
+   * The Projudi content lives in the main frame. Nested frames inside the process page
+   * often host file previews and should not be traversed by this script.
+   * @param {ParentNode} root
+   * @returns {(HTMLIFrameElement|HTMLFrameElement)[]}
+   */
+  function getProcessableFrames(root) {
+    if (!root || typeof root.querySelectorAll !== 'function') return [];
+    return Array.from(root.querySelectorAll(PRIMARY_FRAME_SELECTOR)).filter((frame) => isTrackableFrame(frame));
+  }
+
   function walkDocuments(callback) {
     const visited = new WeakSet();
+    if (!document || visited.has(document)) return;
+    visited.add(document);
+    callback(document);
 
-    function walk(doc) {
-      if (!doc || visited.has(doc)) return;
-      visited.add(doc);
-      callback(doc);
-
-      const frames = doc.querySelectorAll('iframe, frame');
-      frames.forEach((fr) => {
-        if (!isTrackableFrame(fr)) return;
-        const frameDoc = getAccessibleFrameDocument(fr);
-        if (frameDoc) walk(frameDoc);
-      });
-    }
-
-    walk(document);
+    getProcessableFrames(document).forEach((frame) => {
+      const frameDoc = getAccessibleFrameDocument(frame);
+      if (!frameDoc || visited.has(frameDoc)) return;
+      visited.add(frameDoc);
+      callback(frameDoc);
+    });
   }
 
   function buildConfigSignature() {
@@ -1317,7 +1324,7 @@
   function ensureObservers() {
     walkDocuments((doc) => {
       observeDoc(doc);
-      const frames = doc.querySelectorAll('iframe, frame');
+      const frames = doc === document ? getProcessableFrames(doc) : [];
       frames.forEach((frame) => {
         if (!isTrackableFrame(frame)) return;
         if (frameListeners.has(frame)) return;
