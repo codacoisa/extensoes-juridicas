@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Processos Favoritos
 // @namespace    projudi-processos-favoritos.user.js
-// @version      2.2
+// @version      2.3
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca processos favoritos, permite adicionar/remover no detalhe e gerenciar via painel.
 // @author       lourencosv (GPT)
@@ -300,6 +300,59 @@
   function findAnyProcessNumber(text) {
     const m = String(text).match(/\b\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\b/);
     return m ? m[0] : null;
+  }
+
+  /**
+   * Extracts a full process number from arbitrary input and validates it.
+   * @param {unknown} value
+   * @returns {string|null}
+   */
+  function canonicalizeFavoriteProcess(value) {
+    const text = String(value || '').trim();
+    const full = findAnyProcessNumber(text);
+    return full && normalizeFull(full) ? full : null;
+  }
+
+  /**
+   * Sorts and deduplicates favorites by their normalized process key.
+   * @param {unknown[]} list
+   * @returns {string[]}
+   */
+  function sortAndUniqFavorites(list) {
+    const map = new Map();
+    for (const item of list) {
+      const full = canonicalizeFavoriteProcess(item);
+      if (!full) continue;
+      const key = normalizeFull(full);
+      if (!map.has(key)) map.set(key, full);
+    }
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }
+
+  /**
+   * Builds the JSON payload used for export and remote backups.
+   * @returns {{schema: string, scriptId: string, scriptName: string, version: string, exportedAt: string, total: number, favorites: string[]}}
+   */
+  function buildExportPayload() {
+    const favorites = sortAndUniqFavorites(readStore());
+    return {
+      schema: BACKUP_SCHEMA,
+      scriptId: SCRIPT_META.id,
+      scriptName: SCRIPT_META.name,
+      version: SCRIPT_META.version,
+      exportedAt: new Date().toISOString(),
+      total: favorites.length,
+      favorites
+    };
+  }
+
+  /**
+   * Builds a stable signature so auto-backup only runs when the favorites set changes.
+   * @returns {string}
+   */
+  function buildFavoritesBackupSignature() {
+    const favorites = sortAndUniqFavorites(readStore());
+    return JSON.stringify({ schema: BACKUP_SCHEMA, favorites });
   }
 
   function getFavSet() {
@@ -927,12 +980,6 @@
       backupAuto.checked = backupSettings.autoBackupOnSave;
     }
 
-    function canonicalizeFull(value) {
-      const text = String(value || '').trim();
-      const full = findAnyProcessNumber(text);
-      return full && normalizeFull(full) ? full : null;
-    }
-
     function showStatus(message, type) {
       status.textContent = String(message || '');
       status.classList.remove('ok', 'err');
@@ -971,37 +1018,8 @@
     }
     updateBackupLast();
 
-    function sortAndUniqByKey(list) {
-      const map = new Map();
-      for (const item of list) {
-        const full = canonicalizeFull(item);
-        if (!full) continue;
-        const key = normalizeFull(full);
-        if (!map.has(key)) map.set(key, full);
-      }
-      return Array.from(map.values()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-    }
-
-    function buildExportPayload() {
-      const favorites = sortAndUniqByKey(readStore());
-      return {
-        schema: BACKUP_SCHEMA,
-        scriptId: SCRIPT_META.id,
-        scriptName: SCRIPT_META.name,
-        version: SCRIPT_META.version,
-        exportedAt: new Date().toISOString(),
-        total: favorites.length,
-        favorites
-      };
-    }
-
-    function buildFavoritesBackupSignature() {
-      const favorites = sortAndUniqByKey(readStore());
-      return JSON.stringify({ schema: BACKUP_SCHEMA, favorites });
-    }
-
     function renderList() {
-      const items = sortAndUniqByKey(readStore());
+      const items = sortAndUniqFavorites(readStore());
       ul.innerHTML = '';
 
       if (!items.length) {
@@ -1036,7 +1054,7 @@
     }
 
     function tryAddInput() {
-      const fullNum = canonicalizeFull(addInput.value);
+      const fullNum = canonicalizeFavoriteProcess(addInput.value);
       if (!fullNum) {
         addInput.style.borderColor = '#d64a4a';
         addInput.focus();
@@ -1074,7 +1092,7 @@
     }
 
     function restoreImportedPayload(text) {
-      const favorites = sortAndUniqByKey(parseImportedPayload(text));
+      const favorites = sortAndUniqFavorites(parseImportedPayload(text));
       writeStore(favorites);
       return favorites;
     }
@@ -1085,8 +1103,8 @@
       reader.onload = function () {
         try {
           const importedRaw = parseImportedPayload(String(reader.result || ''));
-          const existing = sortAndUniqByKey(readStore());
-          const merged = sortAndUniqByKey(existing.concat(importedRaw));
+          const existing = sortAndUniqFavorites(readStore());
+          const merged = sortAndUniqFavorites(existing.concat(importedRaw));
           const before = existing.length;
           const after = merged.length;
           const added = Math.max(after - before, 0);
@@ -1140,7 +1158,7 @@
           const restored = restoreImportedPayload(JSON.stringify(payload));
           backupSettings = saveBackupSettings({
             ...backupSettings,
-            lastBackupSignature: JSON.stringify({ schema: BACKUP_SCHEMA, favorites: restored })
+            lastBackupSignature: buildFavoritesBackupSignature()
           });
           renderList();
           showBackupStatus(`Backup restaurado: ${restored.length} favorito(s).`, 'ok');
