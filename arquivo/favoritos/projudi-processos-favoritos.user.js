@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Processos Favoritos
 // @namespace    projudi-processos-favoritos.user.js
-// @version      2.3
+// @version      2.4
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca processos favoritos, permite adicionar/remover no detalhe e gerenciar via painel.
 // @author       lourencosv (GPT)
@@ -1223,7 +1223,7 @@
     if (menuRegistered) return;
 
     try {
-      const id = GM_registerMenuCommand('Favoritos: Abrir Painel', openPanel);
+      const id = GM_registerMenuCommand('Gerenciar Processos Favoritos', openPanel);
       menuCommandId = id == null ? null : id;
       menuRegistered = true;
     } catch {}
