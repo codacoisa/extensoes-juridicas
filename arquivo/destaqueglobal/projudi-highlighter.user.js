@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Destaque Global
 // @namespace    projudi-highlighter.user.js
-// @version      5.3
+// @version      5.4
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaque global, com painel configurável (Ctrl+Shift+H).
 // @author       lourencosv (GPT)
@@ -1794,12 +1794,12 @@
     };
 
     if (typeof GM !== "undefined" && typeof GM.registerMenuCommand === "function") {
-      menuCommandId = GM.registerMenuCommand("Destaque Global: Abrir Painel", fn);
+      menuCommandId = GM.registerMenuCommand("Gerenciar Destaque Global", fn);
       menuRegistered = true;
       return;
     }
     if (typeof GM_registerMenuCommand === "function") {
-      menuCommandId = GM_registerMenuCommand("Destaque Global: Abrir Painel", fn);
+      menuCommandId = GM_registerMenuCommand("Gerenciar Destaque Global", fn);
       menuRegistered = true;
     }
   }
