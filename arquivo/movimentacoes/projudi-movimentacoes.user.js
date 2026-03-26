@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Movimentações
 // @namespace    projudi-movimentacoes.user.js
-// @version      2.7
+// @version      2.8
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca as movimentações processuais em cores definidas.
 // @author       lourencosv (GPT)
@@ -1257,7 +1257,7 @@
 
     if (menuCommandId !== null) return;
     try {
-      menuCommandId = GM_registerMenuCommand('Movimentações: Abrir Painel', togglePanel);
+      menuCommandId = GM_registerMenuCommand('Gerenciar Movimentações', togglePanel);
     } catch {}
   }
 
