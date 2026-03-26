@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Prazos
 // @namespace    projudi-prazos.user.js
-// @version      4.5
+// @version      4.6
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Realça possíveis vencimentos no projudi, com cores definidas.
 // @author       louencosv (GPT)
@@ -1140,7 +1140,7 @@
       }
     } catch {}
     try {
-      state.id = GM_registerMenuCommand("Prazos: Abrir Painel", openPanel);
+      state.id = GM_registerMenuCommand("Gerenciar Prazos", openPanel);
     } catch (error) {
       logger.error("Falha ao registrar comando do menu.", error);
     }
