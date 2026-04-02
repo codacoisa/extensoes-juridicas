@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Movimentações
 // @namespace    projudi-movimentacoes.user.js
-// @version      2.8
+// @version      2.9
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Destaca as movimentações processuais em cores definidas.
 // @author       lourencosv (GPT)
@@ -360,44 +360,47 @@
       flex: 1 1 auto;
       min-height: 0;
       overflow: auto;
-      padding: 14px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
       background: linear-gradient(180deg, #f8fbff 0%, #f2f6fc 100%);
     }
 
     #${PANEL_OVERLAY_ID} .phm-global {
-      border: 1px solid #d5dfec;
-      border-radius: 14px;
+      border: 1px solid #dbe3ef;
+      border-radius: 12px;
       background: #ffffff;
-      padding: 12px 14px;
-      margin-top: 12px;
+      padding: 14px 16px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
     }
 
     #${PANEL_OVERLAY_ID} .phm-global-title {
-      margin: 0 0 8px;
-      color: #0b2545;
+      margin: 0 0 10px;
+      color: #334155;
       font-size: 12px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: .35px;
-      text-align: center;
+      letter-spacing: .03em;
+      text-align: left;
     }
 
     #${PANEL_OVERLAY_ID} .phm-global-options {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
-      justify-content: center;
+      justify-content: flex-start;
     }
 
     #${PANEL_OVERLAY_ID} .phm-global-options label {
       display: inline-flex;
       align-items: center;
       gap: 7px;
-      padding: 8px 10px;
-      border: 1px solid #d6e0ec;
+      padding: 9px 12px;
+      border: 1px solid #dbe3ef;
       border-radius: 999px;
       background: #f8fbff;
-      color: #243b55;
+      color: #334155;
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
@@ -411,14 +414,15 @@
     #${PANEL_OVERLAY_ID} .phm-accordion {
       display: flex;
       flex-direction: column;
-      gap: 9px;
+      gap: 10px;
     }
 
     #${PANEL_OVERLAY_ID} .phm-rule {
-      border: 1px solid #cfdae9;
-      border-radius: 14px;
+      border: 1px solid #dbe3ef;
+      border-radius: 12px;
       background: #ffffff;
       overflow: hidden;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
     }
 
     #${PANEL_OVERLAY_ID} .phm-rule.is-disabled {
@@ -430,8 +434,8 @@
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      padding: 11px 13px;
-      background: linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%);
+      padding: 12px 14px;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
       cursor: pointer;
       user-select: none;
       list-style: none;
@@ -450,8 +454,8 @@
     }
 
     #${PANEL_OVERLAY_ID} .phm-rule-content {
-      padding: 12px 13px;
-      background: #ffffff;
+      padding: 14px;
+      background: #fbfdff;
     }
 
     #${PANEL_OVERLAY_ID} .phm-type {
@@ -481,33 +485,33 @@
     #${PANEL_OVERLAY_ID} .phm-rule-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(180px, 1fr));
-      gap: 10px;
+      gap: 12px;
       align-items: start;
     }
 
     #${PANEL_OVERLAY_ID} .phm-field {
       min-width: 0;
-      border: 1px solid #dbe6f3;
+      border: 1px solid #dbe3ef;
       border-radius: 12px;
-      background: #f8fbff;
-      padding: 9px 10px;
+      background: #ffffff;
+      padding: 11px 12px;
     }
 
     #${PANEL_OVERLAY_ID} .phm-field-title {
-      margin: 0 0 6px;
-      color: #51667f;
+      margin: 0 0 8px;
+      color: #334155;
       font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: .35px;
-      text-align: center;
+      letter-spacing: .03em;
+      text-align: left;
     }
 
     #${PANEL_OVERLAY_ID} .phm-field-body {
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 8px;
+      align-items: flex-start;
+      gap: 10px;
     }
 
     #${PANEL_OVERLAY_ID} .phm-center {
@@ -515,13 +519,13 @@
       align-items: center;
       gap: 10px;
       flex-wrap: wrap;
-      justify-content: center;
+      justify-content: flex-start;
     }
 
     #${PANEL_OVERLAY_ID} .phm-options-row {
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       gap: 10px;
       flex-wrap: wrap;
       width: 100%;
@@ -541,7 +545,7 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      color: #334b66;
+      color: #334155;
       font-size: 12px;
       font-weight: 600;
       white-space: nowrap;
@@ -561,11 +565,12 @@
       justify-content: center;
       min-width: 88px;
       height: 32px;
-      border: 1px solid #ccd7e5;
+      border: 1px solid #dbe3ef;
       border-radius: 999px;
       font-size: 13px;
       font-weight: 700;
       color: #111827;
+      background: #f8fbff;
       padding: 0 10px;
     }
 
@@ -617,11 +622,11 @@
       }
 
       #${PANEL_OVERLAY_ID} .phm-rule-head {
-        padding: 10px 11px;
+        padding: 10px 12px;
       }
 
       #${PANEL_OVERLAY_ID} .phm-rule-content {
-        padding: 10px 11px;
+        padding: 12px;
       }
 
       #${PANEL_OVERLAY_ID} .phm-rule-grid {
