@@ -1,3 +1,6 @@
+> [!CAUTION]
+> Esse script foi desabilitado e integrado ao script de [customizações](https://github.com/thelawhub/customizacoes).
+
 # Movimentações
 
 Script para destacar movimentações processuais no Projudi do TJGO com cores e estilos visuais definidos pelo usuário.
