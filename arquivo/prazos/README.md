@@ -1,3 +1,6 @@
+> [!CAUTION]
+> Esse script foi desabilitado e integrado ao script de [intimações](https://github.com/thelawhub/intimacoes).
+
 # Prazos
 
 Script para destacar prazos no Projudi do TJGO de forma visual e facilitar a triagem diária dos processos.
