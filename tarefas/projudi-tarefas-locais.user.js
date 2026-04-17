@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      3.1
+// @version      3.2
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
 // @license      CC BY-NC 4.0
-// @updateURL    https://gist.githubusercontent.com/lourencosv/99fd4d691bae5a921bd33fe7eb4c1885/raw/projudi-tarefas-locais.user.js
-// @downloadURL  https://gist.githubusercontent.com/lourencosv/99fd4d691bae5a921bd33fe7eb4c1885/raw/projudi-tarefas-locais.user.js
+// @updateURL    https://raw.githubusercontent.com/thelawhub/tarefas/refs/heads/main/projudi-tarefas-locais.user.js
+// @downloadURL  https://raw.githubusercontent.com/thelawhub/tarefas/refs/heads/main/projudi-tarefas-locais.user.js
 // @match        *://projudi.tjgo.jus.br/*
 // @run-at       document-end
 // @grant        GM_getValue
@@ -2111,16 +2111,16 @@
 
   function registerMenuCommand() {
     if (typeof GM_registerMenuCommand !== 'function') return;
-    if (state.menuRegistered && state.menuCommandId !== null && typeof GM_unregisterMenuCommand === 'function') {
-      try {
-        GM_unregisterMenuCommand(state.menuCommandId);
-      } catch (_) {}
-      state.menuCommandId = null;
-      state.menuRegistered = false;
-    }
     try {
-      state.menuCommandId = GM_registerMenuCommand('Gerenciar Tarefas', openManagerPanel);
+      const previousId = state.menuCommandId;
+      const nextId = GM_registerMenuCommand('Gerenciar Tarefas', openManagerPanel);
+      if (nextId != null) state.menuCommandId = nextId;
       state.menuRegistered = true;
+      if (nextId != null && previousId !== null && previousId !== state.menuCommandId && typeof GM_unregisterMenuCommand === 'function') {
+        try {
+          GM_unregisterMenuCommand(previousId);
+        } catch (_) {}
+      }
     } catch (_) {}
   }
 
@@ -2509,7 +2509,7 @@
   }
 
   function evaluate() {
-    if (window.top === window.self) registerMenuCommand();
+    registerMenuCommand();
     ensureHeaderMenuEntry();
     injectStyles();
     ensureFontAwesome();
