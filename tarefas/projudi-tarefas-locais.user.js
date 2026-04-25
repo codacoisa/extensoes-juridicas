@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      3.5
+// @version      3.6
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -1425,6 +1425,10 @@
       }
       #${ID_MANAGER_OVERLAY} .pjm-select { min-width: 0; }
       #${ID_MANAGER_OVERLAY} .pjm-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
         padding: 8px 11px;
         min-width: 0;
         min-height: 38px;
@@ -2008,7 +2012,7 @@
                 <span class="pjm-stat-label">Concluídas</span>
               </button>
             </div>
-            <button class="pjm-btn pjm-backup-toggle" id="pjm-backup-open" type="button">Abrir backup remoto</button>
+            <button class="pjm-btn pjm-backup-toggle" id="pjm-backup-open" type="button"><i class="fa-solid fa-cloud" aria-hidden="true"></i><span>Backup remoto</span></button>
           </section>
           <section class="pjm-card">
             <div class="pjm-section-title">Filtros</div>
@@ -2025,8 +2029,8 @@
               </select>
             </div>
             <div class="pjm-action-grid">
-              <button class="pjm-btn" id="pjm-export">Exportar JSON</button>
-              <button class="pjm-btn" id="pjm-import">Importar JSON</button>
+              <button class="pjm-btn" id="pjm-export"><i class="fa-solid fa-download" aria-hidden="true"></i><span>Baixar JSON</span></button>
+              <button class="pjm-btn" id="pjm-import"><i class="fa-solid fa-upload" aria-hidden="true"></i><span>Enviar JSON</span></button>
             </div>
           </section>
         </aside>
@@ -2071,9 +2075,9 @@
               <input type="checkbox" id="pjm-backup-auto">
             </label>
             <div class="pjm-action-grid">
-              <button class="pjm-btn" id="pjm-backup-send">Enviar</button>
-              <button class="pjm-btn" id="pjm-backup-restore">Restaurar</button>
-              <button class="pjm-btn" id="pjm-backup-clear">Limpar</button>
+              <button class="pjm-btn" id="pjm-backup-send"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Enviar backup</span></button>
+              <button class="pjm-btn" id="pjm-backup-restore"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span>Restaurar backup</span></button>
+              <button class="pjm-btn" id="pjm-backup-clear"><i class="fa-solid fa-eraser" aria-hidden="true"></i><span>Limpar backup</span></button>
               <button class="pjm-btn" type="button" data-pjm-backup-close>Fechar</button>
             </div>
             <div class="pjm-item-meta" id="pjm-backup-status"></div>
