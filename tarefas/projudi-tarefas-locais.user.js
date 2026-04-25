@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      3.4
+// @version      3.5
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -1613,14 +1613,6 @@
         font-size: 12px;
         font-weight: 700;
       }
-      #${ID_MANAGER_OVERLAY} .pjm-foot {
-        display: flex;
-        justify-content: flex-end;
-        gap: 8px;
-        padding: 12px 16px;
-        border-top: 1px solid #dbe3ef;
-        background: #f8fafc;
-      }
       @media (max-width: 860px) {
         #${ID_MANAGER_OVERLAY} .pjm-panel {
           width: min(100vw - 8px, 1180px);
@@ -1633,7 +1625,6 @@
             "main";
         }
         #${ID_MANAGER_OVERLAY} .pjm-body { padding: 12px; }
-        #${ID_MANAGER_OVERLAY} .pjm-foot { padding: 10px 12px; }
         #${ID_MANAGER_OVERLAY} .pjm-action-grid,
         #${ID_MANAGER_OVERLAY} .pjm-stat-grid,
         #${ID_MANAGER_OVERLAY} .pjm-item-top {
@@ -2089,9 +2080,6 @@
             <div class="pjm-item-meta" id="pjm-backup-last">${formatLastBackupLabel(backupSettings.lastBackupAt)}</div>
           </section>
         </div>
-      </div>
-      <div class="pjm-foot">
-        <button class="pjm-btn" data-pjm-action="close">Fechar</button>
       </div>
     `;
     overlay.appendChild(panel);
