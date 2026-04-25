@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      3.3
+// @version      3.4
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -161,6 +161,10 @@
       hour: '2-digit',
       minute: '2-digit'
     });
+  }
+
+  function formatCount(count, singular, plural) {
+    return `${count} ${count === 1 ? singular : plural}`;
   }
 
   function runPanelCleanup() {
@@ -1328,9 +1332,9 @@
       }
       #${ID_MANAGER_OVERLAY}, #${ID_MANAGER_OVERLAY} * { box-sizing: border-box; }
       #${ID_MANAGER_OVERLAY} .pjm-panel {
-        width: 640px;
-        max-width: calc(100vw - 24px);
-        max-height: min(88vh, 860px);
+        position: relative;
+        width: min(1180px, calc(100vw - 28px));
+        height: min(88vh, 900px);
         background: #fff;
         color: #0f172a;
         border-radius: 14px;
@@ -1373,19 +1377,35 @@
       #${ID_MANAGER_OVERLAY} .pjm-body {
         flex: 1 1 auto;
         min-height: 0;
+        display: grid;
+        grid-template-columns: 300px minmax(0, 1fr);
+        grid-template-areas: "rail main";
+        align-items: start;
+        gap: 12px;
         overflow: auto;
-        padding: 16px;
-        background: #f8fafc;
+        padding: 12px;
+        background: #f4f7fb;
       }
       #${ID_MANAGER_OVERLAY} .pjm-card {
+        display: grid;
+        gap: 10px;
         border: 1px solid #dbe3ef;
-        border-radius: 10px;
+        border-radius: 8px;
         background: #fff;
         padding: 12px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
       }
-      #${ID_MANAGER_OVERLAY} .pjm-card + .pjm-card { margin-top: 10px; }
+      #${ID_MANAGER_OVERLAY} .pjm-rail {
+        grid-area: rail;
+        display: grid;
+        align-content: start;
+        gap: 12px;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-main {
+        grid-area: main;
+        min-width: 0;
+      }
       #${ID_MANAGER_OVERLAY} .pjm-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-      #${ID_MANAGER_OVERLAY} .pjm-row + .pjm-row { margin-top: 10px; }
       #${ID_MANAGER_OVERLAY} .pjm-row.pjm-filters > .pjm-select,
       #${ID_MANAGER_OVERLAY} .pjm-row.pjm-filters > .pjm-input {
         flex: 1 1 260px;
@@ -1393,23 +1413,28 @@
       }
       #${ID_MANAGER_OVERLAY} .pjm-input, #${ID_MANAGER_OVERLAY} .pjm-select {
         border: 1px solid #cbd5e1;
-        border-radius: 8px;
-        padding: 6px 8px;
+        border-radius: 6px;
+        padding: 8px 9px;
         background: #fff;
         color: #0f172a;
-        font-size: 14px;
+        font: inherit;
+        font-size: 13px;
         line-height: 1.35;
+        min-height: 38px;
+        width: 100%;
       }
-      #${ID_MANAGER_OVERLAY} .pjm-select { min-width: 170px; }
+      #${ID_MANAGER_OVERLAY} .pjm-select { min-width: 0; }
       #${ID_MANAGER_OVERLAY} .pjm-btn {
-        padding: 7px 11px;
-        min-width: 86px;
-        border-radius: 8px;
+        padding: 8px 11px;
+        min-width: 0;
+        min-height: 38px;
+        border-radius: 6px;
         border: 1px solid #cbd5e1;
         background: #fff;
         color: #1e293b;
         cursor: pointer;
-        font-size: 14px;
+        font: inherit;
+        font-size: 13px;
         font-weight: 500;
         line-height: 1.2;
       }
@@ -1419,22 +1444,98 @@
         color: #fff;
         font-weight: 600;
       }
-      #${ID_MANAGER_OVERLAY} .pjm-list { margin-top: 10px; }
-      #${ID_MANAGER_OVERLAY} .pjm-item {
-        border: 1px solid #dbe3ef;
-        border-radius: 10px;
-        background: #fff;
-        padding: 10px 12px;
+      #${ID_MANAGER_OVERLAY} .pjm-summary-title {
+        color: #12385f;
+        font-size: 22px;
+        font-weight: 800;
+        line-height: 1.1;
       }
-      #${ID_MANAGER_OVERLAY} .pjm-item + .pjm-item { margin-top: 8px; }
-      #${ID_MANAGER_OVERLAY} .pjm-item-top {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
+      #${ID_MANAGER_OVERLAY} .pjm-summary-sub {
+        color: #64748b;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
       }
+      #${ID_MANAGER_OVERLAY} .pjm-stat {
+        appearance: none;
+        display: grid;
+        gap: 3px;
+        padding: 10px;
+        border: 1px solid #d7e2f0;
+        border-radius: 8px;
+        background: #fff;
+        cursor: pointer;
+        font: inherit;
+        text-align: left;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-stat[data-active="true"] {
+        border-color: #1f69d5;
+        box-shadow: inset 0 0 0 1px #1f69d5;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-stat-value {
+        color: #143f70;
+        font-size: 22px;
+        font-weight: 800;
+        line-height: 1;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-stat-label {
+        color: #5b7089;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-stat--active { background: linear-gradient(180deg, #f4faff 0%, #eaf3ff 100%); }
+      #${ID_MANAGER_OVERLAY} .pjm-stat--done { background: linear-gradient(180deg, #f3fbf5 0%, #e5f5e9 100%); }
+      #${ID_MANAGER_OVERLAY} .pjm-stat--done .pjm-stat-value { color: #1d6f3b; }
+      #${ID_MANAGER_OVERLAY} .pjm-section-title {
+        color: #334155;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-field {
+        display: grid;
+        gap: 6px;
+        min-width: 0;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-field label {
+        color: #47627f;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-action-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-backup-toggle {
+        justify-self: center;
+        min-width: 190px;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-list-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-list { display: grid; gap: 8px; }
+      #${ID_MANAGER_OVERLAY} .pjm-item {
+        border: 1px solid #dbe3ef;
+        border-radius: 8px;
+        background: #fff;
+        padding: 12px 14px;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-item-top {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 14px;
+      }
       #${ID_MANAGER_OVERLAY} .pjm-item-main {
-        flex: 1 1 auto;
         min-width: 0;
       }
       #${ID_MANAGER_OVERLAY} .pjm-actions {
@@ -1444,14 +1545,74 @@
         align-items: center;
         justify-items: stretch;
         width: min(220px, 100%);
-        flex: 0 0 220px;
       }
       #${ID_MANAGER_OVERLAY} .pjm-actions .pjm-btn {
         width: 100%;
         min-width: 0;
       }
-      #${ID_MANAGER_OVERLAY} .pjm-item-title { font-size: 14px; font-weight: 600; color: #0f172a; }
+      #${ID_MANAGER_OVERLAY} .pjm-item-title { font-size: 14px; font-weight: 700; color: #0f172a; }
       #${ID_MANAGER_OVERLAY} .pjm-item-meta { margin-top: 4px; font-size: 12px; color: #64748b; }
+      #${ID_MANAGER_OVERLAY} .pjm-item--done { opacity: .76; }
+      #${ID_MANAGER_OVERLAY} .pjm-badge-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 22px;
+        padding: 3px 7px;
+        border-radius: 999px;
+        background: #eef4fb;
+        color: #365879;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-badge--done {
+        color: #18663a;
+        background: #dff3e5;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-badge--active {
+        color: #164172;
+        background: #e8eff8;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-backup-popover {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+        background: rgba(15, 35, 60, .28);
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-backup-popover[data-open="true"] {
+        display: flex;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-backup-dialog {
+        width: min(500px, 100%);
+        max-height: min(74vh, 620px);
+        overflow: auto;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-backup-dialog .pjm-close {
+        background: #eef4fb;
+        color: #173a61;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-check-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 9px;
+        border: 1px solid #dbe3ef;
+        border-radius: 6px;
+        background: #f8fbff;
+        color: #375272;
+        font-size: 12px;
+        font-weight: 700;
+      }
       #${ID_MANAGER_OVERLAY} .pjm-foot {
         display: flex;
         justify-content: flex-end;
@@ -1460,16 +1621,27 @@
         border-top: 1px solid #dbe3ef;
         background: #f8fafc;
       }
-      @media (max-width: 640px) {
+      @media (max-width: 860px) {
+        #${ID_MANAGER_OVERLAY} .pjm-panel {
+          width: min(100vw - 8px, 1180px);
+          height: 92vh;
+        }
+        #${ID_MANAGER_OVERLAY} .pjm-body {
+          grid-template-columns: 1fr;
+          grid-template-areas:
+            "rail"
+            "main";
+        }
         #${ID_MANAGER_OVERLAY} .pjm-body { padding: 12px; }
         #${ID_MANAGER_OVERLAY} .pjm-foot { padding: 10px 12px; }
+        #${ID_MANAGER_OVERLAY} .pjm-action-grid,
+        #${ID_MANAGER_OVERLAY} .pjm-stat-grid,
+        #${ID_MANAGER_OVERLAY} .pjm-item-top {
+          grid-template-columns: 1fr;
+        }
         #${ID_MANAGER_OVERLAY} .pjm-actions {
           grid-template-columns: 1fr;
           width: 100%;
-          flex-basis: 100%;
-        }
-        #${ID_MANAGER_OVERLAY} .pjm-item-top {
-          flex-direction: column;
         }
       }
     `;
@@ -1830,50 +2002,92 @@
         </div>
       </div>
       <div class="pjm-body">
-        <div class="pjm-card">
-          <div class="pjm-row pjm-filters">
-            <select class="pjm-select" id="pjm-filter-state">
-              <option value="active">Ativas</option>
-              <option value="done">Concluídas</option>
-              <option value="all">Todas</option>
-            </select>
-            <input class="pjm-input" id="pjm-search" placeholder="Filtrar por texto, tag ou CNJ" />
-          </div>
-          <div class="pjm-row">
-            <button class="pjm-btn" id="pjm-export">Exportar JSON</button>
-            <button class="pjm-btn" id="pjm-import">Importar JSON</button>
-          </div>
-        </div>
-        <div class="pjm-card">
-          <div class="pjm-row" style="justify-content:space-between; align-items:center;">
-            <strong>Backup remoto</strong>
-            <label style="display:flex; align-items:center; gap:8px;">
-              <span style="font-size:12px; color:#5f6f83;">Ativar backup por Gist no GitHub.</span>
+        <aside class="pjm-rail">
+          <section class="pjm-card">
+            <div class="pjm-section-title">Painel principal</div>
+            <div class="pjm-summary-title" id="pjm-summary-title">0 tarefas em foco</div>
+            <div class="pjm-summary-sub" id="pjm-summary-sub">Nenhuma tarefa carregada.</div>
+            <div class="pjm-stat-grid">
+              <button type="button" class="pjm-stat pjm-stat--active" data-pjm-filter="active">
+                <span class="pjm-stat-value" id="pjm-stat-active">0</span>
+                <span class="pjm-stat-label">Ativas</span>
+              </button>
+              <button type="button" class="pjm-stat pjm-stat--done" data-pjm-filter="done">
+                <span class="pjm-stat-value" id="pjm-stat-done">0</span>
+                <span class="pjm-stat-label">Concluídas</span>
+              </button>
+            </div>
+            <button class="pjm-btn pjm-backup-toggle" id="pjm-backup-open" type="button">Abrir backup remoto</button>
+          </section>
+          <section class="pjm-card">
+            <div class="pjm-section-title">Filtros</div>
+            <div class="pjm-field">
+              <label for="pjm-search">Busca</label>
+              <input class="pjm-input" id="pjm-search" placeholder="Texto, tag ou CNJ" />
+            </div>
+            <div class="pjm-field">
+              <label for="pjm-filter-state">Status</label>
+              <select class="pjm-select" id="pjm-filter-state">
+                <option value="active">Ativas</option>
+                <option value="done">Concluídas</option>
+                <option value="all">Todas</option>
+              </select>
+            </div>
+            <div class="pjm-action-grid">
+              <button class="pjm-btn" id="pjm-export">Exportar JSON</button>
+              <button class="pjm-btn" id="pjm-import">Importar JSON</button>
+            </div>
+          </section>
+        </aside>
+        <main class="pjm-main">
+          <section class="pjm-card">
+            <div class="pjm-list-head">
+              <div>
+                <div class="pjm-section-title">Tarefas monitoradas</div>
+                <div id="pjm-stats" class="pjm-item-meta"></div>
+              </div>
+            </div>
+            <div id="pjm-list" class="pjm-list"></div>
+          </section>
+        </main>
+        <div class="pjm-backup-popover" id="pjm-backup-popover">
+          <section class="pjm-card pjm-backup-dialog">
+            <div class="pjm-list-head">
+              <div>
+                <div class="pjm-section-title">Backup remoto</div>
+                <div class="pjm-item-meta">Gist usado apenas para sincronizar tarefas locais.</div>
+              </div>
+              <button type="button" class="pjm-close" data-pjm-backup-close title="Fechar">×</button>
+            </div>
+            <label class="pjm-check-row">
+              <span>Ativar backup por Gist no GitHub</span>
               <input type="checkbox" id="pjm-backup-enabled">
             </label>
-          </div>
-          <div class="pjm-row" style="flex-direction:column; align-items:stretch;">
-            <input class="pjm-input" id="pjm-backup-gist-id" placeholder="Gist ID">
-            <input class="pjm-input" id="pjm-backup-token" type="password" placeholder="Token do GitHub">
-            <input class="pjm-input" id="pjm-backup-file-name" placeholder="Nome do arquivo">
-          </div>
-          <div class="pjm-row" style="justify-content:space-between; align-items:center;">
-            <span class="pjm-item-meta">Backup automático</span>
-            <input type="checkbox" id="pjm-backup-auto">
-          </div>
-          <div class="pjm-row">
-            <button class="pjm-btn" id="pjm-backup-send">Enviar backup</button>
-            <button class="pjm-btn" id="pjm-backup-restore">Restaurar backup</button>
-            <button class="pjm-btn" id="pjm-backup-clear">Limpar backup</button>
-          </div>
-          <div class="pjm-item-meta" id="pjm-backup-status"></div>
-          <div class="pjm-item-meta" id="pjm-backup-last">${formatLastBackupLabel(backupSettings.lastBackupAt)}</div>
-        </div>
-        <div class="pjm-card">
-          <div class="pjm-row">
-            <span id="pjm-stats" class="pjm-item-meta"></span>
-          </div>
-          <div id="pjm-list" class="pjm-list"></div>
+            <div class="pjm-field">
+              <label for="pjm-backup-gist-id">Gist ID</label>
+              <input class="pjm-input" id="pjm-backup-gist-id" placeholder="Gist ID">
+            </div>
+            <div class="pjm-field">
+              <label for="pjm-backup-token">Token do GitHub</label>
+              <input class="pjm-input" id="pjm-backup-token" type="password" placeholder="Token do GitHub">
+            </div>
+            <div class="pjm-field">
+              <label for="pjm-backup-file-name">Nome do arquivo</label>
+              <input class="pjm-input" id="pjm-backup-file-name" placeholder="Nome do arquivo">
+            </div>
+            <label class="pjm-check-row">
+              <span>Backup automático</span>
+              <input type="checkbox" id="pjm-backup-auto">
+            </label>
+            <div class="pjm-action-grid">
+              <button class="pjm-btn" id="pjm-backup-send">Enviar</button>
+              <button class="pjm-btn" id="pjm-backup-restore">Restaurar</button>
+              <button class="pjm-btn" id="pjm-backup-clear">Limpar</button>
+              <button class="pjm-btn" type="button" data-pjm-backup-close>Fechar</button>
+            </div>
+            <div class="pjm-item-meta" id="pjm-backup-status"></div>
+            <div class="pjm-item-meta" id="pjm-backup-last">${formatLastBackupLabel(backupSettings.lastBackupAt)}</div>
+          </section>
         </div>
       </div>
       <div class="pjm-foot">
@@ -1885,8 +2099,14 @@
 
     const listEl = panel.querySelector('#pjm-list');
     const statsEl = panel.querySelector('#pjm-stats');
+    const summaryTitleEl = panel.querySelector('#pjm-summary-title');
+    const summarySubEl = panel.querySelector('#pjm-summary-sub');
+    const statActiveEl = panel.querySelector('#pjm-stat-active');
+    const statDoneEl = panel.querySelector('#pjm-stat-done');
     const stateFilterEl = panel.querySelector('#pjm-filter-state');
     const searchEl = panel.querySelector('#pjm-search');
+    const backupOpen = panel.querySelector('#pjm-backup-open');
+    const backupPopover = panel.querySelector('#pjm-backup-popover');
     const backupEnabled = panel.querySelector('#pjm-backup-enabled');
     const backupGistId = panel.querySelector('#pjm-backup-gist-id');
     const backupToken = panel.querySelector('#pjm-backup-token');
@@ -1993,13 +2213,37 @@
       backupClear.addEventListener('click', clearBackupSettingsFromPanel);
     }
 
+    function setBackupOpen(open) {
+      if (backupPopover instanceof HTMLElement) backupPopover.dataset.open = open ? 'true' : 'false';
+    }
+
+    if (backupOpen) backupOpen.addEventListener('click', () => setBackupOpen(true));
+    if (backupPopover) {
+      backupPopover.addEventListener('click', event => {
+        if (event.target === backupPopover) setBackupOpen(false);
+      });
+    }
+    panel.querySelectorAll('[data-pjm-backup-close]').forEach(btn => {
+      btn.addEventListener('click', () => setBackupOpen(false));
+    });
+
     function renderManagerRows() {
       const allRows = collectTaskRows();
       const filterState = stateFilterEl.value;
       const q = String(searchEl.value || '').trim().toLowerCase();
       const stats = buildTaskStats();
-      statsEl.textContent = `${stats.active} ativa(s) • ${stats.completed} concluída(s)`;
-
+      const total = stats.active + stats.completed;
+      if (statActiveEl) statActiveEl.textContent = String(stats.active);
+      if (statDoneEl) statDoneEl.textContent = String(stats.completed);
+      if (summaryTitleEl) summaryTitleEl.textContent = `${formatCount(total, 'tarefa', 'tarefas')} no painel`;
+      if (summarySubEl) {
+        summarySubEl.textContent = stats.active
+          ? `${formatCount(stats.active, 'ativa', 'ativas')} aguardando providência.`
+          : 'Tudo concluído no momento.';
+      }
+      panel.querySelectorAll('[data-pjm-filter]').forEach(btn => {
+        if (btn instanceof HTMLElement) btn.dataset.active = btn.dataset.pjmFilter === filterState ? 'true' : 'false';
+      });
       let rows = allRows;
       if (filterState === 'active') rows = rows.filter(r => !r.done);
       if (filterState === 'done') rows = rows.filter(r => r.done);
@@ -2010,6 +2254,7 @@
           (r.tags || []).some(tag => tag.toLowerCase().includes(q))
         );
       }
+      statsEl.textContent = `${formatCount(rows.length, 'tarefa exibida', 'tarefas exibidas')} de ${formatCount(total, 'cadastrada', 'cadastradas')}`;
 
       listEl.innerHTML = '';
       if (!rows.length) {
@@ -2018,16 +2263,18 @@
       }
 
       for (const row of rows) {
-        const item = el('div', { className: 'pjm-item' });
+        const item = el('div', { className: `pjm-item${row.done ? ' pjm-item--done' : ''}` });
         const title = el('div', { className: 'pjm-item-title' }, [row.text]);
         const meta = el('div', { className: 'pjm-item-meta' }, [
           `${row.scopeLabel} • Criada: ${formatDateTime(row.createdAt)}${row.done ? ` • Concluída: ${formatDateTime(row.completedAt)}` : ''}`
         ]);
-        const tags = el('div', { className: 'pj-tags' }, []);
-        for (const tag of row.tags || []) tags.appendChild(el('span', { className: 'pj-tag' }, [`#${tag}`]));
+        const badges = el('div', { className: 'pjm-badge-row' }, [
+          el('span', { className: `pjm-badge ${row.done ? 'pjm-badge--done' : 'pjm-badge--active'}` }, [row.done ? 'Concluída' : 'Ativa'])
+        ]);
+        if (row.cnj) badges.appendChild(el('span', { className: 'pjm-badge' }, [row.cnj]));
+        for (const tag of row.tags || []) badges.appendChild(el('span', { className: 'pjm-badge' }, [`#${tag}`]));
 
-        const left = el('div', { className: 'pjm-item-main' }, [title, meta]);
-        if ((row.tags || []).length) left.appendChild(tags);
+        const left = el('div', { className: 'pjm-item-main' }, [title, meta, badges]);
 
         const btnToggle = el('button', { className: 'pjm-btn' }, [row.done ? 'Reabrir' : 'Concluir']);
         const btnEdit = el('button', { className: 'pjm-btn' }, ['Editar']);
@@ -2099,6 +2346,14 @@
     }
     stateFilterEl.addEventListener('change', renderManagerRows);
     searchEl.addEventListener('input', renderManagerRows);
+    panel.querySelectorAll('[data-pjm-filter]').forEach(btn => {
+      btn.addEventListener('click', event => {
+        const target = event.currentTarget;
+        if (!(target instanceof HTMLElement)) return;
+        stateFilterEl.value = target.dataset.pjmFilter || 'active';
+        renderManagerRows();
+      });
+    });
     panel.querySelectorAll('[data-pjm-action="close"]').forEach(btn => {
       btn.addEventListener('click', () => overlay.remove());
     });
