@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      3.6
+// @version      3.7
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -1583,22 +1583,26 @@
         background: #e8eff8;
       }
       #${ID_MANAGER_OVERLAY} .pjm-backup-popover {
-        position: absolute;
+        position: fixed;
         inset: 0;
-        z-index: 2;
+        z-index: 2147483647;
         display: none;
         align-items: center;
         justify-content: center;
         padding: 18px;
-        background: rgba(15, 35, 60, .28);
+        background: rgba(15, 23, 42, .34);
       }
       #${ID_MANAGER_OVERLAY} .pjm-backup-popover[data-open="true"] {
         display: flex;
       }
       #${ID_MANAGER_OVERLAY} .pjm-backup-dialog {
-        width: min(500px, 100%);
-        max-height: min(74vh, 620px);
+        width: min(720px, calc(100vw - 36px));
+        max-height: min(84vh, 760px);
         overflow: auto;
+        border: 1px solid #dbe3ef;
+        border-radius: 12px;
+        background: #ffffff;
+        box-shadow: 0 24px 70px rgba(2, 6, 23, .30);
       }
       #${ID_MANAGER_OVERLAY} .pjm-backup-dialog .pjm-close {
         background: #eef4fb;
