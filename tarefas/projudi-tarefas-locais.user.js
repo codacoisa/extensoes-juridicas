@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      3.7
+// @version      3.8
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -1598,15 +1598,67 @@
       #${ID_MANAGER_OVERLAY} .pjm-backup-dialog {
         width: min(720px, calc(100vw - 36px));
         max-height: min(84vh, 760px);
+        padding: 16px;
         overflow: auto;
+        box-sizing: border-box;
         border: 1px solid #dbe3ef;
         border-radius: 12px;
         background: #ffffff;
         box-shadow: 0 24px 70px rgba(2, 6, 23, .30);
       }
       #${ID_MANAGER_OVERLAY} .pjm-backup-dialog .pjm-close {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        border: 1px solid #cbd5e1;
         background: #eef4fb;
         color: #173a61;
+        font-size: 17px;
+        line-height: 1;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-backup-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-backup-grid .pjm-backup-span {
+        grid-column: 1 / -1;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-backup-toggles {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-backup-toggles .pjm-check-row {
+        justify-content: flex-start;
+        border-radius: 999px;
+        padding: 8px 10px;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-backup-actions {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 14px;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-backup-actions .pjm-btn {
+        min-height: 40px;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-backup-primary {
+        border-color: #1d63d8;
+        background: #1f6bd8;
+        color: #fff;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-backup-success {
+        border-color: #16833a;
+        background: #18883f;
+        color: #fff;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-backup-danger {
+        border-color: #fecaca;
+        background: #fff7f7;
+        color: #b42318;
       }
       #${ID_MANAGER_OVERLAY} .pjm-check-row {
         display: flex;
@@ -1634,6 +1686,8 @@
         }
         #${ID_MANAGER_OVERLAY} .pjm-body { padding: 12px; }
         #${ID_MANAGER_OVERLAY} .pjm-action-grid,
+        #${ID_MANAGER_OVERLAY} .pjm-backup-grid,
+        #${ID_MANAGER_OVERLAY} .pjm-backup-actions,
         #${ID_MANAGER_OVERLAY} .pjm-stat-grid,
         #${ID_MANAGER_OVERLAY} .pjm-item-top {
           grid-template-columns: 1fr;
@@ -2053,35 +2107,33 @@
           <section class="pjm-card pjm-backup-dialog">
             <div class="pjm-list-head">
               <div>
-                <div class="pjm-section-title">Backup remoto</div>
-                <div class="pjm-item-meta">Gist usado apenas para sincronizar tarefas locais.</div>
+                <div class="pjm-section-title">BACKUP REMOTO</div>
+                <div class="pjm-item-meta">Use um único Gist no GitHub e um arquivo separado para este script.</div>
               </div>
               <button type="button" class="pjm-close" data-pjm-backup-close title="Fechar">×</button>
             </div>
-            <label class="pjm-check-row">
-              <span>Ativar backup por Gist no GitHub</span>
-              <input type="checkbox" id="pjm-backup-enabled">
-            </label>
-            <div class="pjm-field">
-              <label for="pjm-backup-gist-id">Gist ID</label>
-              <input class="pjm-input" id="pjm-backup-gist-id" placeholder="Gist ID">
+            <div class="pjm-backup-grid">
+              <div class="pjm-field">
+                <label for="pjm-backup-gist-id">Gist ID</label>
+                <input class="pjm-input" id="pjm-backup-gist-id" placeholder="Cole o Gist ID">
+              </div>
+              <div class="pjm-field">
+                <label for="pjm-backup-file-name">Arquivo</label>
+                <input class="pjm-input" id="pjm-backup-file-name" placeholder="projudi-tarefas-locais.json">
+              </div>
+              <div class="pjm-field pjm-backup-span">
+                <label for="pjm-backup-token">Token do GitHub</label>
+                <input class="pjm-input" id="pjm-backup-token" type="password" placeholder="ghp_...">
+              </div>
             </div>
-            <div class="pjm-field">
-              <label for="pjm-backup-token">Token do GitHub</label>
-              <input class="pjm-input" id="pjm-backup-token" type="password" placeholder="Token do GitHub">
+            <div class="pjm-backup-toggles">
+              <label class="pjm-check-row"><input type="checkbox" id="pjm-backup-enabled"><span>Ativar backup por Gist no GitHub</span></label>
+              <label class="pjm-check-row"><input type="checkbox" id="pjm-backup-auto"><span>Backup automático</span></label>
             </div>
-            <div class="pjm-field">
-              <label for="pjm-backup-file-name">Nome do arquivo</label>
-              <input class="pjm-input" id="pjm-backup-file-name" placeholder="Nome do arquivo">
-            </div>
-            <label class="pjm-check-row">
-              <span>Backup automático</span>
-              <input type="checkbox" id="pjm-backup-auto">
-            </label>
-            <div class="pjm-action-grid">
-              <button class="pjm-btn" id="pjm-backup-send"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Enviar backup</span></button>
-              <button class="pjm-btn" id="pjm-backup-restore"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span>Restaurar backup</span></button>
-              <button class="pjm-btn" id="pjm-backup-clear"><i class="fa-solid fa-eraser" aria-hidden="true"></i><span>Limpar backup</span></button>
+            <div class="pjm-backup-actions">
+              <button class="pjm-btn pjm-backup-primary" id="pjm-backup-send"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Enviar backup</span></button>
+              <button class="pjm-btn pjm-backup-success" id="pjm-backup-restore"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span>Restaurar backup</span></button>
+              <button class="pjm-btn pjm-backup-danger" id="pjm-backup-clear"><i class="fa-solid fa-eraser" aria-hidden="true"></i><span>Limpar backup</span></button>
               <button class="pjm-btn" type="button" data-pjm-backup-close>Fechar</button>
             </div>
             <div class="pjm-item-meta" id="pjm-backup-status"></div>
