@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Anotações
 // @namespace    projudi-anotacoes-locais.user.js
-// @version      4.4
+// @version      4.5
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Adiciona Post-it local ao Projudi, com painel de notas, importação e exportação.
 // @author       lourencosv (GPT)
@@ -52,20 +52,36 @@
         }
     } catch (_) {}
     (function pjShortcut() {
+        // Leader: Ctrl+; libera 1500ms para pressionar A (Anotacoes).
         var ID = 'anotacoes';
         var CODE = 'KeyA';
         var isTop = window.top === window.self;
+        function inField(e) {
+            var t = e && e.target;
+            var tag = (t && t.tagName) || '';
+            return /^(INPUT|TEXTAREA|SELECT)$/.test(tag) || (t && t.isContentEditable);
+        }
+        function openHere() {
+            if (isTop) { try { openNotesPanel(); } catch (_) {} }
+            else { try { window.top.postMessage({ type: 'pj-open-panel', script: ID }, '*'); } catch (_) {} }
+        }
         window.addEventListener('keydown', function (e) {
-            if (!e || !e.altKey || !e.shiftKey || e.ctrlKey || e.metaKey) return;
-            if (e.code !== CODE || e.repeat) return;
-            var tag = (e.target && e.target.tagName) || '';
-            if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag) || (e.target && e.target.isContentEditable)) return;
-            e.preventDefault();
-            e.stopPropagation();
-            if (isTop) {
-                try { openNotesPanel(); } catch (_) {}
-            } else {
-                try { window.top.postMessage({ type: 'pj-open-panel', script: ID }, '*'); } catch (_) {}
+            if (!e || e.repeat) return;
+            if (inField(e)) return;
+            var isLeader = e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && e.code === 'Semicolon';
+            if (isLeader) {
+                e.preventDefault();
+                e.stopPropagation();
+                window.__pjLeaderUntil = Date.now() + 1500;
+                return;
+            }
+            if (e.code === CODE && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                if ((window.__pjLeaderUntil || 0) > Date.now()) {
+                    window.__pjLeaderUntil = 0;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openHere();
+                }
             }
         }, true);
         if (isTop) {
@@ -230,16 +246,21 @@
         const directText = processNumberEl ? String(processNumberEl.textContent || '').trim() : '';
         const directMatch = directText.match(CNJ_REGEX);
         const match = directMatch || (document.body.innerText || '').match(CNJ_REGEX);
-        if (!match) return null;
-
-        const cnj = match[0];
         const loc = window.location;
         const subkey = (loc.pathname || '') + (loc.search || '');
 
-        return {
-            key: `cnj_${cnj}`,
-            subkey
-        };
+        if (match) {
+            return { key: `cnj_${match[0]}`, subkey };
+        }
+
+        // Fallback: pagina de processo sem CNJ legivel no DOM (ocorre em algumas
+        // telas do Projudi). Usa a propria URL como chave para nao engolir o
+        // clique do botao de notas.
+        if (document.querySelector('button.notaProcesso, button[onclick*="criarNota"], a.notaProcesso, a[onclick*="criarNota"]')) {
+            return { key: `page_${subkey}`, subkey };
+        }
+
+        return null;
     }
 
     function storageKey(ctx) {
@@ -1451,12 +1472,19 @@
         btn.addEventListener('mousedown', e => {
             e.preventDefault();
             e.stopPropagation();
-        });
-        btn.addEventListener('click', e => {
+        }, true);
+        let __pjBtnHandled = false;
+        const __pjBtnActivate = e => {
+            if (__pjBtnHandled) return;
+            __pjBtnHandled = true;
+            setTimeout(() => { __pjBtnHandled = false; }, 250);
             e.preventDefault();
             e.stopPropagation();
-            toggleNoteFromButton();
-        });
+            try { toggleNoteFromButton(); } catch (err) { try { console.warn('[Anotacoes] toggleNote falhou:', err); } catch (_) {} }
+        };
+        btn.addEventListener('click', __pjBtnActivate, true);
+        btn.addEventListener('mouseup', __pjBtnActivate, true);
+        btn.addEventListener('touchend', __pjBtnActivate, true);
 
         applyIntegratedButtonLayout(btn, nativeNoteButton);
 

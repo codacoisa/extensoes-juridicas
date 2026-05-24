@@ -21,7 +21,7 @@ Você precisa de um gerenciador de userscripts no navegador, como:
 
 ## Atalho
 
-O painel pode ser aberto pelo atalho **Alt+Shift+A**. Em gerenciadores que suportam menus, o item "Gerenciar Anotações" continua disponível.
+O painel pode ser aberto pela sequência **Ctrl+;** e depois **A** (em até 1,5 segundo). Funciona em Windows, Linux e macOS (use a tecla Control no Mac). Em gerenciadores que suportam menus, o item "Gerenciar Anotações" continua disponível.
 
 ## Instalação
 
