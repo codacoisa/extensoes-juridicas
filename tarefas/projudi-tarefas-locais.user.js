@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      3.8
+// @version      3.9
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -17,11 +17,67 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_unregisterMenuCommand
 // @grant        GM_xmlhttpRequest
+// @grant        GM.xmlHttpRequest
 // @connect      api.github.com
 // ==/UserScript==
 
 (function () {
   'use strict';
+
+  // ---- Compatibilidade quoid/userscripts (Safari) e demais gestores ----
+  // Polyfill no-op para GM_registerMenuCommand quando indisponivel (quoid),
+  // shim de GM_xmlhttpRequest -> GM.xmlHttpRequest/fetch, e atalho de teclado
+  // cohesivo entre os scripts da suite: Alt+Shift+T abre o painel de Tarefas.
+  // Em Tampermonkey/Violentmonkey o menu tradicional continua disponivel.
+  try {
+    if (typeof GM_registerMenuCommand !== 'function') {
+      window.GM_registerMenuCommand = function () { return null; };
+    }
+    if (typeof GM_unregisterMenuCommand !== 'function') {
+      window.GM_unregisterMenuCommand = function () {};
+    }
+  } catch (_) {}
+  try {
+    if (typeof GM_xmlhttpRequest !== 'function') {
+      if (typeof GM !== 'undefined' && GM && typeof GM.xmlHttpRequest === 'function') {
+        window.GM_xmlhttpRequest = function (opts) { return GM.xmlHttpRequest(opts); };
+      } else {
+        window.GM_xmlhttpRequest = function (opts) {
+          try {
+            fetch(opts.url, { method: opts.method || 'GET', headers: opts.headers || {} })
+              .then(function (r) { return r.text().then(function (t) { return { status: r.status, responseText: t, finalUrl: r.url }; }); })
+              .then(function (res) { if (typeof opts.onload === 'function') opts.onload(res); })
+              .catch(function (err) { if (typeof opts.onerror === 'function') opts.onerror(err); });
+          } catch (e) { if (typeof opts.onerror === 'function') opts.onerror(e); }
+          return null;
+        };
+      }
+    }
+  } catch (_) {}
+  (function pjShortcut() {
+    var ID = 'tarefas';
+    var CODE = 'KeyT';
+    var isTop = window.top === window.self;
+    window.addEventListener('keydown', function (e) {
+      if (!e || !e.altKey || !e.shiftKey || e.ctrlKey || e.metaKey) return;
+      if (e.code !== CODE || e.repeat) return;
+      var tag = (e.target && e.target.tagName) || '';
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag) || (e.target && e.target.isContentEditable)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (isTop) {
+        try { openManagerPanel(); } catch (_) {}
+      } else {
+        try { window.top.postMessage({ type: 'pj-open-panel', script: ID }, '*'); } catch (_) {}
+      }
+    }, true);
+    if (isTop) {
+      window.addEventListener('message', function (ev) {
+        if (!ev || !ev.data || ev.data.type !== 'pj-open-panel' || ev.data.script !== ID) return;
+        try { openManagerPanel(); } catch (_) {}
+      });
+    }
+  })();
 
   const Z_UI = 2147483001;
   const SCRIPT_META = (() => {
