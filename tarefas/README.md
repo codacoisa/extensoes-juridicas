@@ -21,7 +21,7 @@ Você precisa de um gerenciador de userscripts no navegador, como:
 
 ## Atalho
 
-Em qualquer gerenciador compatível, o painel pode ser aberto pelo atalho **Alt+Shift+T**. Nos gerenciadores que suportam menus (Tampermonkey, Violentmonkey, Greasemonkey), o item "Gerenciar Tarefas" também continua disponível.
+Em qualquer gerenciador compatível, o painel pode ser aberto pela sequência **Ctrl+;** e depois **T** (em até 1,5 segundo). Funciona em Windows, Linux e macOS (use a tecla Control no Mac). Nos gerenciadores que suportam menus (Tampermonkey, Violentmonkey, Greasemonkey), o item "Gerenciar Tarefas" também continua disponível.
 
 ## Instalação
 

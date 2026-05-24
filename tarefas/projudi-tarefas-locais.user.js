@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      3.9
+// @version      3.10
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -55,20 +55,36 @@
     }
   } catch (_) {}
   (function pjShortcut() {
+    // Leader: Ctrl+; libera 1500ms para pressionar T (Tarefas).
     var ID = 'tarefas';
     var CODE = 'KeyT';
     var isTop = window.top === window.self;
+    function inField(e) {
+      var t = e && e.target;
+      var tag = (t && t.tagName) || '';
+      return /^(INPUT|TEXTAREA|SELECT)$/.test(tag) || (t && t.isContentEditable);
+    }
+    function openHere() {
+      if (isTop) { try { openManagerPanel(); } catch (_) {} }
+      else { try { window.top.postMessage({ type: 'pj-open-panel', script: ID }, '*'); } catch (_) {} }
+    }
     window.addEventListener('keydown', function (e) {
-      if (!e || !e.altKey || !e.shiftKey || e.ctrlKey || e.metaKey) return;
-      if (e.code !== CODE || e.repeat) return;
-      var tag = (e.target && e.target.tagName) || '';
-      if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag) || (e.target && e.target.isContentEditable)) return;
-      e.preventDefault();
-      e.stopPropagation();
-      if (isTop) {
-        try { openManagerPanel(); } catch (_) {}
-      } else {
-        try { window.top.postMessage({ type: 'pj-open-panel', script: ID }, '*'); } catch (_) {}
+      if (!e || e.repeat) return;
+      if (inField(e)) return;
+      var isLeader = e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && e.code === 'Semicolon';
+      if (isLeader) {
+        e.preventDefault();
+        e.stopPropagation();
+        window.__pjLeaderUntil = Date.now() + 1500;
+        return;
+      }
+      if (e.code === CODE && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        if ((window.__pjLeaderUntil || 0) > Date.now()) {
+          window.__pjLeaderUntil = 0;
+          e.preventDefault();
+          e.stopPropagation();
+          openHere();
+        }
       }
     }, true);
     if (isTop) {
