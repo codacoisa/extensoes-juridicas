@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Anotações
 // @namespace    projudi-anotacoes-locais.user.js
-// @version      4.5
+// @version      4.6
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Adiciona Post-it local ao Projudi, com painel de notas, importação e exportação.
 // @author       lourencosv (GPT)
@@ -236,31 +236,46 @@
         if (!doc || !doc.body) return false;
         const processNumber = doc.getElementById('span_proc_numero');
         if (processNumber && CNJ_REGEX.test(processNumber.textContent || '')) return true;
-        const text = doc.body.innerText || '';
+        // textContent evita o reflow forcado de innerText em paginas grandes do Projudi.
+        const text = doc.body.textContent || '';
         return CNJ_REGEX.test(text);
     }
 
+    const PROCESS_CTX_CACHE_MS = 400;
+    const processContextCache = { at: 0, key: '', value: null };
+
     function getProcessContext() {
         if (!document.body) return null;
+
+        // Memoizacao curta para evitar reflows repetidos durante rajadas de
+        // mutacoes (MutationObserver dispara varias vezes em ms).
+        const now = Date.now();
+        const loc = window.location;
+        const subkey = (loc.pathname || '') + (loc.search || '');
+        const cacheKey = subkey + '|' + (document.body.childElementCount || 0);
+        if (processContextCache.key === cacheKey && (now - processContextCache.at) < PROCESS_CTX_CACHE_MS) {
+            return processContextCache.value;
+        }
+
         const processNumberEl = document.getElementById('span_proc_numero');
         const directText = processNumberEl ? String(processNumberEl.textContent || '').trim() : '';
         const directMatch = directText.match(CNJ_REGEX);
-        const match = directMatch || (document.body.innerText || '').match(CNJ_REGEX);
-        const loc = window.location;
-        const subkey = (loc.pathname || '') + (loc.search || '');
+        const match = directMatch || (document.body.textContent || '').match(CNJ_REGEX);
 
+        let value = null;
         if (match) {
-            return { key: `cnj_${match[0]}`, subkey };
+            value = { key: `cnj_${match[0]}`, subkey };
+        } else if (document.querySelector('button.notaProcesso, button[onclick*="criarNota"], a.notaProcesso, a[onclick*="criarNota"]')) {
+            // Fallback: pagina de processo sem CNJ legivel no DOM (ocorre em algumas
+            // telas do Projudi). Usa a propria URL como chave para nao engolir o
+            // clique do botao de notas.
+            value = { key: `page_${subkey}`, subkey };
         }
 
-        // Fallback: pagina de processo sem CNJ legivel no DOM (ocorre em algumas
-        // telas do Projudi). Usa a propria URL como chave para nao engolir o
-        // clique do botao de notas.
-        if (document.querySelector('button.notaProcesso, button[onclick*="criarNota"], a.notaProcesso, a[onclick*="criarNota"]')) {
-            return { key: `page_${subkey}`, subkey };
-        }
-
-        return null;
+        processContextCache.at = now;
+        processContextCache.key = cacheKey;
+        processContextCache.value = value;
+        return value;
     }
 
     function storageKey(ctx) {
@@ -584,6 +599,14 @@
 
     function evaluate() {
         if (!document.documentElement) return;
+
+        // Atalho: se nao ha botao nativo de notaProcesso nem nada montado, e
+        // pagina nao parece de processo, evita o scan do textContent do body.
+        const fastNoAnchor = !document.querySelector('button.notaProcesso, button[onclick*="criarNota"], a.notaProcesso, a[onclick*="criarNota"]')
+            && !state.mounted
+            && !document.getElementById('pj-add-btn')
+            && !document.getElementById('pj-note');
+        if (fastNoAnchor) return;
 
         const ctx = getProcessContext();
         const ok = !!ctx;
