@@ -19,6 +19,11 @@ Você precisa de um gerenciador de userscripts no navegador, como:
 - Tampermonkey
 - Violentmonkey
 - Greasemonkey
+- Userscripts (quoid/userscripts, Safari)
+
+## Atalho
+
+O gerenciador pode ser aberto pelo atalho **Alt+Shift+I**. Em gerenciadores que suportam menus, o item "Gerenciar Intimações" continua disponível.
 
 ## Instalação
 
