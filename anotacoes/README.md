@@ -17,6 +17,11 @@ Você precisa de um gerenciador de userscripts no navegador, como:
 - Tampermonkey
 - Violentmonkey
 - Greasemonkey
+- Userscripts (quoid/userscripts, Safari)
+
+## Atalho
+
+O painel pode ser aberto pelo atalho **Alt+Shift+A**. Em gerenciadores que suportam menus, o item "Gerenciar Anotações" continua disponível.
 
 ## Instalação
 
