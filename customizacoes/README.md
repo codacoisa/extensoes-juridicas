@@ -23,7 +23,7 @@ Você precisa de um gerenciador de userscripts no navegador, como:
 
 ## Atalho
 
-O painel pode ser aberto pelo atalho **Alt+Shift+C**. Em gerenciadores que suportam menus, o item "Gerenciar Customizações" continua disponível.
+O painel pode ser aberto pela sequência **Ctrl+;** e depois **C** (em até 1,5 segundo). Funciona em Windows, Linux e macOS (use a tecla Control no Mac). Em gerenciadores que suportam menus, o item "Gerenciar Customizações" continua disponível.
 
 ## Instalação
 
