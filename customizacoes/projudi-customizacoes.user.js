@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      5.3
+// @version      5.4
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -11,7 +11,6 @@
 // @match        *://projudi.tjgo.jus.br/*
 // @run-at       document-end
 // @grant        GM_registerMenuCommand
-// @grant        GM_unregisterMenuCommand
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
@@ -27,9 +26,6 @@
     try {
         if (typeof GM_registerMenuCommand !== "function") {
             window.GM_registerMenuCommand = function () { return null; };
-        }
-        if (typeof GM_unregisterMenuCommand !== "function") {
-            window.GM_unregisterMenuCommand = function () {};
         }
     } catch (_) {}
     try {
@@ -161,7 +157,7 @@
     let topDomWorkScheduled = false;
     let standaloneDomWorkScheduled = false;
     let mouseMoveListenerBound = false;
-    let menuCommandId = null;
+    let menuRegistered = false;
     let popupHookedDoc = null;
     let popupHookCleanup = null;
     let popupOwnerDoc = null;
@@ -514,24 +510,17 @@
     }
 
     function registerMenu() {
+        if (menuRegistered) return;
         if (typeof GM_registerMenuCommand !== "function") return;
+        // Projudi serve o iframe interno na mesma origem do top, fazendo o
+        // userscript rodar duas vezes. Registramos o menu apenas no top para
+        // evitar duplicacao (alguns gestores mostram um item por frame).
+        if (!isTopWindow()) return;
         try {
-            const previousId = menuCommandId;
-            const nextId = GM_registerMenuCommand("Gerenciar Customizações", () => {
-                if (isTopWindow()) {
-                    openSettingsPanel();
-                    return;
-                }
-                try {
-                    window.top.postMessage({ type: OPEN_SETTINGS_MESSAGE }, "*");
-                } catch (_) {}
+            GM_registerMenuCommand("Gerenciar Customizações", () => {
+                openSettingsPanel();
             });
-            if (nextId != null) menuCommandId = nextId;
-            if (nextId != null && previousId && previousId !== menuCommandId && typeof GM_unregisterMenuCommand === "function") {
-                try {
-                    GM_unregisterMenuCommand(previousId);
-                } catch (_) {}
-            }
+            menuRegistered = true;
         } catch (_) {}
     }
 
@@ -5080,11 +5069,6 @@
             window.addEventListener("message", (event) => {
                 if (!event || !event.data || event.data.type !== OPEN_SETTINGS_MESSAGE) return;
                 openSettingsPanel();
-            });
-            window.addEventListener("focus", registerMenu, { passive: true });
-            window.addEventListener("pageshow", registerMenu, { passive: true });
-            document.addEventListener("visibilitychange", () => {
-                if (document.visibilityState === "visible") registerMenu();
             });
         } else {
             initInsideFrame();
