@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      5.11
+// @version      5.12
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       louencosv (GPT)
@@ -12,7 +12,6 @@
 // @match        *://projudi-teste.tjgo.jus.br/*
 // @run-at       document-idle
 // @grant        GM_registerMenuCommand
-// @grant        GM_unregisterMenuCommand
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_deleteValue
@@ -30,9 +29,6 @@
   try {
     if (typeof GM_registerMenuCommand !== 'function') {
       window.GM_registerMenuCommand = function () { return null; };
-    }
-    if (typeof GM_unregisterMenuCommand !== 'function') {
-      window.GM_unregisterMenuCommand = function () {};
     }
   } catch (_) {}
   try {
@@ -93,14 +89,10 @@
     }
   })();
 
+  // Projudi serve o iframe interno na mesma origem do top, fazendo o
+  // userscript rodar duas vezes. Saimos cedo nos iframes para evitar o
+  // registro duplicado do menu - o menu sera registrado apenas no top.
   if (window.top !== window.self) {
-    try {
-      if (typeof GM_registerMenuCommand === 'function') {
-        GM_registerMenuCommand('Gerenciar Intimações', () => {
-          window.top.postMessage({ type: 'pjip:open-manager' }, '*');
-        });
-      }
-    } catch (_) {}
     return;
   }
 
@@ -195,7 +187,7 @@
    * pageSignature: string,
    * refreshTimers: number[],
    * refreshNonce: number,
-   * menuCommandIds: number[],
+   * menuRegistered: boolean,
    * hostHooksAttached: boolean,
    * menuOpen: boolean,
    * modalOpen: boolean,
@@ -218,7 +210,7 @@
     pageSignature: '',
     refreshTimers: [],
     refreshNonce: 0,
-    menuCommandIds: [],
+    menuRegistered: false,
     hostHooksAttached: false,
     menuOpen: false,
     modalOpen: false,
@@ -245,11 +237,6 @@
     window.addEventListener('message', (event) => {
       if (!event || !event.data || event.data.type !== 'pjip:open-manager') return;
       openModal();
-    });
-    window.addEventListener('pageshow', registerMenuCommand, true);
-    window.addEventListener('focus', registerMenuCommand, true);
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) registerMenuCommand();
     });
     ensureActionMenu();
     updateActionPanelState();
@@ -1172,25 +1159,12 @@
    * Registra ou atualiza o menu do Tampermonkey.
    */
   function registerMenuCommand() {
+    if (state.menuRegistered) return;
     if (typeof GM_registerMenuCommand !== 'function') return;
-
-    const previousIds = state.menuCommandIds.splice(0);
-    const nextId = GM_registerMenuCommand('Gerenciar Intimações', () => openModal());
-    if (nextId !== null && nextId !== undefined) {
-      state.menuCommandIds.push(nextId);
-    } else {
-      state.menuCommandIds.push(...previousIds);
-      return;
-    }
-
-    if (previousIds.length && typeof GM_unregisterMenuCommand === 'function') {
-      for (const commandId of previousIds) {
-        if (commandId === nextId) continue;
-        safeRun('Falha ao remover comando anterior do menu.', () => {
-          GM_unregisterMenuCommand(commandId);
-        });
-      }
-    }
+    try {
+      GM_registerMenuCommand('Gerenciar Intimações', () => openModal());
+      state.menuRegistered = true;
+    } catch (_) {}
   }
 
   /**
