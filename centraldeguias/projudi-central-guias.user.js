@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Central de Guias
 // @namespace    projudi-central-guias.user.js
-// @version      3.11
+// @version      3.12
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Central local para sincronizar, acompanhar e alertar sobre guias de pagamento no Projudi.
 // @author       lourencosv (GPT)
@@ -13,7 +13,6 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
-// @grant        GM_unregisterMenuCommand
 // @grant        GM_xmlhttpRequest
 // @grant        GM.xmlHttpRequest
 // @connect      api.github.com
@@ -27,9 +26,6 @@
   try {
     if (typeof GM_registerMenuCommand !== 'function') {
       window.GM_registerMenuCommand = function () { return null; };
-    }
-    if (typeof GM_unregisterMenuCommand !== 'function') {
-      window.GM_unregisterMenuCommand = function () {};
     }
   } catch (_) {}
   try {
@@ -156,7 +152,7 @@
   const MSG_OPEN_MANAGER = 'pj-guides-open-manager';
 
   const state = {
-    menuId: null,
+    menuRegistered: false,
     styleMounted: false,
     timer: null,
     homeMounted: false,
@@ -1874,14 +1870,15 @@
   }
 
   function registerMenu() {
+    if (state.menuRegistered) return;
     if (typeof GM_registerMenuCommand !== 'function') return;
+    // Projudi serve o iframe interno na mesma origem do top, fazendo o
+    // userscript rodar duas vezes. Registramos o menu apenas no top para
+    // evitar duplicacao (alguns gestores mostram um item por frame).
+    if (window.top !== window.self) return;
     try {
-      const previousId = state.menuId;
-      const nextId = GM_registerMenuCommand(MENU_LABEL, openManager);
-      if (nextId != null) state.menuId = nextId;
-      if (nextId != null && previousId && previousId !== state.menuId && typeof GM_unregisterMenuCommand === 'function') {
-        try { GM_unregisterMenuCommand(previousId); } catch (_) {}
-      }
+      GM_registerMenuCommand(MENU_LABEL, openManager);
+      state.menuRegistered = true;
     } catch (_) {}
   }
 
@@ -2984,11 +2981,6 @@
     evaluate();
     scheduleEvaluate(700);
     if (isTopWindow()) window.addEventListener('message', onMessage);
-    window.addEventListener('pageshow', registerMenu, true);
-    window.addEventListener('focus', registerMenu, true);
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) registerMenu();
-    });
     window[INSTANCE_KEY] = { destroy, openManager };
   }
 
