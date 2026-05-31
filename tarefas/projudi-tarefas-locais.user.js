@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      3.10
+// @version      3.11
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -15,7 +15,6 @@
 // @grant        GM_listValues
 // @grant        GM_deleteValue
 // @grant        GM_registerMenuCommand
-// @grant        GM_unregisterMenuCommand
 // @grant        GM_xmlhttpRequest
 // @grant        GM.xmlHttpRequest
 // @connect      api.github.com
@@ -32,9 +31,6 @@
   try {
     if (typeof GM_registerMenuCommand !== 'function') {
       window.GM_registerMenuCommand = function () { return null; };
-    }
-    if (typeof GM_unregisterMenuCommand !== 'function') {
-      window.GM_unregisterMenuCommand = function () {};
     }
   } catch (_) {}
   try {
@@ -166,7 +162,6 @@
     ctxKey: null,
     panelCleanup: null,
     menuRegistered: false,
-    menuCommandId: null,
     lastCnj: null
   };
 
@@ -2485,28 +2480,15 @@
   }
 
   function registerMenuCommand() {
-    if (window.top !== window.self) {
-      if (state.menuCommandId !== null && typeof GM_unregisterMenuCommand === 'function') {
-        try {
-          GM_unregisterMenuCommand(state.menuCommandId);
-        } catch (_) {}
-      }
-      state.menuCommandId = null;
-      state.menuRegistered = false;
-      return;
-    }
-
+    if (state.menuRegistered) return;
     if (typeof GM_registerMenuCommand !== 'function') return;
+    // Projudi serve o iframe interno na mesma origem do top, fazendo o
+    // userscript rodar duas vezes. Registramos o menu apenas no top para
+    // evitar duplicacao (alguns gestores mostram um item por frame).
+    if (window.top !== window.self) return;
     try {
-      const previousId = state.menuCommandId;
-      const nextId = GM_registerMenuCommand('Gerenciar Tarefas', openManagerPanel);
-      if (nextId != null) state.menuCommandId = nextId;
+      GM_registerMenuCommand('Gerenciar Tarefas', openManagerPanel);
       state.menuRegistered = true;
-      if (nextId != null && previousId !== null && previousId !== state.menuCommandId && typeof GM_unregisterMenuCommand === 'function') {
-        try {
-          GM_unregisterMenuCommand(previousId);
-        } catch (_) {}
-      }
     } catch (_) {}
   }
 
