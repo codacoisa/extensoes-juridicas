@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Anotações
 // @namespace    projudi-anotacoes-locais.user.js
-// @version      4.6
+// @version      4.7
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Adiciona Post-it local ao Projudi, com painel de notas, importação e exportação.
 // @author       lourencosv (GPT)
@@ -15,7 +15,6 @@
 // @grant        GM_listValues
 // @grant        GM_deleteValue
 // @grant        GM_registerMenuCommand
-// @grant        GM_unregisterMenuCommand
 // @grant        GM_xmlhttpRequest
 // @grant        GM.xmlHttpRequest
 // @connect      api.github.com
@@ -29,9 +28,6 @@
     try {
         if (typeof GM_registerMenuCommand !== 'function') {
             window.GM_registerMenuCommand = function () { return null; };
-        }
-        if (typeof GM_unregisterMenuCommand !== 'function') {
-            window.GM_unregisterMenuCommand = function () {};
         }
     } catch (_) {}
     try {
@@ -156,7 +152,6 @@
         scheduled: false,
         observer: null,
         menuRegistered: false,
-        menuCommandId: null,
         scratchHtmlEl: null,
         fallbackNoteKeyByCnjKey: Object.create(null),
         noteHtmlCheckCache: {
@@ -1347,23 +1342,19 @@
         targetDoc.head.appendChild(style);
     }
 
-    function ensureMenuRegistered(force = false) {
+    function ensureMenuRegistered() {
+        if (state.menuRegistered) return;
         if (typeof GM_registerMenuCommand !== 'function') return;
-
-        if (state.menuRegistered && !force) return;
+        // Projudi serve o iframe interno na mesma origem do top, fazendo o
+        // userscript rodar duas vezes. Registramos o menu apenas no top para
+        // evitar duplicacao (alguns gestores mostram um item por frame).
+        if (window.top !== window.self) return;
 
         try {
-            const previousId = state.menuCommandId;
-            const id = GM_registerMenuCommand('Gerenciar Anotações', () => {
+            GM_registerMenuCommand('Gerenciar Anotações', () => {
                 openNotesPanel();
             });
-            if (id != null) state.menuCommandId = id;
             state.menuRegistered = true;
-            if (force && id != null && previousId !== null && previousId !== state.menuCommandId && typeof GM_unregisterMenuCommand === 'function') {
-                try {
-                    GM_unregisterMenuCommand(previousId);
-                } catch (_) {}
-            }
         } catch (_) {}
     }
 
@@ -1484,7 +1475,7 @@
         if (!nativeNoteButton || !nativeNoteButton.parentElement) return;
 
         ensureUiAssetsLoaded();
-        ensureMenuRegistered(false);
+        ensureMenuRegistered();
 
         const btn = document.createElement('button');
         btn.id = 'pj-add-btn';
@@ -2316,7 +2307,7 @@
     }
 
     function reviveAfterReturn() {
-        ensureMenuRegistered(true);
+        ensureMenuRegistered();
         scheduleEvaluate(50);
     }
 
