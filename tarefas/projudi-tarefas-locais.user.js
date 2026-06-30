@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      3.11
+// @version      3.12
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -835,6 +835,79 @@
     item.tags = parseTags(tagsRaw);
   }
 
+  function normalizeMoveTarget(raw) {
+    const text = String(raw || '').trim();
+    if (!text) return null;
+    if (/^(global|globais)$/i.test(text)) return { type: 'global', label: 'Global' };
+    const match = text.match(/\b\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\b/);
+    if (!match) return null;
+    const ctx = processCtxFromCnj(match[0]);
+    return ctx ? { type: 'process', key: ctx.key, cnj: ctx.cnj, label: `Processo ${ctx.cnj}` } : null;
+  }
+
+  function promptMoveTarget(currentLabel, defaultValue) {
+    const msg = [
+      'Mover tarefa para:',
+      '',
+      '- digite global',
+      '- ou informe o CNJ do processo',
+      '',
+      `Origem atual: ${currentLabel}`
+    ].join('\n');
+    const raw = prompt(msg, defaultValue || '');
+    if (raw === null) return null;
+    const target = normalizeMoveTarget(raw);
+    if (!target) {
+      alert('Destino inválido. Informe "global" ou um CNJ no formato 0000000-00.0000.0.00.0000.');
+      return null;
+    }
+    return target;
+  }
+
+  function moveTodoItem(source, target) {
+    if (!source || !source.id || !target) return false;
+    const sameGlobal = source.scopeType === 'global' && target.type === 'global';
+    const sameProcess = source.scopeType === 'process' && target.type === 'process' && source.key === target.key;
+    if (sameGlobal || sameProcess) {
+      alert('A tarefa já está nesse destino.');
+      return false;
+    }
+
+    let item = null;
+    if (source.scopeType === 'global') {
+      const items = loadGlobalItems();
+      const idx = items.findIndex(x => x.id === source.id);
+      if (idx < 0) return false;
+      item = items.splice(idx, 1)[0];
+      saveGlobalItems(items);
+    } else {
+      const items = loadItemsByKey(source.key);
+      const idx = items.findIndex(x => x.id === source.id);
+      if (idx < 0) return false;
+      item = items.splice(idx, 1)[0];
+      saveItemsByKey(source.key, items);
+      if (source.cnj) {
+        touchIndex({ key: source.key, cnj: source.cnj });
+        maybeRemoveFromIndexIfEmpty({ key: source.key, cnj: source.cnj });
+      }
+    }
+
+    if (!item) return false;
+    if (target.type === 'global') {
+      const items = loadGlobalItems();
+      items.unshift(item);
+      saveGlobalItems(items);
+      return true;
+    }
+
+    const items = loadItemsByKey(target.key);
+    items.unshift(item);
+    saveItemsByKey(target.key, items);
+    ensureIndexHas({ key: target.key, cnj: target.cnj });
+    touchIndex({ key: target.key, cnj: target.cnj });
+    return true;
+  }
+
   function buildTaskStats() {
     let active = 0;
     let completed = 0;
@@ -1190,6 +1263,9 @@
         font-size: 13px;
         line-height: 1.28;
         word-break: break-word;
+        overflow-wrap: anywhere;
+        text-align: justify;
+        text-justify: inter-word;
         white-space: pre-wrap;
         padding-top: 0;
       }
@@ -1205,7 +1281,7 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 10px;
+        gap: 7px;
         align-self: center;
         margin-left: auto;
         padding-left: 6px;
@@ -1234,6 +1310,7 @@
         font-size: 10px;
         line-height: 1.2;
       }
+      .pj-move,
       .pj-edit-tags {
         width: 20px;
         height: 20px;
@@ -1251,6 +1328,13 @@
         padding: 0;
         margin: 0;
         vertical-align: middle;
+      }
+      .pj-move {
+        color: #1f5ca4;
+        font-size: 13px;
+      }
+      .pj-move:hover {
+        background: #e8f1fb;
       }
       .pj-edit-tags:hover {
         background: #eef2f7;
@@ -1814,7 +1898,7 @@
     }
   }
 
-  function renderItemsList({ listEl, items, onToggle, onDelete, onEdit, onReorder, onEditTags }) {
+  function renderItemsList({ listEl, items, onToggle, onDelete, onEdit, onReorder, onMove, onEditTags }) {
     listEl.innerHTML = '';
 
     if (!items.length) {
@@ -1836,10 +1920,12 @@
       }
       const itemMain = el('div', { className: 'pj-item-main' }, [textEl, metaEl]);
       if ((item.tags || []).length) itemMain.appendChild(tagsWrap);
+      const moveBtn = el('button', { className: 'pj-move', title: 'Mover tarefa' }, ['⇄']);
       const tagsBtn = el('button', { className: 'pj-edit-tags', title: 'Editar tags' }, ['#']);
       const delBtn = el('button', { className: 'pj-del', title: 'Excluir' }, ['✕']);
 
-      const actions = el('div', { className: 'pj-item-actions' }, [tagsBtn, delBtn]);
+      const actionChildren = typeof onMove === 'function' ? [moveBtn, tagsBtn, delBtn] : [tagsBtn, delBtn];
+      const actions = el('div', { className: 'pj-item-actions' }, actionChildren);
       const row = el('div', { className: 'pj-item', draggable: true, 'data-id': item.id }, [
         drag,
         el('div', { className: 'pj-mini' }, [cb]),
@@ -1859,6 +1945,10 @@
         const next = prompt('Tags (separadas por vírgula):', (item.tags || []).join(', '));
         if (next === null) return;
         onEditTags(item.id, next);
+      });
+      moveBtn.addEventListener('click', () => {
+        if (typeof onMove !== 'function') return;
+        onMove(item.id);
       });
 
       row.addEventListener('dragstart', e => {
@@ -2581,6 +2671,13 @@
           touchIndex(ctx);
           rerender();
         },
+        onMove: id => {
+          const target = promptMoveTarget(`Processo ${ctx.cnj}`, 'global');
+          if (!target) return;
+          if (!moveTodoItem({ scopeType: 'process', key: ctx.key, cnj: ctx.cnj, id }, target)) return;
+          rerender();
+          scheduleEvaluate(50);
+        },
         onReorder: (fromId, toId) => {
           const it = loadItemsByKey(ctx.key);
           const fromIdx = it.findIndex(a => a.id === fromId);
@@ -2726,6 +2823,14 @@
           saveGlobalItems(it);
           renderGlobal();
         },
+        onMove: id => {
+          const target = promptMoveTarget('Global', '');
+          if (!target) return;
+          if (!moveTodoItem({ scopeType: 'global', key: 'global', cnj: '', id }, target)) return;
+          renderGlobal();
+          renderProcessesPending();
+          scheduleEvaluate(50);
+        },
         onReorder: (fromId, toId) => {
           const it = loadGlobalItems();
           const fromIdx = it.findIndex(a => a.id === fromId);
@@ -2809,6 +2914,14 @@
             saveItemsByKey(r.key, all);
             touchIndex({ key: r.key, cnj: r.cnj });
             renderProcessesPending();
+          },
+          onMove: id => {
+            const target = promptMoveTarget(`Processo ${r.cnj}`, 'global');
+            if (!target) return;
+            if (!moveTodoItem({ scopeType: 'process', key: r.key, cnj: r.cnj, id }, target)) return;
+            renderGlobal();
+            renderProcessesPending();
+            scheduleEvaluate(50);
           },
           onReorder: (fromId, toId) => {
             const all = loadItemsByKey(r.key);
