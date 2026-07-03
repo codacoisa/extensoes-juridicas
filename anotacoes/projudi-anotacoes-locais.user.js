@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Anotações
 // @namespace    projudi-anotacoes-locais.user.js
-// @version      4.7
+// @version      4.8
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Adiciona Post-it local ao Projudi, com painel de notas, importação e exportação.
 // @author       lourencosv (GPT)
@@ -145,6 +145,8 @@
         lastBackupAt: '',
         lastBackupSignature: ''
     };
+    const AUTO_BACKUP_IDLE_DELAY_MS = 30000;
+    const AUTO_BACKUP_MIN_INTERVAL_MS = 15 * 60 * 1000;
 
     const state = {
         mounted: false,
@@ -350,6 +352,7 @@
             version: SCRIPT_META.version,
             exportedAt: new Date().toISOString(),
             host: location.host,
+            backupSignature: buildBackupSignature(),
             notes: getAllNotes().map(note => ({
                 key: note.key,
                 cnj: note.cnj,
@@ -417,6 +420,11 @@
     async function pushBackupToGist(backupSettings, payload) {
         if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
         if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
+        const nextSignature = getPayloadBackupSignature(payload);
+        const remotePayload = await readBackupFromGist(backupSettings, { missingOk: true });
+        if (remotePayload && getPayloadBackupSignature(remotePayload) === nextSignature) {
+            return { skipped: true };
+        }
         const response = await githubRequest({
             method: 'PATCH',
             url: `https://api.github.com/gists/${encodeURIComponent(backupSettings.gistId)}`,
@@ -428,9 +436,25 @@
             data: JSON.stringify({ files: { [backupSettings.fileName]: { content: JSON.stringify(payload, null, 2) } } })
         });
         if (response.status < 200 || response.status >= 300) throw new Error(parseGithubError(response));
+        return { skipped: false };
     }
 
-    async function readBackupFromGist(backupSettings) {
+    function getPayloadBackupSignature(payload) {
+        if (!payload) return '';
+        if (payload.backupSignature) return String(payload.backupSignature);
+        const notes = (payload && Array.isArray(payload.notes) ? payload.notes : (Array.isArray(payload) ? payload : []))
+            .map(note => ({
+                key: String(note && note.key || ''),
+                cnj: String(note && note.cnj || ''),
+                subkey: String(note && note.subkey || ''),
+                html: String(note && note.html || ''),
+                colorId: String(note && note.colorId || '')
+            }))
+            .sort((a, b) => String(a.key).localeCompare(String(b.key), 'pt-BR'));
+        return JSON.stringify({ schema: BACKUP_SCHEMA, notes });
+    }
+
+    async function readBackupFromGist(backupSettings, options = {}) {
         if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
         if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
         const response = await githubRequest({
@@ -444,7 +468,10 @@
         if (response.status < 200 || response.status >= 300) throw new Error(parseGithubError(response));
         const gist = JSON.parse(response.responseText || '{}');
         const file = gist && gist.files ? gist.files[backupSettings.fileName] : null;
-        if (!file || !file.content) throw new Error('Arquivo de backup não encontrado no Gist.');
+        if (!file || !file.content) {
+            if (options.missingOk) return null;
+            throw new Error('Arquivo de backup não encontrado no Gist.');
+        }
         return JSON.parse(file.content);
     }
 
@@ -455,6 +482,11 @@
         if (!backupSettings.enabled || !backupSettings.autoBackupOnSave) return;
         const backupSignature = buildBackupSignature();
         if (backupSignature === backupSettings.lastBackupSignature) return;
+        const lastBackupTime = new Date(backupSettings.lastBackupAt || 0).getTime();
+        const intervalWait = Number.isNaN(lastBackupTime)
+            ? 0
+            : Math.max(0, AUTO_BACKUP_MIN_INTERVAL_MS - (Date.now() - lastBackupTime));
+        const delay = Math.max(AUTO_BACKUP_IDLE_DELAY_MS, intervalWait);
         state.backupTimer = setTimeout(async () => {
             state.backupTimer = null;
             try {
@@ -463,7 +495,7 @@
             } catch (error) {
                 logWarn('Falha no backup automático.', error);
             }
-        }, 800);
+        }, delay);
     }
 
     function getTopContext() {
@@ -2166,11 +2198,13 @@
                     let nextSettings = readBackupSettingsFromPanel();
                     const backupSignature = buildBackupSignature();
                     setBackupStatus('Enviando backup...');
-                    await pushBackupToGist(nextSettings, buildBackupPayload());
+                    const result = await pushBackupToGist(nextSettings, buildBackupPayload());
                     nextSettings = saveBackupSettings({ ...nextSettings, lastBackupAt: new Date().toISOString(), lastBackupSignature: backupSignature });
                     backupSettings = nextSettings;
                     updateBackupLast(nextSettings);
-                    setBackupStatus('Backup enviado.');
+                    setBackupStatus(result && result.skipped
+                        ? 'Backup remoto já estava atualizado; nenhum commit novo foi criado.'
+                        : 'Backup enviado.');
                 } catch (error) {
                     setBackupStatus(error && error.message ? error.message : 'Falha ao enviar backup.', true);
                 }
