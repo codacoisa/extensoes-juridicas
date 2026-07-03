@@ -480,6 +480,105 @@
     return null;
   }
 
+  function getCurrentProcessUrl(doc) {
+    const href = String(doc?.location?.href || location.href || '');
+    if (/\/BuscaProcesso\b/i.test(href) && /Id_Processo=/i.test(href)) return href;
+    const link = doc?.querySelector?.('a[href*="BuscaProcesso"][href*="Id_Processo"], [onclick*="BuscaProcesso"][onclick*="Id_Processo"]');
+    return extractProcessUrlFromElement(link, href);
+  }
+
+  function extractProcessUrlFromElement(element, baseUrl) {
+    if (!element) return '';
+    const href = element.getAttribute('href');
+    const onclick = element.getAttribute('onclick');
+    const raw = href ? href.replace(/&amp;/g, '&') : extractProcessHrefFromOnclick(onclick);
+    return resolveAllowedUrl(raw, baseUrl || location.href);
+  }
+
+  function extractProcessHrefFromOnclick(onclickValue) {
+    if (!onclickValue) return '';
+    const locationMatch = onclickValue.match(/(?:window\.)?location\.href\s*=\s*['"]([^'"]+)['"]/i);
+    if (locationMatch) return locationMatch[1].replace(/&amp;/g, '&');
+    const processMatch = onclickValue.match(/['"]([^'"]*BuscaProcesso[^'"]*)['"]/i);
+    return processMatch ? processMatch[1].replace(/&amp;/g, '&') : '';
+  }
+
+  function resolveAllowedUrl(href, baseUrl) {
+    if (!href) return '';
+    try {
+      const cleaned = String(href).trim().replace(/^['"]|['"]$/g, '');
+      const url = new URL(/^(https?:|\/)/i.test(cleaned) ? cleaned : `/${cleaned}`, baseUrl || location.href);
+      if (!/^https?:$/i.test(url.protocol)) return '';
+      return url.toString();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function navigateToProcessUrl(href) {
+    const resolved = resolveAllowedUrl(href, location.href);
+    if (!resolved) return false;
+    window.location.assign(resolved);
+    return true;
+  }
+
+  function findProcessSearchInput(doc) {
+    const inputs = Array.from(doc.querySelectorAll('input:not([type]), input[type="text"], input[type="search"], input[type="tel"]'))
+      .filter(input => !input.closest(`#pj-todo, #${ID_MANAGER_OVERLAY}, #${ID_MIN_BTN}, #${ID_PROC_BTN}`));
+    const scored = inputs
+      .map(input => {
+        const haystack = [
+          input.id,
+          input.name,
+          input.placeholder,
+          input.title,
+          input.getAttribute('aria-label')
+        ].join(' ').toLowerCase();
+        let score = 0;
+        if (/cnj/.test(haystack)) score += 5;
+        if (/process/.test(haystack)) score += 4;
+        if (/numero|n[uú]mero|num/.test(haystack)) score += 2;
+        if (input.offsetParent !== null) score += 1;
+        return { input, score };
+      })
+      .filter(entry => entry.score > 0)
+      .sort((a, b) => b.score - a.score);
+    return scored[0] ? scored[0].input : null;
+  }
+
+  function submitProcessSearch(input) {
+    const form = input.closest('form');
+    const root = form || document;
+    const buttons = Array.from(root.querySelectorAll('button, input[type="submit"], input[type="button"], a'));
+    const submitter = buttons.find(button => /buscar|pesquisar|consultar|localizar/i.test(button.textContent || button.value || button.title || ''));
+    if (submitter && typeof submitter.click === 'function') {
+      submitter.click();
+      return true;
+    }
+    if (form) {
+      if (typeof form.requestSubmit === 'function') form.requestSubmit();
+      else form.submit();
+      return true;
+    }
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    return true;
+  }
+
+  function searchProcessByCnj(cnj) {
+    const input = findProcessSearchInput(document);
+    if (!input) return false;
+    input.focus();
+    input.value = cnj;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    return submitProcessSearch(input);
+  }
+
+  function openProcessFromCnj(cnj, processUrl = '') {
+    if (processUrl && navigateToProcessUrl(processUrl)) return true;
+    return searchProcessByCnj(cnj);
+  }
+
   function isProcessPage(doc) {
     return !!getCNJFromDocument(doc);
   }
@@ -572,13 +671,13 @@
 
   function processCtxFromDoc() {
     const cnj = getCNJFromDocument(document);
-    return processCtxFromCnj(cnj);
+    return processCtxFromCnj(cnj, getCurrentProcessUrl(document));
   }
 
-  function processCtxFromCnj(cnj) {
+  function processCtxFromCnj(cnj, processUrl = '') {
     if (!cnj) return null;
     const shortCnj = String(cnj).split('.')[0] || cnj;
-    return { type: 'process', cnj, shortCnj, key: `cnj_${cnj}` };
+    return { type: 'process', cnj, shortCnj, key: `cnj_${cnj}`, processUrl };
   }
 
   function todosKey(ctxKey) {
@@ -601,7 +700,7 @@
   function ensureIndexHas(ctx) {
     const idx = loadIndex();
     if (!idx.some(x => x && x.key === ctx.key)) {
-      idx.push({ key: ctx.key, cnj: ctx.cnj, updatedAt: Date.now() });
+      idx.push({ key: ctx.key, cnj: ctx.cnj, processUrl: ctx.processUrl || '', updatedAt: Date.now() });
       saveIndex(idx);
     }
   }
@@ -612,6 +711,7 @@
     if (i >= 0) {
       idx[i].updatedAt = Date.now();
       idx[i].cnj = ctx.cnj;
+      if (ctx.processUrl) idx[i].processUrl = ctx.processUrl;
       saveIndex(idx);
     } else {
       ensureIndexHas(ctx);
@@ -959,12 +1059,13 @@
 
   function collectTaskRows() {
     const rows = [];
-    const addRow = (scopeType, scopeLabel, key, cnj, item) => {
+    const addRow = (scopeType, scopeLabel, key, cnj, item, processUrl = '') => {
       rows.push({
         scopeType,
         scopeLabel,
         key,
         cnj,
+        processUrl,
         id: item.id,
         text: item.text,
         done: !!item.done,
@@ -978,7 +1079,7 @@
 
     for (const entry of loadIndex()) {
       if (!entry || !entry.key || !entry.cnj) continue;
-      for (const item of loadItemsByKey(entry.key)) addRow('process', `Processo ${entry.cnj}`, entry.key, entry.cnj, item);
+      for (const item of loadItemsByKey(entry.key)) addRow('process', `Processo ${entry.cnj}`, entry.key, entry.cnj, item, entry.processUrl || '');
     }
 
     rows.sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
@@ -1000,6 +1101,10 @@
     });
     link.setAttribute('data-pj-fa', '1');
     document.head.appendChild(link);
+  }
+
+  function faIcon(className) {
+    return el('i', { className, 'aria-hidden': 'true' });
   }
 
   function injectStyles() {
@@ -1399,12 +1504,32 @@
       }
 
       .pj-cnj {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        max-width: 100%;
+        border: 0;
+        padding: 0;
+        background: transparent;
+        color: #0f3e75;
         font-weight: 800;
         cursor: pointer;
         font-size: 12px;
         line-height: 1.1;
+        font-family: inherit;
+        text-align: left;
       }
-      .pj-cnj:hover { text-decoration: underline; }
+      .pj-cnj span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .pj-cnj i {
+        flex: 0 0 auto;
+        font-size: 10px;
+        opacity: .78;
+      }
+      .pj-cnj:hover span { text-decoration: underline; }
 
       .pj-proc-row {
         border-bottom: 1px solid rgba(0,0,0,.08);
@@ -1746,13 +1871,26 @@
       #${ID_MANAGER_OVERLAY} .pjm-badge {
         display: inline-flex;
         align-items: center;
+        gap: 5px;
         min-height: 22px;
         padding: 3px 7px;
+        border: 0;
         border-radius: 999px;
         background: #eef4fb;
         color: #365879;
         font-size: 11px;
         font-weight: 700;
+        font-family: inherit;
+      }
+      #${ID_MANAGER_OVERLAY} button.pjm-badge {
+        cursor: pointer;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-badge--cnj:hover span {
+        text-decoration: underline;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-badge--cnj i {
+        font-size: 9px;
+        opacity: .74;
       }
       #${ID_MANAGER_OVERLAY} .pjm-badge--done {
         color: #18663a;
@@ -1949,9 +2087,9 @@
       }
       const itemMain = el('div', { className: 'pj-item-main' }, [textEl, metaEl]);
       if ((item.tags || []).length) itemMain.appendChild(tagsWrap);
-      const moveBtn = el('button', { className: 'pj-move', title: 'Mover tarefa' }, ['⇄']);
-      const tagsBtn = el('button', { className: 'pj-edit-tags', title: 'Editar tags' }, ['#']);
-      const delBtn = el('button', { className: 'pj-del', title: 'Excluir' }, ['✕']);
+      const moveBtn = el('button', { className: 'pj-move', type: 'button', title: 'Mover tarefa', 'aria-label': 'Mover tarefa' }, [faIcon('fa-solid fa-right-left')]);
+      const tagsBtn = el('button', { className: 'pj-edit-tags', type: 'button', title: 'Editar tags', 'aria-label': 'Editar tags' }, [faIcon('fa-solid fa-hashtag')]);
+      const delBtn = el('button', { className: 'pj-del', type: 'button', title: 'Excluir', 'aria-label': 'Excluir' }, [faIcon('fa-solid fa-xmark')]);
 
       const actionChildren = typeof onMove === 'function' ? [moveBtn, tagsBtn, delBtn] : [tagsBtn, delBtn];
       const actions = el('div', { className: 'pj-item-actions' }, actionChildren);
@@ -2507,7 +2645,19 @@
         const badges = el('div', { className: 'pjm-badge-row' }, [
           el('span', { className: `pjm-badge ${row.done ? 'pjm-badge--done' : 'pjm-badge--active'}` }, [row.done ? 'Concluída' : 'Ativa'])
         ]);
-        if (row.cnj) badges.appendChild(el('span', { className: 'pjm-badge' }, [row.cnj]));
+        if (row.cnj) {
+          const cnjBadge = el('button', { className: 'pjm-badge pjm-badge--cnj', type: 'button', title: 'Copiar CNJ e abrir processo' }, [
+            el('span', {}, [row.cnj]),
+            faIcon('fa-solid fa-arrow-up-right-from-square')
+          ]);
+          cnjBadge.addEventListener('click', async () => {
+            await copyToClipboard(row.cnj);
+            if (!openProcessFromCnj(row.cnj, row.processUrl)) {
+              alert('CNJ copiado. Não encontrei um link salvo nem o campo de busca de processo nesta tela.');
+            }
+          });
+          badges.appendChild(cnjBadge);
+        }
         for (const tag of row.tags || []) badges.appendChild(el('span', { className: 'pjm-badge' }, [`#${tag}`]));
 
         const left = el('div', { className: 'pjm-item-main' }, [title, meta, badges]);
@@ -2886,7 +3036,7 @@
         const items = loadItemsByKey(entry.key);
         const pending = items.filter(x => !x.done);
         if (!pending.length) continue;
-        rows.push({ cnj: entry.cnj, key: entry.key, pending });
+        rows.push({ cnj: entry.cnj, key: entry.key, processUrl: entry.processUrl || '', pending });
       }
 
       if (!rows.length) {
@@ -2899,11 +3049,17 @@
       for (const r of rows) {
         const box = el('div', { className: 'pj-proc-row' }, []);
         const head = el('div', { className: 'pj-proc-head' }, [
-          el('div', { className: 'pj-cnj', title: 'Clique para copiar CNJ' }, [r.cnj]),
+          el('button', { className: 'pj-cnj', type: 'button', title: 'Copiar CNJ e abrir processo' }, [
+            el('span', {}, [r.cnj]),
+            el('i', { className: 'fa-solid fa-arrow-up-right-from-square', 'aria-hidden': 'true' })
+          ]),
           el('div', { className: 'pj-proc-count' }, [`${r.pending.length} pend.`])
         ]);
         head.querySelector('.pj-cnj').addEventListener('click', async () => {
           await copyToClipboard(r.cnj);
+          if (!openProcessFromCnj(r.cnj, r.processUrl)) {
+            alert('CNJ copiado. Não encontrei um link salvo nem o campo de busca de processo nesta tela.');
+          }
         });
 
         const innerList = el('div', { className: 'pj-list pj-list-inline' }, []);
@@ -3047,7 +3203,7 @@
     const cnj = getCNJFromDocument(document);
     state.lastCnj = cnj || null;
     if (cnj) {
-      const ctx = processCtxFromCnj(cnj);
+      const ctx = processCtxFromCnj(cnj, getCurrentProcessUrl(document));
       if (!ctx) return;
       const changed = !state.mounted || state.mode !== 'process' || state.ctxKey !== ctx.key;
       if (changed) {
