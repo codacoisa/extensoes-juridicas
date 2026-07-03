@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      3.12
+// @version      3.13
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -131,6 +131,8 @@
     lastBackupAt: '',
     lastBackupSignature: ''
   };
+  const AUTO_BACKUP_IDLE_DELAY_MS = 30000;
+  const AUTO_BACKUP_MIN_INTERVAL_MS = 15 * 60 * 1000;
   const FA_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css';
   const FAB_UI = {
     right: 16,
@@ -394,6 +396,11 @@
   async function pushBackupToGist(backupSettings, payload) {
     if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
     if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
+    const nextSignature = getPayloadBackupSignature(payload);
+    const remotePayload = await readBackupFromGist(backupSettings, { missingOk: true });
+    if (remotePayload && getPayloadBackupSignature(remotePayload) === nextSignature) {
+      return { skipped: true };
+    }
     const response = await githubRequest({
       method: 'PATCH',
       url: `https://api.github.com/gists/${encodeURIComponent(backupSettings.gistId)}`,
@@ -411,10 +418,23 @@
       })
     });
     if (response.status < 200 || response.status >= 300) throw new Error(parseGithubError(response));
-    return JSON.parse(response.responseText || '{}');
+    return { skipped: false, gist: JSON.parse(response.responseText || '{}') };
   }
 
-  async function readBackupFromGist(backupSettings) {
+  function getPayloadBackupSignature(payload) {
+    if (!payload) return '';
+    if (payload.backupSignature) return String(payload.backupSignature);
+    const data = payload && typeof payload === 'object' && payload.data && typeof payload.data === 'object'
+      ? payload.data
+      : {};
+    const ordered = {};
+    Object.keys(data).sort((a, b) => a.localeCompare(b, 'pt-BR')).forEach(key => {
+      ordered[key] = data[key];
+    });
+    return JSON.stringify({ schema: EXPORT_SCHEMA, data: ordered });
+  }
+
+  async function readBackupFromGist(backupSettings, options = {}) {
     if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
     if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
     const response = await githubRequest({
@@ -428,7 +448,10 @@
     if (response.status < 200 || response.status >= 300) throw new Error(parseGithubError(response));
     const gist = JSON.parse(response.responseText || '{}');
     const file = gist && gist.files ? gist.files[backupSettings.fileName] : null;
-    if (!file || !file.content) throw new Error('Arquivo de backup não encontrado no Gist.');
+    if (!file || !file.content) {
+      if (options.missingOk) return null;
+      throw new Error('Arquivo de backup não encontrado no Gist.');
+    }
     return JSON.parse(file.content);
   }
 
@@ -708,7 +731,8 @@
       scriptName: SCRIPT_META.name,
       version: SCRIPT_META.version,
       host: location.host,
-      ...exportTodoPayload()
+      ...exportTodoPayload(),
+      backupSignature: buildTodoBackupSignature()
     };
   }
 
@@ -811,6 +835,11 @@
     const backupSignature = buildTodoBackupSignature();
     if (backupSignature === backupSettings.lastBackupSignature) return;
     if (backupTimer) clearTimeout(backupTimer);
+    const lastBackupTime = new Date(backupSettings.lastBackupAt || 0).getTime();
+    const intervalWait = Number.isNaN(lastBackupTime)
+      ? 0
+      : Math.max(0, AUTO_BACKUP_MIN_INTERVAL_MS - (Date.now() - lastBackupTime));
+    const delay = Math.max(AUTO_BACKUP_IDLE_DELAY_MS, intervalWait);
     backupTimer = setTimeout(() => {
       backupTimer = null;
       pushBackupToGist(backupSettings, buildTodoBackupPayload())
@@ -818,7 +847,7 @@
         .catch((error) => {
           logWarn('Falha no backup automático das tarefas.', error);
         });
-    }, 500);
+    }, delay);
   }
 
   function toggleDoneState(item, done) {
@@ -2367,10 +2396,12 @@
       backupSettings = saveBackupSettings(readBackupSettingsFromPanel());
       showBackupStatus('Enviando backup...', 'muted');
       const backupSignature = buildTodoBackupSignature();
-      await pushBackupToGist(backupSettings, buildTodoBackupPayload());
+      const result = await pushBackupToGist(backupSettings, buildTodoBackupPayload());
       backupSettings = saveBackupSettings({ ...backupSettings, lastBackupAt: new Date().toISOString(), lastBackupSignature: backupSignature });
       updateBackupLast();
-      showBackupStatus('Backup enviado com sucesso.', 'ok');
+      showBackupStatus(result && result.skipped
+        ? 'Backup remoto já estava atualizado; nenhum commit novo foi criado.'
+        : 'Backup enviado com sucesso.', 'ok');
     }
     updateBackupLast();
 
