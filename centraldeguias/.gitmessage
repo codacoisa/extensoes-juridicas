@@ -1,0 +1,68 @@
+# <tipo>: <descrição curta em português (Brasil)>
+# |<---------------- Máximo 72 caracteres ---------------->|
+
+# Corpo da mensagem (opcional)
+# Explique o motivo da mudança e, se necessário, o contexto.
+# |<---------------- Quebre em 72 caracteres -------------->|
+
+# Rodapé (opcional)
+# Ex: Relacionado a #123
+# Ex: BREAKING CHANGE: descrição da mudança incompatível
+#
+# Quando houver auxílio de IA na implementação, revisão,
+# documentação ou refatoração, adicionar a(s) coautoria(s):
+#
+# Co-authored-by: Codex <codex@openai.com>
+# Co-authored-by: Claude <noreply@anthropic.com>
+# Co-authored-by: ChatGPT <noreply@openai.com>
+#
+# Adicione apenas os modelos que efetivamente contribuíram.
+
+# --- IDIOMA ---
+# 🇧🇷 Toda a mensagem deve ser escrita em português do Brasil.
+
+# --- TIPOS DE COMMIT ---
+# feat:     Nova funcionalidade
+# fix:      Correção de bug
+# docs:     Documentação
+# test:     Adicionar ou modificar testes
+# ci:       Integração contínua
+# ui:       Interface do usuário
+# perf:     Melhoria de performance
+# refactor: Refatoração sem alteração de comportamento
+# style:    Alterações de formatação (sem impacto funcional)
+# build:    Alterações de build ou dependências
+# chore:    Tarefas de manutenção
+# revert:   Reverter commit anterior
+
+# --- REGRAS ---
+# ✅ Escrever sempre em português do Brasil
+# ✅ Usar verbo no infinitivo (adicionar, corrigir, atualizar)
+# ✅ Primeira linha com até 72 caracteres
+# ✅ Ser claro e descritivo
+# ✅ Adicionar Co-authored-by quando houver contribuição de IA
+#
+# ❌ NÃO usar verbos conjugados (adicionado, corrigido)
+# ❌ NÃO terminar a primeira linha com ponto final
+# ❌ NÃO usar descrições vagas ("fix: ajustes")
+
+# --- EXEMPLOS ---
+# feat: adicionar cálculo de juros compostos
+# fix: corrigir validação de campos numéricos
+# docs: atualizar README com instruções de instalação
+
+# Exemplo com IA:
+#
+# feat: adicionar autenticação via OAuth2
+#
+# Implementar autenticação utilizando provedores externos e
+# atualizar o fluxo de login da aplicação.
+#
+# Co-authored-by: Codex <codex@openai.com>
+
+# --- BREAKING CHANGES ---
+# Para mudanças incompatíveis, use ! após o tipo:
+# feat!: alterar estrutura de retorno da API
+#
+# E adicione no rodapé:
+# BREAKING CHANGE: descrição detalhada da mudança incompatível

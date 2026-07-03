@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Central de Guias
 // @namespace    projudi-central-guias.user.js
-// @version      3.12
+// @version      3.13
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Central local para sincronizar, acompanhar e alertar sobre guias de pagamento no Projudi.
 // @author       lourencosv (GPT)
@@ -147,6 +147,8 @@
   const HOME_TABLE_LIMIT = 8;
   const MAX_TABLE_ROWS = 300;
   const MAX_ALERTS_TRACKED = 200;
+  const AUTO_BACKUP_IDLE_DELAY_MS = 30000;
+  const AUTO_BACKUP_MIN_INTERVAL_MS = 15 * 60 * 1000;
   const CNJ_REGEX = /\b\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\b/;
   const SHORT_PROC_REGEX = /\b\d{7}-\d{2}\b/;
   const MSG_OPEN_MANAGER = 'pj-guides-open-manager';
@@ -159,6 +161,7 @@
     processMounted: false,
     guidesMounted: false,
     guideSyncSignature: null,
+    lastEvaluateSignature: '',
     cleanupFns: [],
     alertsShown: new Set(),
     wasHomePage: false,
@@ -283,6 +286,7 @@
       version: SCRIPT_META.version,
       exportedAt: nowIso(),
       host: location.host,
+      backupSignature: buildBackupSignature(db),
       db: buildBackupDbSnapshot(db)
     };
   }
@@ -321,6 +325,11 @@
   async function pushBackupToGist(backupSettings, payload) {
     if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
     if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
+    const nextSignature = getPayloadBackupSignature(payload);
+    const remotePayload = await readBackupFromGist(backupSettings, { missingOk: true });
+    if (remotePayload && getPayloadBackupSignature(remotePayload) === nextSignature) {
+      return { skipped: true };
+    }
     const response = await githubRequest({
       method: 'PATCH',
       url: `https://api.github.com/gists/${encodeURIComponent(backupSettings.gistId)}`,
@@ -332,9 +341,17 @@
       data: JSON.stringify({ files: { [backupSettings.fileName]: { content: JSON.stringify(payload, null, 2) } } })
     });
     if (response.status < 200 || response.status >= 300) throw new Error(parseGithubError(response));
+    return { skipped: false };
   }
 
-  async function readBackupFromGist(backupSettings) {
+  function getPayloadBackupSignature(payload) {
+    if (!payload) return '';
+    if (payload.backupSignature) return String(payload.backupSignature);
+    const db = payload && typeof payload === 'object' && payload.db && typeof payload.db === 'object' ? payload.db : payload;
+    return buildBackupSignature(db);
+  }
+
+  async function readBackupFromGist(backupSettings, options = {}) {
     if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
     if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
     const response = await githubRequest({
@@ -348,7 +365,10 @@
     if (response.status < 200 || response.status >= 300) throw new Error(parseGithubError(response));
     const gist = JSON.parse(response.responseText || '{}');
     const file = gist && gist.files ? gist.files[backupSettings.fileName] : null;
-    if (!file || !file.content) throw new Error('Arquivo de backup não encontrado no Gist.');
+    if (!file || !file.content) {
+      if (options.missingOk) return null;
+      throw new Error('Arquivo de backup não encontrado no Gist.');
+    }
     return JSON.parse(file.content);
   }
 
@@ -502,6 +522,14 @@
     scheduleAutoBackup(db);
   }
 
+  function saveDbIfChanged(db) {
+    const previousSignature = buildBackupSignature();
+    const nextSignature = buildBackupSignature(db);
+    if (previousSignature === nextSignature) return false;
+    saveDb(db);
+    return true;
+  }
+
   function scheduleAutoBackup(db = loadDb()) {
     clearTimeout(state.backupTimer);
     state.backupTimer = null;
@@ -509,13 +537,18 @@
     if (!backupSettings.enabled || !backupSettings.autoBackupOnSave) return;
     const backupSignature = buildBackupSignature(db);
     if (backupSignature === backupSettings.lastBackupSignature) return;
+    const lastBackupTime = new Date(backupSettings.lastBackupAt || 0).getTime();
+    const intervalWait = Number.isNaN(lastBackupTime)
+      ? 0
+      : Math.max(0, AUTO_BACKUP_MIN_INTERVAL_MS - (Date.now() - lastBackupTime));
+    const delay = Math.max(AUTO_BACKUP_IDLE_DELAY_MS, intervalWait);
     state.backupTimer = setTimeout(async () => {
       state.backupTimer = null;
       try {
         await pushBackupToGist(backupSettings, buildBackupPayload(db));
         saveBackupSettings({ ...backupSettings, lastBackupAt: nowIso(), lastBackupSignature: backupSignature });
       } catch (_) {}
-    }, 800);
+    }, delay);
   }
 
   function normalizeManual(manual) {
@@ -1972,7 +2005,7 @@
     if (!ctx) return;
     const db = loadDb();
     const processRecord = ensureProcessRecord(db, ctx);
-    saveDb(db);
+    saveDbIfChanged(db);
     const summary = computeProcessSummary(processRecord);
 
     const anchor = document.querySelector('#divEditar > fieldset.VisualizaDados') || document.querySelector('#divEditar');
@@ -2021,12 +2054,13 @@
     processRecord.guides = guides;
     processRecord.lastGuidesSyncAt = nowIso();
     processRecord.lastGuidesSyncSource = 'GuiaEmissao?PaginaAtual=6';
-    saveDb(db);
+    const changed = saveDbIfChanged(db);
 
     const summary = computeProcessSummary(processRecord);
     if (!options.silent) {
       const tone = summary.overdue > 0 ? 'danger' : (summary.dueToday + summary.dueSoon > 0 ? 'warn' : 'success');
-      showToast(`${guides.length} guia(s) sincronizada(s) para ${processRecord.shortNumber || processRecord.cnj}.`, tone, { timeout: 5200 });
+      const suffix = changed ? 'sincronizada(s)' : 'conferida(s), sem mudança';
+      showToast(`${guides.length} guia(s) ${suffix} para ${processRecord.shortNumber || processRecord.cnj}.`, tone, { timeout: 5200 });
     }
     return { processRecord, summary };
   }
@@ -2349,11 +2383,13 @@
       let nextSettings = readSettings();
       setBackupStatus(elements, 'Enviando backup...');
       const backupSignature = buildBackupSignature();
-      await pushBackupToGist(nextSettings, buildBackupPayload(loadDb()));
+      const result = await pushBackupToGist(nextSettings, buildBackupPayload(loadDb()));
       nextSettings = saveBackupSettings({ ...nextSettings, lastBackupAt: nowIso(), lastBackupSignature: backupSignature });
       backupSettings = nextSettings;
       refreshLastBackupLabel();
-      setBackupStatus(elements, `Backup enviado em ${formatDateTimeSingleLine(new Date())}.`);
+      setBackupStatus(elements, result && result.skipped
+        ? 'Backup remoto já estava atualizado; nenhum commit novo foi criado.'
+        : `Backup enviado em ${formatDateTimeSingleLine(new Date())}.`);
     }
 
     if (hasUi) {
@@ -2943,19 +2979,34 @@
 
   function evaluate() {
     ensureStyles();
+    const homePage = isHomePage(document);
+    const guidesPage = isGuidesPage(document);
+    const processCtx = guidesPage ? null : extractProcessPageContext(document);
+    const evaluateSignature = [
+      location.pathname,
+      location.search,
+      guidesPage ? 'guides' : (processCtx ? `process:${processCtx.processId || processCtx.cnj || processCtx.shortNumber}` : (homePage ? 'home' : 'other'))
+    ].join('|');
+    if (state.lastEvaluateSignature === evaluateSignature && (
+      document.getElementById('pj-guides-home-panel') ||
+      document.getElementById('pj-guides-process-card') ||
+      document.getElementById('pj-guides-guide-card')
+    )) {
+      return;
+    }
+    state.lastEvaluateSignature = evaluateSignature;
     clearDynamicUi();
     state.homeMounted = false;
     state.processMounted = false;
     state.guidesMounted = false;
-    const homePage = isHomePage(document);
     if (homePage && !state.wasHomePage) state.homeAlertShown = false;
     state.wasHomePage = homePage;
 
-    if (isGuidesPage(document)) {
+    if (guidesPage) {
       mountGuidesCard();
       return;
     }
-    if (extractProcessPageContext(document)) {
+    if (processCtx) {
       mountProcessCard();
       return;
     }
