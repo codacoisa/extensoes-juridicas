@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      5.12
+// @version      5.13
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       louencosv (GPT)
@@ -163,6 +163,8 @@
     lastBackupAt: '',
     lastBackupSignature: ''
   };
+  const AUTO_BACKUP_IDLE_DELAY_MS = 30000;
+  const AUTO_BACKUP_MIN_INTERVAL_MS = 15 * 60 * 1000;
 
   const PRIVATE = {
     tableContext: Symbol('tableContext'),
@@ -1023,8 +1025,13 @@
     const settings = loadBackupSettings();
     if (!settings.enabled || !settings.autoBackupOnSave) return;
 
-    const signature = JSON.stringify(state.store.items);
+    const signature = buildBackupSignature();
     if (signature === settings.lastBackupSignature) return;
+    const lastBackupTime = new Date(settings.lastBackupAt || 0).getTime();
+    const intervalWait = Number.isNaN(lastBackupTime)
+      ? 0
+      : Math.max(0, AUTO_BACKUP_MIN_INTERVAL_MS - (Date.now() - lastBackupTime));
+    const delay = Math.max(AUTO_BACKUP_IDLE_DELAY_MS, intervalWait);
 
     state.backupTimer = window.setTimeout(async () => {
       try {
@@ -1038,7 +1045,7 @@
       } catch (error) {
         logWarn('Falha no backup automatico.', error);
       }
-    }, 700);
+    }, delay);
   }
 
   /**
@@ -1052,8 +1059,19 @@
       scriptName: SCRIPT_NAME,
       version: SCRIPT_VERSION,
       exportedAt: new Date().toISOString(),
+      backupSignature: buildBackupSignature(),
       items: state.store.items
     };
+  }
+
+  function buildBackupSignature() {
+    const orderedItems = Object.create(null);
+    Object.keys(state.store.items || {})
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+      .forEach(key => {
+        orderedItems[key] = state.store.items[key];
+      });
+    return JSON.stringify({ schema: 'backup-v1', items: orderedItems });
   }
 
   /**
@@ -1102,6 +1120,11 @@
   async function pushBackupToGist(settings, payload) {
     if (!settings.gistId) throw new Error('Informe o Gist ID.');
     if (!settings.token) throw new Error('Informe o token do GitHub.');
+    const nextSignature = getPayloadBackupSignature(payload);
+    const remotePayload = await readBackupFromGist(settings, { missingOk: true });
+    if (remotePayload && getPayloadBackupSignature(remotePayload) === nextSignature) {
+      return { skipped: true };
+    }
 
     const response = await githubRequest({
       method: 'PATCH',
@@ -1124,7 +1147,20 @@
       throw new Error(parseGithubError(response));
     }
 
-    return JSON.parse(response.responseText || '{}');
+    return { skipped: false, gist: JSON.parse(response.responseText || '{}') };
+  }
+
+  function getPayloadBackupSignature(payload) {
+    if (!payload) return '';
+    if (payload.backupSignature) return String(payload.backupSignature);
+    const items = payload?.items && typeof payload.items === 'object' ? payload.items : Object.create(null);
+    const orderedItems = Object.create(null);
+    Object.keys(items)
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+      .forEach(key => {
+        orderedItems[key] = items[key];
+      });
+    return JSON.stringify({ schema: 'backup-v1', items: orderedItems });
   }
 
   /**
@@ -1132,7 +1168,7 @@
    * @param {typeof BACKUP_DEFAULTS} settings
    * @returns {Promise<any>}
    */
-  async function readBackupFromGist(settings) {
+  async function readBackupFromGist(settings, options = {}) {
     if (!settings.gistId) throw new Error('Informe o Gist ID.');
     if (!settings.token) throw new Error('Informe o token do GitHub.');
 
@@ -1151,7 +1187,10 @@
 
     const gist = JSON.parse(response.responseText || '{}');
     const file = gist?.files?.[settings.fileName];
-    if (!file?.content) throw new Error('Arquivo de backup não encontrado no Gist.');
+    if (!file?.content) {
+      if (options.missingOk) return null;
+      throw new Error('Arquivo de backup não encontrado no Gist.');
+    }
     return JSON.parse(file.content);
   }
 
@@ -2849,14 +2888,16 @@
       try {
         const settings = saveBackupSettings(readBackupSettingsFromModal(body));
         setNodeText(statusNode, 'Enviando backup...');
-        const signature = JSON.stringify(state.store.items);
-        await pushBackupToGist(settings, buildBackupPayload());
+        const signature = buildBackupSignature();
+        const result = await pushBackupToGist(settings, buildBackupPayload());
         saveBackupSettings({
           ...settings,
           lastBackupAt: new Date().toISOString(),
           lastBackupSignature: signature
         });
-        setNodeText(statusNode, 'Backup enviado com sucesso.');
+        setNodeText(statusNode, result && result.skipped
+          ? 'Backup remoto já estava atualizado; nenhum commit novo foi criado.'
+          : 'Backup enviado com sucesso.');
         renderModal();
       } catch (error) {
         setNodeText(statusNode, error instanceof Error ? error.message : 'Falha ao enviar backup.');
@@ -2873,7 +2914,7 @@
         persistStore();
         saveBackupSettings({
           ...settings,
-          lastBackupSignature: JSON.stringify(state.store.items)
+          lastBackupSignature: buildBackupSignature()
         });
         refreshFrameContext('backup-restore');
         setNodeText(statusNode, 'Backup restaurado com sucesso.');
