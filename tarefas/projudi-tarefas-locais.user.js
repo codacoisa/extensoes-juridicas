@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      3.13
+// @version      3.14
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -18,6 +18,7 @@
 // @grant        GM_xmlhttpRequest
 // @grant        GM.xmlHttpRequest
 // @connect      api.github.com
+// @connect      gist.githubusercontent.com
 // ==/UserScript==
 
 (function () {
@@ -448,11 +449,33 @@
     if (response.status < 200 || response.status >= 300) throw new Error(parseGithubError(response));
     const gist = JSON.parse(response.responseText || '{}');
     const file = gist && gist.files ? gist.files[backupSettings.fileName] : null;
-    if (!file || !file.content) {
+    if (!file) {
       if (options.missingOk) return null;
       throw new Error('Arquivo de backup não encontrado no Gist.');
     }
-    return JSON.parse(file.content);
+
+    let content = typeof file.content === 'string' ? file.content : '';
+    if ((file.truncated || !content) && file.raw_url) {
+      const rawResponse = await githubRequest({
+        method: 'GET',
+        url: file.raw_url,
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${backupSettings.token}`
+        }
+      });
+      if (rawResponse.status < 200 || rawResponse.status >= 300) {
+        throw new Error(`Não foi possível baixar o conteúdo do backup: ${parseGithubError(rawResponse)}`);
+      }
+      content = rawResponse.responseText || '';
+    }
+
+    if (!content) throw new Error('O arquivo de backup no Gist está vazio.');
+    try {
+      return JSON.parse(content);
+    } catch (_) {
+      throw new Error('O arquivo de backup no Gist não contém um JSON válido.');
+    }
   }
 
   function getCNJFromDocument(doc) {
