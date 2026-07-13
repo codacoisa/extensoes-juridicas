@@ -1,2 +1,2 @@
 > [!CAUTION]
-> Esse script foi desabilitado e integrado ao script de [customizações](https://github.com/thelawhub/customizacoes).
+> Projeto descontinuado. A funcionalidade foi incorporada à extensão ativa [`customizacoes`](../../customizacoes/). Este código é preservado apenas como registro histórico e não recebe suporte ou atualizações.

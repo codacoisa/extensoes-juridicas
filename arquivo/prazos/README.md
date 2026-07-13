@@ -1,5 +1,5 @@
 > [!CAUTION]
-> Esse script foi desabilitado e integrado ao script de [intimações](https://github.com/thelawhub/intimacoes).
+> Projeto descontinuado. A funcionalidade foi incorporada à extensão ativa [`intimacoes`](../../intimacoes/). Este código é preservado apenas como registro histórico e não recebe suporte ou atualizações.
 
 # Prazos
 
@@ -23,7 +23,7 @@ Você precisa de um gerenciador de userscripts no navegador, como:
 
 ## Instalação
 
-A instalação deve ser feita por meio do link disponibilizado no campo **About** do projeto, de forma compatível com o gerenciador de userscripts utilizado no navegador.
+Não há canal de instalação mantido para este projeto. Use a extensão ativa [`intimacoes`](../../intimacoes/).
 
 ## Onde funciona
 

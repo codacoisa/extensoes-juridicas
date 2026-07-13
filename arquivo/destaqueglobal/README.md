@@ -1,3 +1,6 @@
+> [!CAUTION]
+> Projeto descontinuado. Este código é preservado apenas como registro histórico e não recebe suporte ou atualizações.
+
 # Destaque Global
 
 Script para destacar termos no Projudi do TJGO de forma visual e facilitar a identificação rápida de informações relevantes na página.
@@ -20,7 +23,7 @@ Você precisa de um gerenciador de userscripts no navegador, como:
 
 ## Instalação
 
-A instalação deve ser feita por meio do link disponibilizado no campo **About** do projeto, de forma compatível com o gerenciador de userscripts utilizado no navegador.
+Não há canal de instalação mantido para este projeto.
 
 ## Como usar
 
