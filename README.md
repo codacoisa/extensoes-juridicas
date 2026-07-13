@@ -2,7 +2,7 @@
 
 Coleção de userscripts para tornar a rotina no Projudi do TJGO mais prática. Cada extensão continua independente e mantém seu próprio histórico dentro deste monorepo.
 
-## Extensões
+## Extensões ativas
 
 | Pasta | Finalidade |
 | --- | --- |
@@ -16,8 +16,12 @@ Coleção de userscripts para tornar a rotina no Projudi do TJGO mais prática. 
 
 Abra a pasta da extensão desejada e siga as instruções do respectivo `README.md`. Os scripts foram feitos para gerenciadores de userscripts como Tampermonkey, Violentmonkey, Greasemonkey e Userscripts.
 
+## Arquivo histórico
+
+Projetos descontinuados ficam preservados em [`arquivo/`](arquivo/), separados das extensões ativas. Eles não recebem correções, suporte ou atualizações e não são recomendados para instalação.
+
 ## Histórico
 
-Este repositório reúne cinco projetos que antes eram mantidos separadamente na organização CodaCoisa. Os históricos completos foram importados e reorganizados por pasta, preservando autores, datas e mensagens dos commits.
+Este repositório reúne projetos que antes eram mantidos separadamente na organização CodaCoisa. Os históricos completos foram importados e reorganizados por pasta, preservando autores, datas e mensagens dos commits.
 
-Os repositórios originais permanecem arquivados como referência. O desenvolvimento passa a acontecer neste monorepo.
+Os repositórios de origem foram consolidados e removidos. O desenvolvimento das extensões ativas passa a acontecer neste monorepo; os projetos descontinuados permanecem apenas como registro histórico.
