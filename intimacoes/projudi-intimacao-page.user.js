@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      5.13
+// @version      5.14
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       louencosv (GPT)
 // @license      CC BY-NC 4.0
-// @updateURL    https://raw.githubusercontent.com/thelawhub/intimacoes/refs/heads/main/projudi-intimacao-page.user.js
-// @downloadURL  https://raw.githubusercontent.com/thelawhub/intimacoes/refs/heads/main/projudi-intimacao-page.user.js
+// @updateURL    https://raw.githubusercontent.com/codacoisa/extensoes-juridicas/refs/heads/main/intimacoes/projudi-intimacao-page.user.js
+// @downloadURL  https://raw.githubusercontent.com/codacoisa/extensoes-juridicas/refs/heads/main/intimacoes/projudi-intimacao-page.user.js
 // @match        *://projudi.tjgo.jus.br/*
 // @match        *://projudi-teste.tjgo.jus.br/*
 // @run-at       document-idle

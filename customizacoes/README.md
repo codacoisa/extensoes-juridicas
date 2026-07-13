@@ -27,7 +27,7 @@ O painel pode ser aberto pela sequência **Ctrl+;** e depois **C** (em até 1,5 
 
 ## Instalação
 
-A instalação deve ser feita por meio do link disponibilizado no campo **About** do projeto, de forma compatível com o gerenciador de userscripts utilizado no navegador.
+[Instalar Customizações](https://raw.githubusercontent.com/codacoisa/extensoes-juridicas/refs/heads/main/customizacoes/projudi-customizacoes.user.js)
 
 ## Onde funciona
 

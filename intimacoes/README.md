@@ -27,7 +27,7 @@ O gerenciador pode ser aberto pela sequência **Ctrl+;** e depois **I** (em até
 
 ## Instalação
 
-A instalação deve ser feita por meio do link disponibilizado no campo **About** do projeto, de forma compatível com o gerenciador de userscripts utilizado no navegador.
+[Instalar Intimações](https://raw.githubusercontent.com/codacoisa/extensoes-juridicas/refs/heads/main/intimacoes/projudi-intimacao-page.user.js)
 
 ## Onde funciona
 

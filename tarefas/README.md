@@ -25,7 +25,7 @@ Em qualquer gerenciador compatível, o painel pode ser aberto pela sequência **
 
 ## Instalação
 
-A instalação deve ser feita por meio do link disponibilizado no campo **About** do projeto, de forma compatível com o gerenciador de userscripts utilizado no navegador.
+[Instalar Tarefas](https://raw.githubusercontent.com/codacoisa/extensoes-juridicas/refs/heads/main/tarefas/projudi-tarefas-locais.user.js)
 
 ## Onde funciona
 

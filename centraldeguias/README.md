@@ -26,7 +26,7 @@ A central pode ser aberta pela sequência **Ctrl+;** e depois **G** (em até 1,5
 
 ## Instalação
 
-A instalação deve ser feita por meio do link disponibilizado no campo **About** do projeto, de forma compatível com o gerenciador de userscripts utilizado no navegador.
+[Instalar a Central de Guias](https://raw.githubusercontent.com/codacoisa/extensoes-juridicas/refs/heads/main/centraldeguias/projudi-central-guias.user.js)
 
 ## Onde funciona
 
