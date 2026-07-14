@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      6.4
+// @version      6.5
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -122,7 +122,6 @@
         popupSizePercent: 98,
         enableWidthAdjustments: false,
         contentWidthPercent: 100,
-        headerWidthPercent: 100,
         centerContent: true,
         compactMode: false,
         fontScaleEnabled: false,
@@ -499,8 +498,7 @@
         next.popupSizePercent = sanitizePopupSize(next.popupSizePercent);
         next.enableWidthAdjustments = !!next.enableWidthAdjustments;
         next.contentWidthPercent = sanitizeWidthPercent(next.contentWidthPercent);
-        next.headerWidthPercent = sanitizeWidthPercent(next.headerWidthPercent);
-        next.centerContent = true;
+        next.centerContent = next.centerContent !== false;
         next.compactMode = !!next.compactMode;
         next.fontScaleEnabled = !!next.fontScaleEnabled;
         next.fontScalePercent = sanitizeFontScale(next.fontScalePercent);
@@ -1305,7 +1303,7 @@
                             <label class="pjc-card">
                                 <div class="pjc-card-body">
                                     <p class="pjc-card-title">Cabeçalho personalizado</p>
-                                    <p class="pjc-card-desc">Usa uma composição moderna e independente da largura do conteúdo.</p>
+                                    <p class="pjc-card-desc">Moderniza cores e menus sem alterar a estrutura nativa do topo.</p>
                                 </div>
                                 <input type="checkbox" id="pj-custom-header" class="pjc-card-check">
                             </label>
@@ -1358,7 +1356,7 @@
                             <label class="pjc-card">
                                 <div class="pjc-card-body">
                                     <p class="pjc-card-title">Largura da página</p>
-                                    <p class="pjc-card-desc">Define somente a largura do conteúdo entre 60% e 100%.</p>
+                                    <p class="pjc-card-desc">Limita a área útil inteira entre 60% e 100%, sem estreitar blocos internos.</p>
                                 </div>
                                 <div class="pjc-inline-controls pjc-inline-controls--compact">
                                     <input type="number" id="pj-content-width" min="60" max="100" step="1" class="pjc-input pjc-input--number">
@@ -1369,9 +1367,9 @@
                             <label class="pjc-card">
                                 <div class="pjc-card-body">
                                     <p class="pjc-card-title">Centralizar conteúdo</p>
-                                    <p class="pjc-card-desc">Ativado por padrão para manter o layout centralizado.</p>
+                                    <p class="pjc-card-desc">Centraliza a área útil; desative para alinhá-la à esquerda.</p>
                                 </div>
-                                <input type="checkbox" id="pj-center-content" class="pjc-card-check" disabled>
+                                <input type="checkbox" id="pj-center-content" class="pjc-card-check">
                             </label>
                             <label id="pj-row-standalone" class="pjc-card">
                                 <div class="pjc-card-body">
@@ -1433,7 +1431,7 @@
                             <label class="pjc-card">
                                 <div class="pjc-card-body">
                                     <p class="pjc-card-title">Visual moderno</p>
-                                    <p class="pjc-card-desc">Atualiza superfícies, títulos, abas e hierarquia visual sem alterar o conteúdo.</p>
+                                    <p class="pjc-card-desc">Aplica tipografia confortável, superfícies, títulos e abas mais atuais.</p>
                                 </div>
                                 <input type="checkbox" id="pj-modern-visual" class="pjc-card-check">
                             </label>
@@ -1673,7 +1671,7 @@
         iframeH.checked = !!settings.enableIframeAutoHeight;
         enableWidth.checked = !!settings.enableWidthAdjustments;
         contentW.value = String(sanitizeWidthPercent(settings.contentWidthPercent));
-        centerContent.checked = true;
+        centerContent.checked = settings.centerContent !== false;
         compactMode.checked = !!settings.compactMode;
         enableFontScale.checked = !!settings.fontScaleEnabled;
         fontScale.value = String(sanitizeFontScale(settings.fontScalePercent));
@@ -1741,7 +1739,7 @@
             iframeH.checked = !!nextSettings.enableIframeAutoHeight;
             enableWidth.checked = !!nextSettings.enableWidthAdjustments;
             contentW.value = String(sanitizeWidthPercent(nextSettings.contentWidthPercent));
-            centerContent.checked = true;
+            centerContent.checked = nextSettings.centerContent !== false;
             compactMode.checked = !!nextSettings.compactMode;
             enableFontScale.checked = !!nextSettings.fontScaleEnabled;
             fontScale.value = String(sanitizeFontScale(nextSettings.fontScalePercent));
@@ -1777,8 +1775,7 @@
                 enableIframeAutoHeight: iframeH.checked,
                 enableWidthAdjustments: enableWidth.checked,
                 contentWidthPercent: widthPercent,
-                headerWidthPercent: widthPercent,
-                centerContent: true,
+                centerContent: centerContent.checked,
                 compactMode: compactMode.checked,
                 fontScaleEnabled: enableFontScale.checked,
                 fontScalePercent: sanitizeFontScale(fontScale.value),
@@ -1873,7 +1870,7 @@
             iframeH.checked = DEFAULT_SETTINGS.enableIframeAutoHeight;
             enableWidth.checked = DEFAULT_SETTINGS.enableWidthAdjustments;
             contentW.value = String(DEFAULT_SETTINGS.contentWidthPercent);
-            centerContent.checked = true;
+            centerContent.checked = DEFAULT_SETTINGS.centerContent;
             compactMode.checked = DEFAULT_SETTINGS.compactMode;
             enableFontScale.checked = DEFAULT_SETTINGS.fontScaleEnabled;
             fontScale.value = String(DEFAULT_SETTINGS.fontScalePercent);
@@ -1960,8 +1957,7 @@
         const attrs = [
             "data-pjc-custom-header-shell",
             "data-pjc-custom-nav-shell",
-            "data-pjc-custom-nav",
-            "data-pjc-custom-header-spacer"
+            "data-pjc-custom-nav"
         ];
         attrs.forEach(attr => {
             document.querySelectorAll(`[${attr}]`).forEach(node => node.removeAttribute(attr));
@@ -1977,140 +1973,17 @@
             ? nav.parentElement
             : nav;
         if (navShell) navShell.setAttribute("data-pjc-custom-nav-shell", "true");
-
-        const topChild = node => {
-            let current = node;
-            while (current && current.parentElement !== document.body) current = current.parentElement;
-            return current;
-        };
-        const headerTop = topChild(header);
-        const navTop = topChild(navShell);
-        if (!headerTop || !navTop || headerTop === navTop) return;
-
-        const children = [...document.body.children];
-        const headerIndex = children.indexOf(headerTop);
-        const navIndex = children.indexOf(navTop);
-        if (headerIndex < 0 || navIndex <= headerIndex) return;
-
-        children.slice(headerIndex + 1, navIndex).forEach(node => {
-            if (!node || node.id === "Principal" || node.contains(nav)) return;
-            const text = String(node.textContent || "").replace(/\s+/g, "").trim();
-            const rect = node.getBoundingClientRect();
-            const hasInteractive = !!node.querySelector("a, button, input, select, textarea, iframe");
-            if (!text && !hasInteractive && rect.height > 0 && rect.height <= 90) {
-                node.setAttribute("data-pjc-custom-header-spacer", "true");
-            }
-        });
     }
 
     function injectTopHeaderCSS() {
         syncCustomHeaderStructure();
         syncGoogleFont(document);
-        // A largura é uma preferência do conteúdo. Alterar a geometria do topo
-        // quebra o menu nativo (que mistura floats, medidas fixas e submenus).
-        const widthEnabled = false;
-        const widthPercent = widthEnabled ? sanitizeWidthPercent(settings.headerWidthPercent) : 100;
-        const widthValue = widthPercent + "%";
-        const isCentered = settings.centerContent && widthPercent < 100;
-        const gutterValue = isCentered ? `calc((100% - ${widthValue}) / 2)` : "0px";
-        const centeredMargins = isCentered ? "auto" : "0";
-        const topPageBg =
-            widthEnabled && settings.sideBackgroundEnabled && settings.sideBackground === "white"
-                ? "#ffffff"
-                : widthEnabled && settings.sideBackgroundEnabled && settings.sideBackground === "light"
-                    ? "#f3f4f6"
-                    : "";
         const hasHeaderAdjust = settings.hideClock || settings.hideHeaderIcons || settings.customHeaderEnabled ||
             settings.modernVisualEnabled || settings.googleFontEnabled;
         if (!hasHeaderAdjust) {
             removeStyleFromDoc(document, "projudi-top-header-style");
             return;
         }
-
-        const widthCss = widthEnabled ? `
-            :root {
-                --pj-header-pad: 20px;
-                --pj-content-width: ${widthValue};
-                --pj-content-gutter: ${gutterValue};
-            }
-            ${topPageBg ? `
-            body.fundo {
-                background: ${topPageBg} !important;
-                background-color: ${topPageBg} !important;
-            }` : ""}
-            #Cabecalho {
-                width: 100% !important;
-                max-width: 100% !important;
-                margin: 0 !important;
-                box-shadow: none !important;
-            }
-            #pgn_cabecalho {
-                width: ${widthValue} !important;
-                max-width: ${widthValue} !important;
-                margin-left: ${centeredMargins} !important;
-                margin-right: ${centeredMargins} !important;
-                box-sizing: border-box !important;
-                padding-left: var(--pj-header-pad) !important;
-                padding-right: var(--pj-header-pad) !important;
-            }
-            #img_logotj { margin-left: 0 !important; }
-            #pgn_cabecalho > div[style*="float: right"] {
-                white-space: nowrap !important;
-                display: inline-block !important;
-                float: right !important;
-                max-width: 100% !important;
-            }
-            #pgn_cabecalho > div[style*="float: right"] > * {
-                float: none !important;
-                display: inline-block !important;
-                vertical-align: middle !important;
-            }
-            #cssmenu {
-                width: 100% !important;
-                max-width: 100% !important;
-                margin-left: 0 !important;
-                margin-right: 0 !important;
-                box-sizing: border-box !important;
-                padding-left: calc(${gutterValue} + var(--pj-header-pad)) !important;
-                padding-right: calc(${gutterValue} + var(--pj-header-pad)) !important;
-            }
-            #cssmenu > ul,
-            #cssmenu ul:first-child {
-                width: 100% !important;
-                max-width: 100% !important;
-                margin-left: 0 !important;
-                margin-right: 0 !important;
-                padding-left: 0 !important;
-                padding-right: 0 !important;
-                box-sizing: border-box !important;
-            }
-            #menuPrinciapl.menu {
-                float: none !important;
-                display: block !important;
-                width: ${widthValue} !important;
-                max-width: ${widthValue} !important;
-                margin-top: 0 !important;
-                margin-left: ${centeredMargins} !important;
-                margin-right: ${centeredMargins} !important;
-                box-sizing: border-box !important;
-                padding-left: var(--pj-header-pad) !important;
-                padding-right: var(--pj-header-pad) !important;
-                background-color: #ccc !important;
-                clear: both !important;
-            }
-            #menuPrinciapl.menu > ul { float: left !important; }
-            #menuPrinciapl #cronometro { float: right !important; margin-right: 0 !important; }
-            #cssmenu > ul > li > a,
-            #cssmenu > ul > li > a i { color: #ffffff !important; }
-            #cssmenu ul ul a,
-            #cssmenu ul ul i,
-            #cssmenu ul ul li > a { color: #2f2f2f !important; }
-            #cssmenu ul ul li:hover > a,
-            #cssmenu ul ul li:hover > a i { color: #0f3e75 !important; }
-            body > div[style*="height:28px"][style*="background-color:#ccc"] {
-                border-bottom: 1px solid #cbd5e1;
-            }
-        ` : "";
 
         const visibilityCss = `
             ${settings.hideClock ? "#cronometro { display: none !important; }" : ""}
@@ -2179,301 +2052,102 @@
             }
         ` : "";
 
-        const customHeaderCss = settings.customHeaderEnabled ? `
+        // Mantém a geometria nativa do Projudi e moderniza apenas a aparência.
+        const stableCustomHeaderCss = settings.customHeaderEnabled ? `
             :root {
                 --pj-header-primary: #0b3b67;
-                --pj-header-secondary: #125b91;
-                --pj-header-surface: rgba(255, 255, 255, .98);
-                --pj-header-border: #d8e2ec;
-                --pj-header-text: #203247;
-                --pj-header-shadow: 0 8px 24px rgba(15, 45, 78, .14);
-            }
-            [data-pjc-custom-header-spacer="true"] {
-                display: none !important;
-            }
-            [data-pjc-custom-nav-shell="true"] {
-                position: relative !important;
-                z-index: 1100 !important;
-                width: 100% !important;
-                height: auto !important;
-                min-height: 0 !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                overflow: visible !important;
-                border: 0 !important;
-                background: #fff !important;
-                box-shadow: 0 3px 12px rgba(15, 45, 78, .08) !important;
+                --pj-header-secondary: #17689f;
+                --pj-header-surface: #ffffff;
+                --pj-header-border: #d9e4ef;
+                --pj-header-text: #24364a;
+                --pj-header-shadow: 0 6px 20px rgba(15, 45, 78, .14);
             }
             #Cabecalho {
                 position: relative !important;
                 z-index: 1200 !important;
-                width: 100% !important;
-                max-width: none !important;
-                height: auto !important;
-                min-height: 52px !important;
-                margin: 0 !important;
                 overflow: visible !important;
-                border: 0 !important;
                 border-bottom: 1px solid rgba(255, 255, 255, .16) !important;
-                background: linear-gradient(115deg, var(--pj-header-primary), var(--pj-header-secondary)) !important;
+                background: linear-gradient(110deg, var(--pj-header-primary), var(--pj-header-secondary)) !important;
                 box-shadow: var(--pj-header-shadow) !important;
             }
             #pgn_cabecalho {
-                display: flex !important;
-                align-items: center !important;
-                gap: 14px !important;
-                width: min(1480px, calc(100% - 32px)) !important;
+                width: min(1480px, calc(100% - 28px)) !important;
                 max-width: none !important;
-                min-height: 52px !important;
-                height: auto !important;
-                margin: 0 auto !important;
-                padding: 4px !important;
+                margin-left: auto !important;
+                margin-right: auto !important;
                 box-sizing: border-box !important;
                 overflow: visible !important;
             }
-            #pgn_cabecalho::before {
-                content: "⚖";
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                width: 34px !important;
-                height: 34px !important;
-                flex: 0 0 34px !important;
-                border: 1px solid rgba(255, 255, 255, .22) !important;
-                border-radius: 10px !important;
-                background: rgba(255, 255, 255, .12) !important;
-                color: #fff !important;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Symbol", sans-serif !important;
-                font-size: 18px !important;
-                line-height: 1 !important;
-            }
-            #img_logotj {
-                display: none !important;
-            }
-            #pgn_cabecalho > div[style*="float: right"] {
-                display: ${settings.hideHeaderIcons ? "none" : "block"} !important;
-                float: none !important;
-                position: relative !important;
-                z-index: 1300 !important;
-                max-width: none !important;
-                margin: 0 0 0 auto !important;
-                white-space: nowrap !important;
-            }
-            #cssmenu {
-                float: none !important;
-                width: auto !important;
-                max-width: none !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                overflow: visible !important;
-                background: transparent !important;
-            }
-            #cssmenu > ul {
-                display: flex !important;
-                align-items: center !important;
-                justify-content: flex-end !important;
-                gap: 2px !important;
-                float: none !important;
-                width: auto !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                overflow: visible !important;
-                background: transparent !important;
-            }
-            #cssmenu > ul > li {
-                display: block !important;
-                float: none !important;
-                position: relative !important;
-                margin: 0 !important;
-            }
+            #cssmenu, #cssmenu > ul { overflow: visible !important; background: transparent !important; }
             #cssmenu > ul > li > a {
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                min-width: 32px !important;
-                min-height: 32px !important;
-                padding: 6px 7px !important;
-                box-sizing: border-box !important;
-                border: 1px solid transparent !important;
-                border-radius: 9px !important;
-                color: #fff !important;
-                line-height: 1 !important;
-                text-decoration: none !important;
-                transition: background-color .16s ease, border-color .16s ease, transform .16s ease !important;
+                border-radius: 8px !important;
+                transition: background-color .16s ease, transform .16s ease !important;
             }
-            #cssmenu > ul > li:hover > a,
-            #cssmenu > ul > li.active > a {
-                border-color: rgba(255, 255, 255, .16) !important;
-                background: rgba(255, 255, 255, .14) !important;
-                transform: translateY(-1px) !important;
+            #cssmenu > ul > li:hover > a, #cssmenu > ul > li.active > a {
+                background: rgba(255, 255, 255, .15) !important;
+                transform: translateY(-1px);
             }
-            #cssmenu ul ul {
+            #cssmenu ul ul, #menuPrinciapl.menu ul ul {
                 z-index: 1400 !important;
-                min-width: 224px !important;
-                max-width: min(320px, calc(100vw - 24px)) !important;
-                padding: 4px !important;
+                min-width: 230px !important;
+                max-width: min(380px, calc(100vw - 24px)) !important;
+                padding: 5px !important;
                 overflow: visible !important;
                 border: 1px solid var(--pj-header-border) !important;
                 border-radius: 10px !important;
                 background: var(--pj-header-surface) !important;
-                box-shadow: 0 16px 38px rgba(15, 45, 78, .2) !important;
+                box-shadow: 0 16px 36px rgba(15, 45, 78, .2) !important;
             }
-            #cssmenu ul ul li,
-            #cssmenu ul ul a {
-                float: none !important;
-                width: 100% !important;
+            #cssmenu ul ul li, #cssmenu ul ul a,
+            #menuPrinciapl.menu ul ul li, #menuPrinciapl.menu ul ul a {
                 box-sizing: border-box !important;
                 white-space: normal !important;
             }
-            #cssmenu ul ul a {
-                display: flex !important;
-                align-items: center !important;
-                justify-content: space-between !important;
-                min-height: 32px !important;
-                padding: 6px 8px !important;
-                border-radius: 8px !important;
-                color: var(--pj-header-text) !important;
-                font-size: 13px !important;
-                line-height: 1.25 !important;
-                text-decoration: none !important;
-            }
-            #cssmenu ul ul li:hover > a {
-                background: #eaf2f9 !important;
-                color: #0b4f83 !important;
-            }
-            #cssmenu > ul > li:nth-last-child(-n+4) > ul { right: 0 !important; left: auto !important; }
-            #cssmenu > ul > li:nth-last-child(-n+4) > ul ul { right: 100% !important; left: auto !important; }
-            body > div[style*="height:28px"][style*="background-color:#ccc"] {
-                position: relative !important;
-                z-index: 1100 !important;
-                height: 0 !important;
-                min-height: 0 !important;
-                overflow: visible !important;
-                border: 0 !important;
-                background: transparent !important;
-                box-shadow: none !important;
-            }
-            #menuPrinciapl.menu {
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                width: 100% !important;
-                max-width: none !important;
-                min-height: 42px !important;
-                margin: 0 !important;
-                padding: 0 18px !important;
-                box-sizing: border-box !important;
-                overflow: visible !important;
-                background: var(--pj-header-surface) !important;
-                border-bottom: 1px solid var(--pj-header-border) !important;
-                box-shadow: 0 3px 12px rgba(15, 45, 78, .08) !important;
-            }
-            #menuPrinciapl.menu > ul {
-                display: flex !important;
-                align-items: center !important;
-                flex-wrap: nowrap !important;
-                justify-content: center !important;
-                gap: 0 !important;
-                float: none !important;
-                width: auto !important;
-                max-width: min(1480px, calc(100% - 100px)) !important;
-                margin: 0 auto !important;
-                padding: 0 !important;
-                box-sizing: border-box !important;
-            }
-            #menuPrinciapl.menu > ul > li {
-                display: block !important;
-                float: none !important;
-                flex: 0 0 auto !important;
-                width: auto !important;
-                margin: 0 !important;
-            }
-            #menuPrinciapl.menu > ul > li > a,
-            #menuPrinciapl.menu > a {
-                display: inline-flex !important;
-                align-items: center !important;
-                flex: 0 0 auto !important;
-                float: none !important;
-                width: auto !important;
-                min-width: 0 !important;
-                max-width: none !important;
-                margin: 0 !important;
-                min-height: 34px !important;
-                padding: 6px 8px !important;
-                box-sizing: border-box !important;
-                border-radius: 8px !important;
-                color: var(--pj-header-text) !important;
-                font-size: 13px !important;
-                font-weight: 650 !important;
-                line-height: 1.2 !important;
-                white-space: nowrap !important;
-                text-decoration: none !important;
-                transition: background-color .15s ease, color .15s ease !important;
-            }
-            #menuPrinciapl.menu > ul > li:hover > a,
-            #menuPrinciapl.menu > ul > li.active > a,
-            #menuPrinciapl.menu > a:hover {
-                background: #eaf2f9 !important;
-                color: #0b4f83 !important;
-            }
-            #menuPrinciapl.menu ul ul {
-                z-index: 1350 !important;
-                min-width: 220px !important;
-                max-width: min(320px, calc(100vw - 24px)) !important;
-                padding: 4px !important;
-                overflow: visible !important;
-                border: 1px solid var(--pj-header-border) !important;
-                border-radius: 10px !important;
-                background: var(--pj-header-surface) !important;
-                box-shadow: 0 14px 34px rgba(15, 45, 78, .18) !important;
-            }
-            #menuPrinciapl.menu ul ul li,
-            #menuPrinciapl.menu ul ul a {
-                float: none !important;
-                width: 100% !important;
-                box-sizing: border-box !important;
-                white-space: normal !important;
-            }
-            #menuPrinciapl.menu ul ul a {
-                display: block !important;
-                min-height: 32px !important;
-                padding: 6px 8px !important;
+            #cssmenu ul ul a, #menuPrinciapl.menu ul ul a {
+                padding: 7px 9px !important;
                 border-radius: 7px !important;
                 color: var(--pj-header-text) !important;
                 font-size: 13px !important;
+                line-height: 1.3 !important;
+                text-decoration: none !important;
+            }
+            #cssmenu ul ul li:hover > a, #menuPrinciapl.menu ul ul li:hover > a {
+                background: #eaf3fb !important;
+                color: #0b548b !important;
+            }
+            #cssmenu > ul > li:nth-last-child(-n+4) > ul,
+            #menuPrinciapl.menu > ul > li:nth-last-child(-n+4) > ul { right: 0 !important; left: auto !important; }
+            #cssmenu > ul > li:nth-last-child(-n+4) > ul ul,
+            #menuPrinciapl.menu > ul > li:nth-last-child(-n+4) > ul ul { right: 100% !important; left: auto !important; }
+            [data-pjc-custom-nav-shell="true"], #menuPrinciapl.menu {
+                position: relative !important;
+                z-index: 1100 !important;
+                overflow: visible !important;
+                border-bottom: 1px solid var(--pj-header-border) !important;
+                background: #f8fafc !important;
+                box-shadow: 0 3px 12px rgba(15, 45, 78, .08) !important;
+            }
+            #menuPrinciapl.menu > ul > li > a, #menuPrinciapl.menu > a {
+                padding: 6px 9px !important;
+                border-radius: 7px !important;
+                color: var(--pj-header-text) !important;
+                font-size: 14px !important;
                 line-height: 1.25 !important;
                 text-decoration: none !important;
             }
-            #menuPrinciapl.menu ul ul li:hover > a {
-                background: #eaf2f9 !important;
-                color: #0b4f83 !important;
+            #menuPrinciapl.menu > ul > li:hover > a,
+            #menuPrinciapl.menu > ul > li.active > a, #menuPrinciapl.menu > a:hover {
+                background: #eaf3fb !important;
+                color: #0b548b !important;
             }
-            #menuPrinciapl #cronometro {
-                position: absolute !important;
-                top: 50% !important;
-                right: 18px !important;
-                float: none !important;
-                margin: 0 !important;
-                transform: translateY(-50%) !important;
-                color: #52657a !important;
-                font-size: 11px !important;
-                font-weight: 700 !important;
-                white-space: nowrap !important;
-            }
+            #cronometro { color: #52657a !important; font-weight: 650 !important; }
             @media (max-width: 980px) {
-                #pgn_cabecalho { width: calc(100% - 20px) !important; gap: 10px !important; }
-                #cssmenu > ul { gap: 1px !important; }
-                #cssmenu > ul > li > a { min-width: 32px !important; padding: 6px !important; }
-                #menuPrinciapl.menu { padding: 4px 10px !important; }
-                #menuPrinciapl.menu > ul { justify-content: center !important; padding-right: 0 !important; }
-                #menuPrinciapl #cronometro { display: none !important; }
-            }
-            @media (max-width: 680px) {
-                #pgn_cabecalho { min-height: 56px !important; }
-                #img_logotj { max-width: 190px !important; }
-                #cssmenu > ul > li > a { min-width: 30px !important; min-height: 30px !important; }
-                #menuPrinciapl.menu > ul > li > a,
-                #menuPrinciapl.menu > a { padding: 6px 8px !important; font-size: 12px !important; }
+                #pgn_cabecalho { width: calc(100% - 16px) !important; }
+                #menuPrinciapl.menu > ul > li > a, #menuPrinciapl.menu > a {
+                    padding-left: 6px !important;
+                    padding-right: 6px !important;
+                    font-size: 13px !important;
+                }
             }
         ` : "";
 
@@ -2485,7 +2159,7 @@
                 }
             `
             : "";
-        const css = `${widthCss}\n${visibilityCss}\n${modernShellCss}\n${customHeaderCss}\n${topFontCss}`;
+        const css = `${visibilityCss}\n${modernShellCss}\n${stableCustomHeaderCss}\n${topFontCss}`;
 
         let style = document.getElementById("projudi-top-header-style");
         if (!style) {
@@ -3529,8 +3203,13 @@
                 : widthEnabled && settings.sideBackgroundEnabled && settings.sideBackground === "light"
                     ? "#f3f4f6"
                     : "";
+        const scaledFontPx = Math.round(14 * sanitizeFontScale(settings.fontScalePercent) / 100 * 10) / 10;
         const fontScaleCss = settings.fontScaleEnabled
-            ? `body { zoom: ${sanitizeFontScale(settings.fontScalePercent) / 100} !important; width: ${10000 / sanitizeFontScale(settings.fontScalePercent)}% !important; }`
+            ? `
+                body, table, td, th, label, input, select, textarea, button {
+                    font-size: ${scaledFontPx}px !important;
+                }
+            `
             : "";
         const googleFontCss = settings.googleFontEnabled && settings.googleFontFamily
             ? `
@@ -3582,7 +3261,11 @@
                 background: var(--pj-ui-canvas) !important;
                 color: var(--pj-ui-text) !important;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
-                line-height: 1.4 !important;
+                font-size: ${settings.fontScaleEnabled ? scaledFontPx : 14}px !important;
+                line-height: 1.48 !important;
+            }
+            table, td, th, label, input, select, textarea, button {
+                font-size: ${settings.fontScaleEnabled ? scaledFontPx : 14}px !important;
             }
             #divCorpo, .divCorpo, #Corpo, #conteudo, #conteudoPrincipal,
             #pgn_corpo, #Formulario, .Tela, .Corpo, .conteudo, #content,
@@ -3801,39 +3484,24 @@
         ` : "";
 
         const widthLayoutCss = widthEnabled ? `
-            html, body {
+            html {
                 width: 100% !important;
                 max-width: 100% !important;
                 margin: 0 !important;
                 box-sizing: border-box !important;
                 ${pageBg ? `background-color: ${pageBg} !important;` : ""}
             }
-            #divCorpo, .divCorpo, #Corpo, #conteudo, #conteudoPrincipal,
-            #pgn_corpo, .Tela, .Corpo, .conteudo, #content, #container,
-            #principal, .container, .wrapper, .main,
-            table[width="980"], table[width="1000"] {
+            body {
                 width: ${widthValue} !important;
                 max-width: ${widthValue} !important;
+                min-width: 0 !important;
                 margin-left: ${centeredMargins} !important;
                 margin-right: ${centeredMargins} !important;
                 box-sizing: border-box !important;
-            }
-            #Formulario, #divEditar, .divEditar, .VisualizaDados, #abas {
-                width: 100% !important;
-                max-width: 100% !important;
-                margin-left: 0 !important;
-                margin-right: 0 !important;
-                box-sizing: border-box !important;
+                overflow-x: auto !important;
             }
             table, .Tabela, .divTabela, .divTabela table {
                 max-width: 100% !important;
-            }
-            body > div[style*="width:"][style*="margin"],
-            body > table[style*="width:"] {
-                width: ${widthValue} !important;
-                max-width: ${widthValue} !important;
-                margin-left: ${centeredMargins} !important;
-                margin-right: ${centeredMargins} !important;
             }
         ` : "";
 
@@ -4821,30 +4489,6 @@
               const parsed = JSON.parse(raw);
               const cfg = deepMerge(deepClone(DEFAULTS), parsed);
 
-              if (parsed && parsed.textColors && typeof parsed.textColors === 'object') {
-                Object.keys(parsed.textColors).forEach((k) => {
-                  const val = parsed.textColors[k];
-                  cfg.textColorsMov[k] = val;
-                  if (!parsed.textColorsUser) cfg.textColorsUser[k] = val;
-                });
-              }
-
-              if (parsed && parsed.boldTypes && typeof parsed.boldTypes === 'object') {
-                Object.keys(parsed.boldTypes).forEach((k) => {
-                  const val = !!parsed.boldTypes[k];
-                  cfg.boldTypesMov[k] = val;
-                  if (!parsed.boldTypesUser) cfg.boldTypesUser[k] = val;
-                });
-              }
-
-              if (parsed && parsed.italicTypes && typeof parsed.italicTypes === 'object') {
-                Object.keys(parsed.italicTypes).forEach((k) => {
-                  const val = !!parsed.italicTypes[k];
-                  cfg.italicTypesMov[k] = val;
-                  if (!parsed.italicTypesUser) cfg.italicTypesUser[k] = val;
-                });
-              }
-
               if (!cfg.targets || typeof cfg.targets !== 'object') cfg.targets = { mov: {}, user: {} };
               if (!cfg.targets.mov) cfg.targets.mov = {};
               if (!cfg.targets.user) cfg.targets.user = {};
@@ -4945,8 +4589,27 @@
             }
 
             #${PANEL_OVERLAY_ID} .phm-title-wrap {
+              display: flex;
+              align-items: center;
+              gap: 11px;
               min-width: 0;
             }
+
+            #${PANEL_OVERLAY_ID} .phm-title-icon {
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              flex: 0 0 38px;
+              width: 38px;
+              height: 38px;
+              border: 1px solid rgba(255,255,255,.22);
+              border-radius: 11px;
+              background: rgba(255,255,255,.14);
+              color: #fff;
+              font-size: 17px;
+            }
+
+            #${PANEL_OVERLAY_ID} .phm-title-copy { min-width: 0; }
 
             #${PANEL_OVERLAY_ID} .phm-title {
               margin: 0;
@@ -5233,6 +4896,10 @@
             }
 
             #${PANEL_OVERLAY_ID} .phm-btn {
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              gap: 7px;
               min-width: 86px;
               padding: 8px 12px;
               border-radius: 8px;
@@ -5740,8 +5407,11 @@
               <div class="phm-head">
                 <div class="phm-head-bar">
                   <div class="phm-title-wrap">
-                    <h3 class="phm-title">Ajuste de Movimentações</h3>
-                    <p class="phm-subtitle">Configuração por coluna: Movimentação e Usuário</p>
+                    <span class="phm-title-icon"><i class="fa-solid fa-highlighter" aria-hidden="true"></i></span>
+                    <div class="phm-title-copy">
+                      <h3 class="phm-title">Destaques de movimentações</h3>
+                      <p class="phm-subtitle">Defina cores e ênfases por tipo, sem alterar o conteúdo do processo.</p>
+                    </div>
                   </div>
                   <button class="phm-close" data-phm-action="close" title="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
                 </div>
@@ -5757,9 +5427,9 @@
                 <div class="phm-accordion">${items}</div>
               </div>
               <div class="phm-foot">
-                <button class="phm-btn" data-phm-action="reset">Padrão</button>
-                <button class="phm-btn" data-phm-action="cancel">Fechar</button>
-                <button class="phm-btn phm-btn-save" data-phm-action="save">Salvar</button>
+                <button class="phm-btn" data-phm-action="reset"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Restaurar padrão</button>
+                <button class="phm-btn" data-phm-action="cancel"><i class="fa-solid fa-xmark" aria-hidden="true"></i> Fechar</button>
+                <button class="phm-btn phm-btn-save" data-phm-action="save"><i class="fa-solid fa-check" aria-hidden="true"></i> Salvar alterações</button>
               </div>
             `;
           }
