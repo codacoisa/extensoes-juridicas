@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      5.6
+// @version      5.7
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -659,33 +659,34 @@
 
             #projudi-wide-panel-overlay .pjc-body {
                 display: grid;
-                grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
-                grid-template-areas:
-                    "summary layout"
-                    "backup nav"
-                    ". process";
-                gap: 14px 16px;
+                grid-template-columns: 230px minmax(0, 1fr);
+                grid-template-areas: "summary content";
+                gap: 18px;
                 align-items: start;
             }
 
             #projudi-wide-panel-overlay .pjc-section--summary {
                 grid-area: summary;
+                position: sticky;
+                top: 0;
             }
 
-            #projudi-wide-panel-overlay .pjc-section--nav {
-                grid-area: nav;
-            }
-
+            #projudi-wide-panel-overlay .pjc-section--nav,
             #projudi-wide-panel-overlay .pjc-section--layout {
-                grid-area: layout;
+                grid-area: content;
             }
 
-            #projudi-wide-panel-overlay .pjc-section--process {
-                grid-area: process;
-            }
-
+            #projudi-wide-panel-overlay .pjc-section--process,
             #projudi-wide-panel-overlay .pjc-section--backup {
-                grid-area: backup;
+                grid-area: content;
+            }
+
+            #projudi-wide-panel-overlay [data-pjc-pane] {
+                display: none !important;
+            }
+
+            #projudi-wide-panel-overlay [data-pjc-pane][data-active="true"] {
+                display: flex !important;
             }
 
             #projudi-wide-panel-overlay .pjc-section {
@@ -752,38 +753,50 @@
             #projudi-wide-panel-overlay .pjc-summary-title {
                 margin: 4px 0 4px;
                 color: #12385f;
-                font-size: 24px;
+                font-size: 20px;
                 font-weight: 800;
                 line-height: 1.1;
             }
 
-            #projudi-wide-panel-overlay .pjc-summary-grid {
+            #projudi-wide-panel-overlay .pjc-category-nav {
                 display: grid;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 8px;
+                grid-template-columns: 1fr;
+                gap: 6px;
                 margin-top: 14px;
             }
 
-            #projudi-wide-panel-overlay .pjc-summary-pill {
+            #projudi-wide-panel-overlay .pjc-category-button {
+                display: flex;
+                align-items: center;
+                gap: 9px;
+                width: 100%;
                 border: 1px solid #dbe3ef;
                 border-radius: 8px;
                 background: #ffffff;
                 padding: 9px 10px;
-            }
-
-            #projudi-wide-panel-overlay .pjc-summary-pill strong {
-                display: block;
-                color: #12385f;
-                font-size: 15px;
-                line-height: 1.1;
-            }
-
-            #projudi-wide-panel-overlay .pjc-summary-pill span {
-                display: block;
-                margin-top: 3px;
-                color: #64748b;
-                font-size: 11px;
+                color: #334155;
+                font: inherit;
                 font-weight: 700;
+                text-align: left;
+                cursor: pointer;
+            }
+
+            #projudi-wide-panel-overlay .pjc-category-button:hover {
+                border-color: #9eb8d2;
+                background: #f1f6fb;
+            }
+
+            #projudi-wide-panel-overlay .pjc-category-button[data-active="true"] {
+                border-color: #1f5ca4;
+                background: #e8f1fa;
+                color: #12385f;
+                box-shadow: inset 3px 0 0 #1f5ca4;
+            }
+
+            #projudi-wide-panel-overlay .pjc-category-button i {
+                width: 16px;
+                color: #1f5ca4;
+                text-align: center;
             }
 
             #projudi-wide-panel-overlay .pjc-card-desc {
@@ -1055,10 +1068,13 @@
                     grid-template-columns: 1fr;
                     grid-template-areas:
                         "summary"
-                        "backup"
-                        "nav"
-                        "layout"
-                        "process";
+                        "content";
+                }
+                #projudi-wide-panel-overlay .pjc-section--summary {
+                    position: static;
+                }
+                #projudi-wide-panel-overlay .pjc-category-nav {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
                 }
                 #projudi-wide-panel-overlay #pj-panel-body {
                     padding: 12px !important;
@@ -1102,11 +1118,11 @@
                         <div class="pjc-card pjc-card--hero">
                             <p class="pjc-summary-title">Customizações do Projudi</p>
                             <p class="pjc-card-desc">Ajustes visuais, navegação, arquivos do processo e backup ficam reunidos nesta tela.</p>
-                            <div class="pjc-summary-grid">
-                                <div class="pjc-summary-pill"><strong>Visual</strong><span>Layout e fonte</span></div>
-                                <div class="pjc-summary-pill"><strong>Processo</strong><span>PDF e arquivos</span></div>
-                                <div class="pjc-summary-pill"><strong>Topo</strong><span>Cabeçalho</span></div>
-                                <div class="pjc-summary-pill"><strong>Backup</strong><span>Gist JSON</span></div>
+                            <div class="pjc-category-nav" aria-label="Categorias de configurações">
+                                <button type="button" class="pjc-category-button" data-pjc-section-target="layout" data-active="true"><i class="fa-solid fa-palette" aria-hidden="true"></i><span>Aparência</span></button>
+                                <button type="button" class="pjc-category-button" data-pjc-section-target="nav"><i class="fa-solid fa-compass" aria-hidden="true"></i><span>Navegação</span></button>
+                                <button type="button" class="pjc-category-button" data-pjc-section-target="process"><i class="fa-solid fa-folder-open" aria-hidden="true"></i><span>Processo</span></button>
+                                <button type="button" class="pjc-category-button" data-pjc-section-target="backup"><i class="fa-solid fa-cloud" aria-hidden="true"></i><span>Backup</span></button>
                             </div>
                         </div>
                         <label class="pjc-card pjc-card--soft">
@@ -1118,7 +1134,7 @@
                         </label>
                     </section>
 
-                    <section class="pjc-section pjc-section--nav">
+                    <section class="pjc-section pjc-section--nav" data-pjc-pane="nav" data-active="false">
                         <div class="pjc-section-title">Navegação e Cabeçalho</div>
                         <div class="pjc-stack">
                             <label class="pjc-card">
@@ -1159,7 +1175,7 @@
                         </div>
                     </section>
 
-                    <section class="pjc-section pjc-section--layout">
+                    <section class="pjc-section pjc-section--layout" data-pjc-pane="layout" data-active="true">
                         <div class="pjc-section-title">Layout e Aparência</div>
                         <div class="pjc-stack pjc-stack--two">
                             <label class="pjc-card">
@@ -1239,14 +1255,14 @@
                             <label class="pjc-card">
                                 <div class="pjc-card-body">
                                     <p class="pjc-card-title">Formulários modernos</p>
-                                    <p class="pjc-card-desc">Melhora campos, seletores, botões e o indicador de foco do teclado.</p>
+                                    <p class="pjc-card-desc">Melhora campos e o indicador de foco sem substituir botões nativos do Projudi.</p>
                                 </div>
                                 <input type="checkbox" id="pj-modern-forms" class="pjc-card-check">
                             </label>
                             <label class="pjc-card">
                                 <div class="pjc-card-body">
                                     <p class="pjc-card-title">Fixar abas do processo</p>
-                                    <p class="pjc-card-desc">Mantém as abas de eventos, índice e navegação visíveis durante a rolagem.</p>
+                                    <p class="pjc-card-desc">Mantém somente a barra de abas do processo visível durante a rolagem.</p>
                                 </div>
                                 <input type="checkbox" id="pj-sticky-actions" class="pjc-card-check">
                             </label>
@@ -1267,7 +1283,7 @@
                         </div>
                     </section>
 
-                    <section class="pjc-section pjc-section--process">
+                    <section class="pjc-section pjc-section--process" data-pjc-pane="process" data-active="false">
                         <div class="pjc-section-title">Arquivos do Processo</div>
                         <div class="pjc-stack pjc-stack--two">
                             <div class="pjc-card">
@@ -1308,7 +1324,7 @@
                         <p class="pjc-note">As alterações são salvas e aplicadas imediatamente.</p>
                     </section>
 
-                    <section class="pjc-section pjc-section--backup">
+                    <section class="pjc-section pjc-section--backup" data-pjc-pane="backup" data-active="false">
                         <div class="pjc-section-title">Backup remoto</div>
                         <div class="pjc-card pjc-card--soft">
                             <div class="pjc-card-body">
@@ -1423,6 +1439,8 @@
         const backupClear = panel.querySelector("#pj-backup-clear");
         const backupStatus = panel.querySelector("#pj-backup-status");
         const backupLast = panel.querySelector("#pj-backup-last");
+        const categoryButtons = [...panel.querySelectorAll("[data-pjc-section-target]")];
+        const categoryPanes = [...panel.querySelectorAll("[data-pjc-pane]")];
         const hasBackupUi = [
             backupEnabled,
             backupGistId,
@@ -1572,6 +1590,21 @@
         };
         updateBackupLast();
         syncPanelStates();
+        const showPanelSection = (sectionName) => {
+            categoryButtons.forEach((button) => {
+                const active = button.dataset.pjcSectionTarget === sectionName;
+                button.dataset.active = String(active);
+                button.setAttribute("aria-pressed", String(active));
+            });
+            categoryPanes.forEach((pane) => {
+                pane.dataset.active = String(pane.dataset.pjcPane === sectionName);
+            });
+            const body = panel.querySelector("#pj-panel-body");
+            if (body) body.scrollTop = 0;
+        };
+        categoryButtons.forEach((button) => {
+            button.addEventListener("click", () => showPanelSection(button.dataset.pjcSectionTarget));
+        });
         if (backupOpen && backupPopover) {
             backupOpen.addEventListener("click", () => {
                 backupPopover.dataset.open = "true";
@@ -2982,7 +3015,7 @@
         const modernTablesCss = settings.modernTablesEnabled ? `
             table.Tabela, table#Tabela, .Tabela table, .divTabela table,
             #TabelaArquivos, table.lista, table.listagem {
-                overflow: hidden !important;
+                overflow: ${settings.stickyTableHeadersEnabled ? "visible" : "hidden"} !important;
                 border: 1px solid #d7e1ec !important;
                 border-collapse: separate !important;
                 border-spacing: 0 !important;
@@ -3021,7 +3054,7 @@
         ` : "";
 
         const modernFormsCss = settings.modernFormsEnabled ? `
-            input:not([type="image"]):not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]),
+            input:not([type="image"]):not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
             select, textarea {
                 min-height: 32px !important;
                 padding: 5px 8px !important;
@@ -3033,38 +3066,23 @@
                 box-sizing: border-box !important;
             }
             textarea { min-height: 72px !important; }
-            input:not([type="image"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+            input:not([type="image"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):focus,
             select:focus, textarea:focus, button:focus-visible, a:focus-visible {
                 outline: 3px solid rgba(30, 103, 173, .22) !important;
                 outline-offset: 1px !important;
                 border-color: #1e67ad !important;
             }
-            button:not([title]), input[type="button"], input[type="submit"], input[type="reset"],
-            .botao:not([title]), .Botao:not([title]), .button:not([title]), .btn:not([title]) {
-                min-height: 32px !important;
-                padding: 6px 11px !important;
-                border: 1px solid #b9c8d8 !important;
-                border-radius: 7px !important;
-                background: linear-gradient(180deg, #fff, #f1f5f9) !important;
-                color: #173f69 !important;
-                font-weight: 600 !important;
-                cursor: pointer !important;
-                box-shadow: 0 1px 2px rgba(15, 45, 78, .08) !important;
-            }
-            button:not([title]):hover, input[type="button"]:hover, input[type="submit"]:hover,
-            input[type="reset"]:hover, .botao:not([title]):hover, .Botao:not([title]):hover,
-            .button:not([title]):hover, .btn:not([title]):hover {
-                border-color: #7fa3c5 !important;
-                background: #e8f1fa !important;
-            }
-            button:disabled, input:disabled, select:disabled, textarea:disabled {
+            input:disabled:not([type="button"]):not([type="submit"]):not([type="reset"]),
+            select:disabled, textarea:disabled {
                 cursor: not-allowed !important;
                 opacity: .62 !important;
             }
         ` : "";
 
         const stickyActionsCss = settings.stickyActionsEnabled ? `
-            #abas, .abas, .ui-tabs-nav, [role="tablist"] {
+            #abas > .ui-tabs-nav,
+            .abas > .ui-tabs-nav,
+            .ui-tabs > .ui-tabs-nav {
                 position: sticky !important;
                 top: 0 !important;
                 z-index: 900 !important;
@@ -3086,10 +3104,14 @@
             #TabelaArquivos > thead > tr > td,
             #tabListaProcesso > thead > tr > th,
             #tabListaProcesso > thead > tr > td,
-            tr.fundoCabecalhoTabela > th,
-            tr.fundoCabecalhoTabela > td,
-            tr.tituloTabela > th,
-            tr.tituloTabela > td {
+            .Tabela table > thead > tr > th,
+            .Tabela table > thead > tr > td,
+            .divTabela table > thead > tr > th,
+            .divTabela table > thead > tr > td,
+            table.lista > thead > tr > th,
+            table.lista > thead > tr > td,
+            table.listagem > thead > tr > th,
+            table.listagem > thead > tr > td {
                 position: sticky !important;
                 top: ${settings.stickyActionsEnabled ? "44px" : "0"} !important;
                 z-index: 850 !important;
