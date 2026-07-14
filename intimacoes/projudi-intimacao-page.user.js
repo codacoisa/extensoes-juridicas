@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      5.14
+// @version      5.15
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       louencosv (GPT)
@@ -1235,9 +1235,9 @@
         position: absolute;
         right: 0;
         bottom: 48px;
-        width: 260px;
+        width: 284px;
         border: 1px solid #d4dceb;
-        border-radius: 12px;
+        border-radius: 16px;
         background: #fff;
         box-shadow: 0 14px 28px rgba(15, 36, 62, 0.18);
         overflow: hidden;
@@ -1255,8 +1255,11 @@
         pointer-events: auto;
       }
       .pjip-actions-head {
-        padding: 10px 12px;
-        background: linear-gradient(180deg, #2f72b8 0%, #2b69aa 100%);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 14px;
+        background: linear-gradient(135deg, #0b315f 0%, #175a9d 60%, #2476bd 100%);
         color: #fff;
         font-size: 12px;
         font-weight: 700;
@@ -1290,11 +1293,19 @@
         gap: 6px;
       }
       .pjip-action-btn {
+        display: flex;
+        align-items: center;
+        gap: 10px;
         min-height: 32px;
-        padding: 0 10px;
+        padding: 9px 11px;
         text-align: left;
         font-size: 13px;
         font-weight: 600;
+      }
+      .pjip-action-btn i {
+        width: 18px;
+        color: #2b69aa;
+        text-align: center;
       }
       .pjip-action-btn:hover,
       .pjip-modal-btn:hover,
@@ -1307,7 +1318,7 @@
         height: 40px;
         border-radius: 999px;
         border: 1px solid #2b69aa;
-        background: #2b69aa;
+        background: linear-gradient(135deg, #175a9d, #2b78bd);
         color: #fff;
         cursor: pointer;
         font-size: 20px;
@@ -1356,7 +1367,7 @@
         flex-direction: column;
         background: #fff;
         border: 1px solid #cfdaea;
-        border-radius: 14px;
+        border-radius: 18px;
         box-shadow: 0 24px 54px rgba(8, 32, 61, .22);
         overflow: hidden;
       }
@@ -1365,9 +1376,28 @@
         align-items: center;
         justify-content: space-between;
         gap: 16px;
-        padding: 12px 16px;
+        padding: 16px 18px;
         color: #fff;
-        background: linear-gradient(180deg, #2f72b8 0%, #245f9d 100%);
+        background: linear-gradient(135deg, #0b315f 0%, #175a9d 55%, #2476bd 100%);
+      }
+      .pjip-modal-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+      .pjip-modal-brand-icon {
+        width: 40px;
+        height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        border: 1px solid rgba(255,255,255,.24);
+        border-radius: 12px;
+        background: rgba(255,255,255,.14);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.16);
+        font-size: 18px;
       }
       .pjip-modal-title {
         margin: 0;
@@ -1419,9 +1449,9 @@
         gap: 12px;
         padding: 14px;
         border: 1px solid #d6e0ef;
-        border-radius: 8px;
-        background: #fff;
-        box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+        border-radius: 12px;
+        background: linear-gradient(145deg, #ffffff 0%, #edf5ff 100%);
+        box-shadow: inset 4px 0 0 #2b70b7, 0 6px 18px rgba(15, 45, 78, .07);
       }
       .pjip-summary-head {
         display: flex;
@@ -1465,12 +1495,13 @@
         gap: 3px;
         padding: 10px 11px;
         border: 1px solid #d7e2f0;
-        border-radius: 8px;
+        border-radius: 11px;
         background: #fff;
         cursor: pointer;
         font: inherit;
         text-align: left;
       }
+      .pjip-stat-icon { color: #2c6baa; font-size: 14px; }
       .pjip-stat:hover {
         border-color: #9fbbe0;
         box-shadow: 0 3px 10px rgba(15, 54, 102, .08);
@@ -1517,6 +1548,9 @@
         gap: 10px;
       }
       .pjip-section-title {
+        display: flex;
+        align-items: center;
+        gap: 7px;
         margin: 0 0 0 2px;
         color: #334155;
         font-size: 11px;
@@ -1524,6 +1558,7 @@
         letter-spacing: .04em;
         text-transform: uppercase;
       }
+      .pjip-section-title i { color: #2467a8; font-size: 12px; }
       .pjip-toolbar,
       .pjip-deadline,
       .pjip-backup,
@@ -1533,9 +1568,16 @@
         gap: 10px;
         padding: 12px;
         border: 1px solid #d6e0ef;
-        border-radius: 8px;
+        border-radius: 12px;
         background: #fff;
         box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+      }
+      .pjip-toolbar:hover,
+      .pjip-deadline:hover,
+      .pjip-list-shell:hover,
+      .pjip-item:hover {
+        border-color: #c4d5e8;
+        box-shadow: 0 7px 20px rgba(15, 45, 78, .07);
       }
       .pjip-toolbar input[type="search"],
       .pjip-toolbar select,
@@ -1546,10 +1588,18 @@
         min-width: 0;
         box-sizing: border-box;
         border: 1px solid #c9d6e9;
-        border-radius: 6px;
+        border-radius: 9px;
         padding: 8px 9px;
         font: inherit;
         min-height: 40px;
+      }
+      .pjip-toolbar input:focus,
+      .pjip-toolbar select:focus,
+      .pjip-deadline input:focus,
+      .pjip-backup input:focus {
+        outline: 3px solid rgba(31, 105, 213, .16);
+        outline-offset: 1px;
+        border-color: #4b86c2;
       }
       .pjip-toolbar-grid {
         display: grid;
@@ -1590,7 +1640,7 @@
         gap: 8px;
         padding: 10px;
         border: 1px solid #dbe3ef;
-        border-radius: 8px;
+        border-radius: 11px;
         background: #f8fafc;
       }
       .pjip-deadline-card-title {
@@ -2045,13 +2095,13 @@
 
     const head = document.createElement('div');
     head.className = 'pjip-actions-head';
-    head.textContent = 'Ações de Intimações';
+    head.innerHTML = '<i class="fa-solid fa-bolt" aria-hidden="true"></i><span>Ações de Intimações</span>';
 
     const body = document.createElement('div');
     body.className = 'pjip-actions-body';
 
-    body.appendChild(buildMenuButton('Carregar todas as páginas', () => unifyPages(null)));
-    body.appendChild(buildMenuButton('Carregar 10 páginas', () => unifyPages(10)));
+    body.appendChild(buildMenuButton('Carregar todas as páginas', () => unifyPages(null), 'fa-solid fa-layer-group'));
+    body.appendChild(buildMenuButton('Carregar 10 páginas', () => unifyPages(10), 'fa-solid fa-table-list'));
     body.appendChild(
       buildMenuButton('Carregar X páginas', () => {
         const raw = window.prompt('Quantas páginas deseja carregar?', '20');
@@ -2062,15 +2112,15 @@
           return;
         }
         unifyPages(amount);
-      })
+      }, 'fa-solid fa-hashtag')
     );
 
     const divider = document.createElement('div');
     divider.className = 'pjip-actions-divider';
     body.appendChild(divider);
-    body.appendChild(buildMenuButton('Exportar CSV', () => exportCSV()));
-    body.appendChild(buildMenuButton('Exportar PDF', () => exportPDF()));
-    body.appendChild(buildMenuButton('Minhas intimações e prazos', () => openModal()));
+    body.appendChild(buildMenuButton('Exportar CSV', () => exportCSV(), 'fa-solid fa-file-csv'));
+    body.appendChild(buildMenuButton('Exportar PDF', () => exportPDF(), 'fa-solid fa-file-pdf'));
+    body.appendChild(buildMenuButton('Minhas intimações e prazos', () => openModal(), 'fa-solid fa-calendar-check'));
 
     panel.append(head, body);
 
@@ -2078,7 +2128,7 @@
     fab.id = IDS.actionsFab;
     fab.className = 'pjip-fab';
     fab.type = 'button';
-    fab.textContent = '+';
+    fab.innerHTML = '<i class="fa-solid fa-bell" aria-hidden="true"></i>';
     fab.setAttribute('aria-label', 'Abrir ações de intimações');
     fab.addEventListener('click', () => {
       state.menuOpen = !state.menuOpen;
@@ -2118,7 +2168,9 @@
     const fab = document.getElementById(IDS.actionsFab);
     if (!panel || !fab) return;
     panel.dataset.open = state.menuOpen ? 'true' : 'false';
-    fab.textContent = state.menuOpen ? '×' : '+';
+    fab.innerHTML = state.menuOpen
+      ? '<i class="fa-solid fa-xmark" aria-hidden="true"></i>'
+      : '<i class="fa-solid fa-bell" aria-hidden="true"></i>';
   }
 
   /**
@@ -2127,11 +2179,11 @@
    * @param {() => void} onClick
    * @returns {HTMLButtonElement}
    */
-  function buildMenuButton(label, onClick) {
+  function buildMenuButton(label, onClick, iconClass = 'fa-solid fa-bolt') {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'pjip-action-btn';
-    button.textContent = label;
+    button.innerHTML = `<i class="${iconClass}" aria-hidden="true"></i><span>${label}</span>`;
     button.addEventListener('click', onClick);
     return button;
   }
@@ -2168,7 +2220,7 @@
     }
 
     const button = /** @type {HTMLButtonElement | null} */ (document.activeElement instanceof HTMLButtonElement ? document.activeElement : null);
-    const originalText = button?.textContent || '';
+    const originalMarkup = button?.innerHTML || '';
     setBusyButtonLabel(button, 'Carregando...');
 
     try {
@@ -2222,7 +2274,7 @@
       logError('Falha ao unificar as paginas de intimacoes.', error);
       window.alert('Não foi possível unificar as páginas.');
     } finally {
-      restoreBusyButton(button, originalText);
+      restoreBusyButton(button, originalMarkup);
     }
   }
 
@@ -2242,10 +2294,10 @@
    * @param {HTMLButtonElement | null} button
    * @param {string} originalText
    */
-  function restoreBusyButton(button, originalText) {
+  function restoreBusyButton(button, originalMarkup) {
     if (!button) return;
     button.disabled = false;
-    if (originalText) button.textContent = originalText;
+    if (originalMarkup) button.innerHTML = originalMarkup;
   }
 
   /**
@@ -2636,18 +2688,24 @@
     head.className = 'pjip-modal-head';
 
     const headText = document.createElement('div');
+    headText.className = 'pjip-modal-brand';
+    const brandIcon = document.createElement('span');
+    brandIcon.className = 'pjip-modal-brand-icon';
+    brandIcon.innerHTML = '<i class="fa-solid fa-calendar-check" aria-hidden="true"></i>';
+    const brandText = document.createElement('div');
     const title = document.createElement('div');
     title.className = 'pjip-modal-title';
     title.textContent = 'Minhas Intimações';
     const subtitle = document.createElement('div');
     subtitle.className = 'pjip-modal-subtitle';
     subtitle.textContent = 'Triagem local com atualização sob demanda.';
-    headText.append(title, subtitle);
+    brandText.append(title, subtitle);
+    headText.append(brandIcon, brandText);
 
     const closeButton = document.createElement('button');
     closeButton.type = 'button';
     closeButton.className = 'pjip-modal-close';
-    closeButton.textContent = '×';
+    closeButton.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
     closeButton.title = 'Fechar';
     closeButton.addEventListener('click', () => closeModal());
 
@@ -2660,25 +2718,29 @@
         <section class="pjip-summary">
           <div class="pjip-summary-head">
             <div>
-              <div class="pjip-summary-kicker">Painel principal</div>
+              <div class="pjip-summary-kicker"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i> Painel principal</div>
               <div class="pjip-summary-title" data-role="summary-title"></div>
               <div class="pjip-summary-subtitle" data-role="summary-subtitle"></div>
             </div>
           </div>
           <div class="pjip-summary-grid">
             <button type="button" class="pjip-stat pjip-stat--late" data-role="quick-status" data-status="late">
+              <i class="fa-solid fa-triangle-exclamation pjip-stat-icon" aria-hidden="true"></i>
               <div class="pjip-stat-value" data-role="stat-late">0</div>
               <div class="pjip-stat-label">Vencidas</div>
             </button>
             <button type="button" class="pjip-stat pjip-stat--soon" data-role="quick-status" data-status="soon">
+              <i class="fa-solid fa-hourglass-half pjip-stat-icon" aria-hidden="true"></i>
               <div class="pjip-stat-value" data-role="stat-soon">0</div>
               <div class="pjip-stat-label">Vencendo</div>
             </button>
             <button type="button" class="pjip-stat pjip-stat--open" data-role="quick-status" data-status="open">
+              <i class="fa-solid fa-envelope-open-text pjip-stat-icon" aria-hidden="true"></i>
               <div class="pjip-stat-value" data-role="stat-open">0</div>
               <div class="pjip-stat-label">Abertas</div>
             </button>
             <button type="button" class="pjip-stat pjip-stat--done" data-role="quick-status" data-status="done">
+              <i class="fa-solid fa-circle-check pjip-stat-icon" aria-hidden="true"></i>
               <div class="pjip-stat-value" data-role="stat-done">0</div>
               <div class="pjip-stat-label">Concluídas</div>
             </button>
@@ -2689,7 +2751,7 @@
         </section>
         <section class="pjip-toolbar">
           <div class="pjip-section">
-            <div class="pjip-section-title">Filtros</div>
+            <div class="pjip-section-title"><i class="fa-solid fa-filter" aria-hidden="true"></i><span>Filtros</span></div>
             <div class="pjip-toolbar-grid">
               <div class="pjip-field">
                 <label for="pjip-modal-search">Busca</label>
@@ -2729,7 +2791,7 @@
       <section class="pjip-deadline" data-role="deadline-panel">
         <div class="pjip-deadline-head">
           <div class="pjip-section">
-            <div class="pjip-section-title">Prazos</div>
+            <div class="pjip-section-title"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i><span>Prazos</span></div>
             <div class="pjip-backup-meta">Filtros aplicados diretamente à tabela atual do Projudi.</div>
           </div>
           <div class="pjip-deadline-status" data-role="deadline-status"></div>
@@ -2740,7 +2802,7 @@
             <div class="pjip-deadline-card-desc">Exibe somente linhas cuja coluna de prazo corresponda à data escolhida.</div>
             <div class="pjip-deadline-row">
               <input data-role="deadline-date" type="date">
-              <button type="button" class="pjip-modal-btn pjip-modal-btn--primary" data-role="deadline-apply-date">Aplicar</button>
+              <button type="button" class="pjip-modal-btn pjip-modal-btn--primary" data-role="deadline-apply-date"><i class="fa-solid fa-check" aria-hidden="true"></i><span>Aplicar</span></button>
             </div>
           </div>
           <div class="pjip-deadline-card">
@@ -2749,15 +2811,15 @@
             <div class="pjip-deadline-row pjip-deadline-row--range">
               <input data-role="deadline-range-start" type="date">
               <input data-role="deadline-range-end" type="date">
-              <button type="button" class="pjip-modal-btn pjip-modal-btn--primary" data-role="deadline-apply-range">Aplicar período</button>
+              <button type="button" class="pjip-modal-btn pjip-modal-btn--primary" data-role="deadline-apply-range"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i><span>Aplicar período</span></button>
             </div>
           </div>
           <div class="pjip-deadline-card">
             <div class="pjip-deadline-card-title">Sem data limite</div>
             <div class="pjip-deadline-card-desc">Localiza linhas com prazo vazio ou preenchido apenas com traço.</div>
             <div class="pjip-deadline-row">
-              <button type="button" class="pjip-modal-btn pjip-modal-btn--primary" data-role="deadline-apply-missing">Localizar sem prazo</button>
-              <button type="button" class="pjip-modal-btn" data-role="deadline-clear">Limpar filtro</button>
+              <button type="button" class="pjip-modal-btn pjip-modal-btn--primary" data-role="deadline-apply-missing"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>Localizar sem prazo</span></button>
+              <button type="button" class="pjip-modal-btn" data-role="deadline-clear"><i class="fa-solid fa-filter-circle-xmark" aria-hidden="true"></i><span>Limpar filtro</span></button>
             </div>
           </div>
         </div>
@@ -2765,7 +2827,7 @@
       <section class="pjip-list-shell">
         <div class="pjip-list-head">
           <div>
-            <div class="pjip-section-title">Itens monitorados</div>
+            <div class="pjip-section-title"><i class="fa-solid fa-layer-group" aria-hidden="true"></i><span>Itens monitorados</span></div>
             <div class="pjip-list-meta" data-role="list-meta"></div>
           </div>
         </div>
@@ -2775,10 +2837,10 @@
         <section class="pjip-backup pjip-backup-dialog" data-role="backup-panel">
           <div class="pjip-backup-head">
             <div>
-              <div class="pjip-section-title">BACKUP REMOTO</div>
+              <div class="pjip-section-title"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Backup remoto</span></div>
               <div class="pjip-backup-meta">Use um único Gist no GitHub e um arquivo separado para este script.</div>
             </div>
-            <button type="button" class="pjip-backup-close" data-role="backup-close" title="Fechar">×</button>
+            <button type="button" class="pjip-backup-close" data-role="backup-close" title="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
           </div>
           <div class="pjip-backup-grid">
             <div class="pjip-backup-field">
@@ -2802,7 +2864,7 @@
             <button type="button" class="pjip-modal-btn pjip-backup-primary" data-role="backup-send"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Enviar backup</span></button>
             <button type="button" class="pjip-modal-btn pjip-backup-success" data-role="backup-restore"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span>Restaurar backup</span></button>
             <button type="button" class="pjip-modal-btn pjip-backup-danger" data-role="backup-clear"><i class="fa-solid fa-eraser" aria-hidden="true"></i><span>Limpar backup</span></button>
-            <button type="button" class="pjip-modal-btn" data-role="backup-close">Fechar</button>
+            <button type="button" class="pjip-modal-btn" data-role="backup-close"><i class="fa-solid fa-xmark" aria-hidden="true"></i><span>Fechar</span></button>
           </div>
           <div class="pjip-backup-meta" data-role="backup-status"></div>
           <div class="pjip-backup-meta" data-role="backup-last"></div>

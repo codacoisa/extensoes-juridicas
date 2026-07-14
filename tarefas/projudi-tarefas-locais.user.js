@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      3.15
+// @version      3.16
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -1665,7 +1665,7 @@
         height: min(88vh, 900px);
         background: #fff;
         color: #0f172a;
-        border-radius: 14px;
+        border-radius: 18px;
         border: 1px solid #dbe3ef;
         box-shadow: 0 24px 70px rgba(2, 6, 23, .30);
         overflow: hidden;
@@ -1676,9 +1676,28 @@
         line-height: 1.35;
       }
       #${ID_MANAGER_OVERLAY} .pjm-head {
-        padding: 14px 16px;
-        background: linear-gradient(135deg, #0f3e75, #1f5ca4);
+        padding: 16px 18px;
+        background: linear-gradient(135deg, #0b315f 0%, #175a9d 55%, #2476bd 100%);
         color: #fff;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-brand-icon {
+        width: 40px;
+        height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        border: 1px solid rgba(255,255,255,.24);
+        border-radius: 12px;
+        background: rgba(255,255,255,.14);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.16);
+        font-size: 18px;
       }
       #${ID_MANAGER_OVERLAY} .pjm-head-row {
         display: flex;
@@ -1718,10 +1737,20 @@
         display: grid;
         gap: 10px;
         border: 1px solid #dbe3ef;
-        border-radius: 8px;
+        border-radius: 12px;
         background: #fff;
         padding: 12px;
         box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-card:hover {
+        border-color: #c4d5e8;
+        box-shadow: 0 6px 18px rgba(15, 45, 78, .07);
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-card--summary {
+        overflow: hidden;
+        border-color: #c7d9ed;
+        background: linear-gradient(145deg, #ffffff 0%, #edf5ff 100%);
+        box-shadow: inset 4px 0 0 #2b70b7, 0 6px 18px rgba(15, 45, 78, .07);
       }
       #${ID_MANAGER_OVERLAY} .pjm-rail {
         grid-area: rail;
@@ -1741,7 +1770,7 @@
       }
       #${ID_MANAGER_OVERLAY} .pjm-input, #${ID_MANAGER_OVERLAY} .pjm-select {
         border: 1px solid #cbd5e1;
-        border-radius: 6px;
+        border-radius: 9px;
         padding: 8px 9px;
         background: #fff;
         color: #0f172a;
@@ -1752,6 +1781,12 @@
         width: 100%;
       }
       #${ID_MANAGER_OVERLAY} .pjm-select { min-width: 0; }
+      #${ID_MANAGER_OVERLAY} .pjm-input:focus,
+      #${ID_MANAGER_OVERLAY} .pjm-select:focus {
+        outline: 3px solid rgba(31, 105, 213, .16);
+        outline-offset: 1px;
+        border-color: #4b86c2;
+      }
       #${ID_MANAGER_OVERLAY} .pjm-btn {
         display: inline-flex;
         align-items: center;
@@ -1760,7 +1795,7 @@
         padding: 8px 11px;
         min-width: 0;
         min-height: 38px;
-        border-radius: 6px;
+        border-radius: 9px;
         border: 1px solid #cbd5e1;
         background: #fff;
         color: #1e293b;
@@ -1769,6 +1804,15 @@
         font-size: 13px;
         font-weight: 500;
         line-height: 1.2;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-btn:hover {
+        border-color: #8eaccb;
+        background: #edf5fc;
+        transform: translateY(-1px);
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-btn.primary:hover {
+        border-color: #174f86;
+        background: #174f86;
       }
       #${ID_MANAGER_OVERLAY} .pjm-btn.primary {
         border-color: #0f3e75;
@@ -1823,12 +1867,16 @@
       #${ID_MANAGER_OVERLAY} .pjm-stat--done { background: linear-gradient(180deg, #f3fbf5 0%, #e5f5e9 100%); }
       #${ID_MANAGER_OVERLAY} .pjm-stat--done .pjm-stat-value { color: #1d6f3b; }
       #${ID_MANAGER_OVERLAY} .pjm-section-title {
+        display: flex;
+        align-items: center;
+        gap: 7px;
         color: #334155;
         font-size: 11px;
         font-weight: 800;
         letter-spacing: .04em;
         text-transform: uppercase;
       }
+      #${ID_MANAGER_OVERLAY} .pjm-section-title i { color: #2467a8; font-size: 12px; }
       #${ID_MANAGER_OVERLAY} .pjm-field {
         display: grid;
         gap: 6px;
@@ -1857,9 +1905,13 @@
       #${ID_MANAGER_OVERLAY} .pjm-list { display: grid; gap: 8px; }
       #${ID_MANAGER_OVERLAY} .pjm-item {
         border: 1px solid #dbe3ef;
-        border-radius: 8px;
+        border-radius: 11px;
         background: #fff;
         padding: 12px 14px;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-item:hover {
+        border-color: #aac4df;
+        box-shadow: 0 7px 18px rgba(15, 45, 78, .08);
       }
       #${ID_MANAGER_OVERLAY} .pjm-item-top {
         display: grid;
@@ -2377,7 +2429,7 @@
   }
 
   function createHeaderActions({ onClose }) {
-    const closeBtn = el('button', { className: 'pj-todo-btn pj-todo-close-btn', title: 'Fechar' }, ['×']);
+    const closeBtn = el('button', { className: 'pj-todo-btn pj-todo-close-btn', title: 'Fechar' }, [faIcon('fa-solid fa-xmark')]);
 
     closeBtn.addEventListener('click', onClose);
 
@@ -2394,25 +2446,30 @@
     panel.innerHTML = `
       <div class="pjm-head">
         <div class="pjm-head-row">
-          <div>
-            <div class="pjm-title">Gestão de Tarefas</div>
-            <div class="pjm-sub">Ativas, concluídas e backup JSON</div>
+          <div class="pjm-brand">
+            <span class="pjm-brand-icon"><i class="fa-solid fa-list-check" aria-hidden="true"></i></span>
+            <div>
+              <div class="pjm-title">Gestão de Tarefas</div>
+              <div class="pjm-sub">Ativas, concluídas e backup JSON</div>
+            </div>
           </div>
-          <button type="button" class="pjm-close" data-pjm-action="close" title="Fechar">×</button>
+          <button type="button" class="pjm-close" data-pjm-action="close" title="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
         </div>
       </div>
       <div class="pjm-body">
         <aside class="pjm-rail">
-          <section class="pjm-card">
-            <div class="pjm-section-title">Painel principal</div>
+          <section class="pjm-card pjm-card--summary">
+            <div class="pjm-section-title"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i><span>Painel principal</span></div>
             <div class="pjm-summary-title" id="pjm-summary-title">0 tarefas em foco</div>
             <div class="pjm-summary-sub" id="pjm-summary-sub">Nenhuma tarefa carregada.</div>
             <div class="pjm-stat-grid">
               <button type="button" class="pjm-stat pjm-stat--active" data-pjm-filter="active">
+                <i class="fa-solid fa-bolt" aria-hidden="true"></i>
                 <span class="pjm-stat-value" id="pjm-stat-active">0</span>
                 <span class="pjm-stat-label">Ativas</span>
               </button>
               <button type="button" class="pjm-stat pjm-stat--done" data-pjm-filter="done">
+                <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
                 <span class="pjm-stat-value" id="pjm-stat-done">0</span>
                 <span class="pjm-stat-label">Concluídas</span>
               </button>
@@ -2420,7 +2477,7 @@
             <button class="pjm-btn pjm-backup-toggle" id="pjm-backup-open" type="button"><i class="fa-solid fa-cloud" aria-hidden="true"></i><span>Backup remoto</span></button>
           </section>
           <section class="pjm-card">
-            <div class="pjm-section-title">Filtros</div>
+            <div class="pjm-section-title"><i class="fa-solid fa-filter" aria-hidden="true"></i><span>Filtros</span></div>
             <div class="pjm-field">
               <label for="pjm-search">Busca</label>
               <input class="pjm-input" id="pjm-search" placeholder="Texto, tag ou CNJ" />
@@ -2443,7 +2500,7 @@
           <section class="pjm-card">
             <div class="pjm-list-head">
               <div>
-                <div class="pjm-section-title">Tarefas monitoradas</div>
+                <div class="pjm-section-title"><i class="fa-solid fa-layer-group" aria-hidden="true"></i><span>Tarefas monitoradas</span></div>
                 <div id="pjm-stats" class="pjm-item-meta"></div>
               </div>
             </div>
@@ -2454,10 +2511,10 @@
           <section class="pjm-card pjm-backup-dialog">
             <div class="pjm-list-head">
               <div>
-                <div class="pjm-section-title">BACKUP REMOTO</div>
+                <div class="pjm-section-title"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Backup remoto</span></div>
                 <div class="pjm-item-meta">Use um único Gist no GitHub e um arquivo separado para este script.</div>
               </div>
-              <button type="button" class="pjm-close" data-pjm-backup-close title="Fechar">×</button>
+              <button type="button" class="pjm-close" data-pjm-backup-close title="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
             <div class="pjm-backup-grid">
               <div class="pjm-field">
@@ -2481,7 +2538,7 @@
               <button class="pjm-btn pjm-backup-primary" id="pjm-backup-send"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Enviar backup</span></button>
               <button class="pjm-btn pjm-backup-success" id="pjm-backup-restore"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span>Restaurar backup</span></button>
               <button class="pjm-btn pjm-backup-danger" id="pjm-backup-clear"><i class="fa-solid fa-eraser" aria-hidden="true"></i><span>Limpar backup</span></button>
-              <button class="pjm-btn" type="button" data-pjm-backup-close>Fechar</button>
+              <button class="pjm-btn" type="button" data-pjm-backup-close><i class="fa-solid fa-xmark" aria-hidden="true"></i><span>Fechar</span></button>
             </div>
             <div class="pjm-item-meta" id="pjm-backup-status"></div>
             <div class="pjm-item-meta" id="pjm-backup-last">${formatLastBackupLabel(backupSettings.lastBackupAt)}</div>

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Anotações
 // @namespace    projudi-anotacoes-locais.user.js
-// @version      4.9
+// @version      5.0
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Adiciona Post-it local ao Projudi, com painel de notas, importação e exportação.
 // @author       lourencosv (GPT)
@@ -951,7 +951,7 @@
                 height: min(88vh, 900px);
                 background: #ffffff;
                 color: var(--pj-color-text);
-                border-radius: var(--pj-radius-lg);
+                border-radius: 18px;
                 box-shadow: 0 24px 70px rgba(2, 6, 23, .30);
                 border: 1px solid var(--pj-color-border);
                 overflow: hidden;
@@ -963,13 +963,34 @@
             }
 
             #pj-notes-panel .pj-panel-header {
-                padding: 14px 16px;
-                background: linear-gradient(135deg,#0f3e75,#1f5ca4);
+                padding: 16px 18px;
+                background: linear-gradient(135deg,#0b315f 0%,#175a9d 55%,#2476bd 100%);
                 color: #ffffff;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
                 gap: var(--pj-space-4);
+            }
+
+            #pj-notes-panel .pj-panel-brand {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                min-width: 0;
+            }
+
+            #pj-notes-panel .pj-panel-brand-icon {
+                width: 40px;
+                height: 40px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                flex: 0 0 auto;
+                border: 1px solid rgba(255,255,255,.24);
+                border-radius: 12px;
+                background: rgba(255,255,255,.14);
+                box-shadow: inset 0 1px 0 rgba(255,255,255,.16);
+                font-size: 18px;
             }
 
             #pj-notes-panel .pj-panel-title {
@@ -1042,10 +1063,33 @@
                 display: grid;
                 gap: 10px;
                 border: 1px solid #dbe3ef;
-                border-radius: 8px;
+                border-radius: 12px;
                 background: #ffffff;
                 padding: 12px;
                 box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+            }
+
+            #pj-notes-panel .pj-card:hover {
+                border-color: #c4d5e8;
+                box-shadow: 0 6px 18px rgba(15, 45, 78, .07);
+            }
+
+            #pj-notes-panel .pj-card--summary {
+                overflow: hidden;
+                border-color: #c7d9ed;
+                background: linear-gradient(145deg, #ffffff 0%, #edf5ff 100%);
+                box-shadow: inset 4px 0 0 #2b70b7, 0 6px 18px rgba(15, 45, 78, .07);
+            }
+
+            #pj-notes-panel .pj-section-title {
+                display: flex;
+                align-items: center;
+                gap: 7px;
+            }
+
+            #pj-notes-panel .pj-section-title i {
+                color: #2467a8;
+                font-size: 12px;
             }
 
             #pj-notes-panel .pj-summary-title {
@@ -1067,12 +1111,19 @@
                 min-width: 0;
                 min-height: 38px;
                 border: 1px solid var(--pj-color-border-control);
-                border-radius: 6px;
+                border-radius: 9px;
                 padding: 8px 9px;
                 background: #fff;
                 color: var(--pj-color-text);
                 font: inherit;
                 font-size: 13px;
+            }
+
+            #pj-notes-panel input:focus,
+            #pj-notes-panel textarea:focus {
+                outline: 3px solid rgba(31, 105, 213, .16);
+                outline-offset: 1px;
+                border-color: #4b86c2;
             }
 
             #pj-notes-panel .pj-note-list {
@@ -1083,12 +1134,18 @@
 
             #pj-notes-panel .pj-note-item {
                 border: 1px solid #dbe3ef;
-                border-radius: 8px;
+                border-radius: 11px;
                 background: #ffffff;
                 padding: 12px;
                 cursor: pointer;
                 position: relative;
                 box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+            }
+
+            #pj-notes-panel .pj-note-item:hover {
+                transform: translateY(-1px);
+                border-color: #aac4df;
+                box-shadow: 0 7px 18px rgba(15, 45, 78, .09);
             }
 
             #pj-notes-panel .pj-note-item[data-selected='1'] {
@@ -1273,7 +1330,7 @@
                 min-width: 0;
                 min-height: 38px;
                 padding: 8px 11px;
-                border-radius: 6px;
+                border-radius: 9px;
                 border: 1px solid var(--pj-color-border-control);
                 background: #ffffff;
                 color: #1e293b;
@@ -1285,6 +1342,12 @@
                 align-items: center;
                 justify-content: center;
                 gap: 6px;
+            }
+
+            #pj-notes-panel .pj-btn:hover {
+                border-color: #8eaccb;
+                background: #edf5fc;
+                transform: translateY(-1px);
             }
 
             #pj-notes-panel .pj-btn[data-variant='primary'] {
@@ -1799,13 +1862,19 @@
         header.className = 'pj-panel-header';
 
         const headerLeft = rootDoc.createElement('div');
+        headerLeft.className = 'pj-panel-brand';
+        const brandIcon = rootDoc.createElement('span');
+        brandIcon.className = 'pj-panel-brand-icon';
+        brandIcon.innerHTML = '<i class="fa-solid fa-note-sticky" aria-hidden="true"></i>';
+        const headerText = rootDoc.createElement('div');
         const title = rootDoc.createElement('div');
         title.className = 'pj-panel-title';
         title.textContent = 'Notas Locais do Projudi';
         const subtitle = rootDoc.createElement('div');
         subtitle.className = 'pj-panel-subtitle';
         subtitle.textContent = 'Gerencie suas notas salvas localmente com importação e exportação';
-        headerLeft.append(title, subtitle);
+        headerText.append(title, subtitle);
+        headerLeft.append(brandIcon, headerText);
 
         const closeBtn = rootDoc.createElement('button');
         closeBtn.className = 'pj-panel-close';
@@ -1825,11 +1894,11 @@
         right.className = 'pj-panel-right';
 
         const summaryCard = rootDoc.createElement('div');
-        summaryCard.className = 'pj-card';
+        summaryCard.className = 'pj-card pj-card--summary';
 
         const summaryKicker = rootDoc.createElement('div');
         summaryKicker.className = 'pj-section-title';
-        summaryKicker.textContent = 'Painel principal';
+        summaryKicker.innerHTML = '<i class="fa-solid fa-chart-pie" aria-hidden="true"></i><span>Painel principal</span>';
 
         const summaryTitle = rootDoc.createElement('div');
         summaryTitle.className = 'pj-summary-title';
@@ -1846,7 +1915,7 @@
 
         const filterTitle = rootDoc.createElement('div');
         filterTitle.className = 'pj-section-title';
-        filterTitle.textContent = 'Filtros';
+        filterTitle.innerHTML = '<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>Filtros</span>';
 
         const searchInput = rootDoc.createElement('input');
         searchInput.className = 'pj-filter-input';
@@ -1860,7 +1929,7 @@
 
         const leftHeader = rootDoc.createElement('div');
         leftHeader.className = 'pj-section-title';
-        leftHeader.textContent = 'Notas salvas';
+        leftHeader.innerHTML = '<i class="fa-solid fa-layer-group" aria-hidden="true"></i><span>Notas salvas</span>';
 
         const listContainer = rootDoc.createElement('div');
         listContainer.className = 'pj-note-list';
@@ -1918,7 +1987,7 @@
             const deleteBtn = rootDoc.createElement('button');
             deleteBtn.className = 'pj-note-delete';
             deleteBtn.type = 'button';
-            deleteBtn.textContent = 'Excluir';
+            deleteBtn.innerHTML = '<i class="fa-solid fa-trash-can" aria-hidden="true"></i><span>Excluir</span>';
 
             const inlinePreview = rootDoc.createElement('div');
             inlinePreview.className = 'pj-note-inline-preview';
@@ -1970,7 +2039,7 @@
 
         const toolsTitle = rootDoc.createElement('div');
         toolsTitle.className = 'pj-section-title';
-        toolsTitle.textContent = 'Importar / Exportar';
+        toolsTitle.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left" aria-hidden="true"></i><span>Importar / Exportar</span>';
 
         const info = rootDoc.createElement('div');
         info.className = 'pj-info';
@@ -2067,10 +2136,10 @@
         backupBox.innerHTML = `
             <div class="pj-backup-head">
                 <div>
-                    <div class="pj-section-title">BACKUP REMOTO</div>
+                    <div class="pj-section-title"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Backup remoto</span></div>
                     <div class="pj-summary-sub">Use um único Gist no GitHub e um arquivo separado para este script.</div>
                 </div>
-                <button class="pj-backup-close" type="button" data-pj-backup-close title="Fechar">×</button>
+                <button class="pj-backup-close" type="button" data-pj-backup-close title="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
             <div class="pj-backup-grid">
                 <div class="pj-backup-field">
@@ -2094,7 +2163,7 @@
                 <button id="pj-notes-backup-send" class="pj-btn" type="button" data-variant="primary"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Enviar backup</span></button>
                 <button id="pj-notes-backup-restore" class="pj-btn" type="button" data-variant="success"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span>Restaurar backup</span></button>
                 <button id="pj-notes-backup-clear" class="pj-btn pj-backup-danger" type="button" data-variant="secondary"><i class="fa-solid fa-eraser" aria-hidden="true"></i><span>Limpar backup</span></button>
-                <button class="pj-btn" type="button" data-variant="secondary" data-pj-backup-close>Fechar</button>
+                <button class="pj-btn" type="button" data-variant="secondary" data-pj-backup-close><i class="fa-solid fa-xmark" aria-hidden="true"></i><span>Fechar</span></button>
             </div>
             <div id="pj-notes-backup-status" class="pj-backup-status"></div>
             <div id="pj-notes-backup-last" class="pj-backup-status">${formatLastBackupLabel(backupSettings.lastBackupAt)}</div>

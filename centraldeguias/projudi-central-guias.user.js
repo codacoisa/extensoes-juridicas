@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Central de Guias
 // @namespace    projudi-central-guias.user.js
-// @version      3.14
+// @version      3.15
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Central local para sincronizar, acompanhar e alertar sobre guias de pagamento no Projudi.
 // @author       lourencosv (GPT)
@@ -990,7 +990,7 @@
       closeBtn.className = 'pj-guides-toast__close';
       closeBtn.title = 'Fechar aviso';
       closeBtn.setAttribute('aria-label', 'Fechar aviso');
-      closeBtn.textContent = '×';
+      closeBtn.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
       closeBtn.addEventListener('click', () => {
         el.classList.remove('is-visible');
         setTimeout(() => el.remove(), 180);
@@ -1279,7 +1279,7 @@
         overflow: hidden;
         display: flex;
         flex-direction: column;
-        border-radius: 16px;
+        border-radius: 18px;
         background: #fff;
         box-shadow: 0 28px 70px rgba(2, 11, 23, .35);
         border: 1px solid #d6e1eb;
@@ -1289,11 +1289,30 @@
         box-sizing: border-box;
       }
       .pj-guides-manager__header {
-        padding: 12px 16px;
+        padding: 16px 18px;
         margin-bottom: 0;
         border-bottom: 1px solid #e2eaf1;
-        background: linear-gradient(180deg, #1f5d97 0%, #1c527f 100%);
+        background: linear-gradient(135deg, #0b315f 0%, #175a9d 55%, #2476bd 100%);
         color: #fff;
+      }
+      .pj-guides-manager__brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+      .pj-guides-manager__brand-icon {
+        width: 40px;
+        height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        border: 1px solid rgba(255,255,255,.24);
+        border-radius: 12px;
+        background: rgba(255,255,255,.14);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.16);
+        font-size: 18px;
       }
       .pj-guides-manager__title { color: #fff; font-size: 17px; }
       .pj-guides-manager__body {
@@ -1317,6 +1336,9 @@
         margin-bottom: 0;
       }
       .pj-guides-manager__section-title {
+        display: flex;
+        align-items: center;
+        gap: 7px;
         margin: 0 0 0 2px;
         color: #334155;
         font-size: 12px;
@@ -1324,14 +1346,20 @@
         text-transform: uppercase;
         letter-spacing: .03em;
       }
+      .pj-guides-manager__section-title i { color: #2467a8; font-size: 12px; }
       .pj-guides-manager__toolbar {
         display: grid;
         gap: 10px;
         padding: 14px 16px;
         border: 1px solid #dbe3ef;
-        border-radius: 12px;
+        border-radius: 14px;
         background: #ffffff;
         box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+      }
+      .pj-guides-manager__toolbar:hover,
+      .pj-guides-manager__list-shell:hover {
+        border-color: #c4d5e8;
+        box-shadow: 0 7px 20px rgba(15, 45, 78, .07);
       }
       .pj-guides-manager__toolbar-head,
       .pj-guides-manager__list-head {
@@ -1377,8 +1405,8 @@
         padding: 14px 16px;
         border: 1px solid #dbe3ef;
         border-radius: 14px;
-        background: linear-gradient(135deg, #ffffff 0%, #f5f9ff 100%);
-        box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+        background: linear-gradient(145deg, #ffffff 0%, #edf5ff 100%);
+        box-shadow: inset 4px 0 0 #2b70b7, 0 6px 18px rgba(15, 45, 78, .07);
       }
       .pj-guides-manager__summary-head {
         display: flex;
@@ -1441,6 +1469,10 @@
         border: 1px solid #d9e4f0;
         border-radius: 12px;
         background: #fff;
+      }
+      .pj-guides-manager__stat-icon {
+        color: #2c6baa;
+        font-size: 14px;
       }
       .pj-guides-manager__stat[data-filter] {
         cursor: pointer;
@@ -2468,11 +2500,14 @@
     panel.className = 'pj-guides-manager';
     panel.innerHTML = `
       <div class="pj-guides-manager__header">
-        <div>
-          <div class="pj-guides-manager__title">Central de Guias</div>
-          <div class="pj-guides-inline__meta" style="color: rgba(255,255,255,.8)">Painel local para revisar guias abertas, vencidas e próximas do vencimento.</div>
+        <div class="pj-guides-manager__brand">
+          <span class="pj-guides-manager__brand-icon"><i class="fa-solid fa-file-invoice-dollar" aria-hidden="true"></i></span>
+          <div>
+            <div class="pj-guides-manager__title">Central de Guias</div>
+            <div class="pj-guides-inline__meta" style="color: rgba(255,255,255,.8)">Painel local para revisar guias abertas, vencidas e próximas do vencimento.</div>
+          </div>
         </div>
-        <button type="button" class="pj-guides-btn pj-guides-close-btn" aria-label="Fechar painel">&times;</button>
+        <button type="button" class="pj-guides-btn pj-guides-close-btn" aria-label="Fechar painel"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
       </div>
       <div class="pj-guides-manager__body">
         <section class="pj-guides-manager__section">
@@ -2482,7 +2517,7 @@
           <div class="pj-guides-manager__toolbar">
             <div class="pj-guides-manager__toolbar-head">
               <div class="pj-guides-manager__toolbar-title-wrap">
-                <div class="pj-guides-manager__toolbar-title">Filtros e navegação</div>
+                <div class="pj-guides-manager__toolbar-title"><i class="fa-solid fa-filter" aria-hidden="true"></i> Filtros e navegação</div>
                 <div id="pj-guides-manager-toolbar-meta" class="pj-guides-manager__toolbar-meta"></div>
               </div>
               <div class="pj-guides-manager__toolbar-actions">
@@ -2503,7 +2538,7 @@
                 <option value="untracked">Não acompanhados</option>
                 <option value="archived">Arquivados</option>
               </select>
-              <button type="button" id="pj-guides-clear-filters" class="pj-guides-btn pj-guides-btn--subtle">Limpar filtros</button>
+              <button type="button" id="pj-guides-clear-filters" class="pj-guides-btn pj-guides-btn--subtle"><i class="fa-solid fa-filter-circle-xmark" aria-hidden="true"></i><span>Limpar filtros</span></button>
             </div>
           </div>
         </section>
@@ -2511,7 +2546,7 @@
           <div class="pj-guides-manager__list-shell">
             <div class="pj-guides-manager__list-head">
               <div class="pj-guides-manager__toolbar-title-wrap">
-                <div class="pj-guides-manager__list-title">Guias monitoradas</div>
+                <div class="pj-guides-manager__list-title"><i class="fa-solid fa-table-list" aria-hidden="true"></i> Guias monitoradas</div>
                 <div id="pj-guides-manager-list-meta" class="pj-guides-manager__list-meta"></div>
               </div>
             </div>
@@ -2522,10 +2557,10 @@
           <section id="pj-guides-manager-backup" class="pj-guides-manager__backup">
             <div class="pj-guides-manager__backup-head">
               <div>
-                <div class="pj-guides-manager__backup-title">BACKUP REMOTO</div>
+                <div class="pj-guides-manager__backup-title"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i> Backup remoto</div>
                 <div class="pj-guides-manager__backup-desc">Use um único Gist no GitHub e um arquivo separado para este script.</div>
               </div>
-              <button type="button" class="pj-guides-manager__backup-close" data-pj-guides-backup-close title="Fechar">&times;</button>
+              <button type="button" class="pj-guides-manager__backup-close" data-pj-guides-backup-close title="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
             <div class="pj-guides-manager__backup-grid">
               <div class="pj-guides-manager__backup-field">
@@ -2551,7 +2586,7 @@
               <button type="button" id="pj-guides-backup-send" class="pj-guides-btn pj-guides-manager__backup-primary"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Enviar backup</span></button>
               <button type="button" id="pj-guides-backup-restore" class="pj-guides-btn pj-guides-manager__backup-success"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span>Restaurar backup</span></button>
               <button type="button" id="pj-guides-backup-clear" class="pj-guides-btn pj-guides-btn--danger"><i class="fa-solid fa-eraser" aria-hidden="true"></i><span>Limpar backup</span></button>
-              <button type="button" class="pj-guides-btn" data-pj-guides-backup-close>Fechar</button>
+              <button type="button" class="pj-guides-btn" data-pj-guides-backup-close><i class="fa-solid fa-xmark" aria-hidden="true"></i><span>Fechar</span></button>
             </div>
             <span id="pj-guides-backup-status" class="pj-guides-manager__backup-status"></span>
             <div id="pj-guides-backup-last" class="pj-guides-manager__backup-last"></div>
@@ -2627,26 +2662,31 @@
         </div>
         <div class="pj-guides-manager__stats">
           <div class="pj-guides-manager__stat${filter === 'all' ? ' pj-guides-manager__stat--active' : ''}" data-filter="all" title="Mostrar todas as guias">
+            <i class="fa-solid fa-folder-tree pj-guides-manager__stat-icon" aria-hidden="true"></i>
             <span class="pj-guides-manager__stat-label">Processos</span>
             <span class="pj-guides-manager__stat-value">${stats.processCount}</span>
             <span class="pj-guides-manager__stat-note">${stats.totalGuides} guia(s) monitorada(s)</span>
           </div>
           <div class="pj-guides-manager__stat${filter === 'open' ? ' pj-guides-manager__stat--active' : ''}" data-filter="open" title="Filtrar guias em aberto">
+            <i class="fa-solid fa-folder-open pj-guides-manager__stat-icon" aria-hidden="true"></i>
             <span class="pj-guides-manager__stat-label">Em aberto</span>
             <span class="pj-guides-manager__stat-value">${stats.open}</span>
             <span class="pj-guides-manager__stat-note">Pendências visíveis para trabalho</span>
           </div>
           <div class="pj-guides-manager__stat pj-guides-manager__stat--danger${filter === 'due_soon' ? ' pj-guides-manager__stat--active' : ''}" data-filter="due_soon" title="Filtrar guias críticas">
+            <i class="fa-solid fa-triangle-exclamation pj-guides-manager__stat-icon" aria-hidden="true"></i>
             <span class="pj-guides-manager__stat-label">Críticas</span>
             <span class="pj-guides-manager__stat-value">${stats.critical}</span>
             <span class="pj-guides-manager__stat-note">Vencidas, hoje ou em breve</span>
           </div>
           <div class="pj-guides-manager__stat pj-guides-manager__stat--ok">
+            <i class="fa-solid fa-circle-check pj-guides-manager__stat-icon" aria-hidden="true"></i>
             <span class="pj-guides-manager__stat-label">Avisadas</span>
             <span class="pj-guides-manager__stat-value">${stats.notified}</span>
             <span class="pj-guides-manager__stat-note">${stats.paid} guia(s) já baixadas</span>
           </div>
           <div class="pj-guides-manager__stat pj-guides-manager__stat--warn${filter === 'sync_stale' ? ' pj-guides-manager__stat--active' : ''}" data-filter="sync_stale" title="Listar processos sem atualização recente">
+            <i class="fa-solid fa-rotate pj-guides-manager__stat-icon" aria-hidden="true"></i>
             <span class="pj-guides-manager__stat-label">Sync pendente</span>
             <span class="pj-guides-manager__stat-value">${stats.staleProcesses}</span>
             <span class="pj-guides-manager__stat-note">Clique para ver os processos</span>

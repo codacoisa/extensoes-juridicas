@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      5.7
+// @version      5.8
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -635,6 +635,27 @@
                 flex: 0 0 auto !important;
             }
 
+            #projudi-wide-panel-overlay .pjc-panel-brand {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                min-width: 0;
+            }
+
+            #projudi-wide-panel-overlay .pjc-panel-brand-icon {
+                width: 40px;
+                height: 40px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                flex: 0 0 auto;
+                border: 1px solid rgba(255,255,255,.24);
+                border-radius: 12px;
+                background: rgba(255,255,255,.14);
+                box-shadow: inset 0 1px 0 rgba(255,255,255,.16);
+                font-size: 18px;
+            }
+
             #projudi-wide-panel-overlay #pj-panel-footer {
                 flex: 0 0 auto !important;
                 position: sticky !important;
@@ -1102,13 +1123,16 @@
         `;
 
         panel.innerHTML = `
-            <div id="pj-panel-header" style="padding:14px 16px; background:linear-gradient(135deg,#0f3e75,#1f5ca4); color:#fff;">
+            <div id="pj-panel-header" style="padding:16px 18px; background:linear-gradient(135deg,#0b315f 0%,#175a9d 55%,#2476bd 100%); color:#fff;">
                 <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                    <div>
-                        <div style="font-size:16px; font-weight:700; line-height:1.2;">Customizações</div>
-                        <div style="font-size:12px; opacity:.9; margin-top:2px;">Configurações visuais e de abertura de arquivos</div>
+                    <div class="pjc-panel-brand">
+                        <span class="pjc-panel-brand-icon"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i></span>
+                        <div>
+                            <div style="font-size:16px; font-weight:700; line-height:1.2;">Customizações</div>
+                            <div style="font-size:12px; opacity:.9; margin-top:2px;">Configurações visuais e de abertura de arquivos</div>
+                        </div>
                     </div>
-                    <button id="pj-close" style="border:0; background:rgba(255,255,255,.2); color:#fff; width:28px; height:28px; border-radius:999px; cursor:pointer; font-size:14px; font-weight:500; line-height:1.2;">×</button>
+                    <button id="pj-close" title="Fechar" style="border:0; background:rgba(255,255,255,.2); color:#fff; width:30px; height:30px; border-radius:999px; cursor:pointer; font-size:14px; font-weight:500; line-height:1.2;"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
                 </div>
             </div>
             <div id="pj-panel-body">
@@ -1344,7 +1368,7 @@
                                 <div class="pjc-section-title">BACKUP REMOTO</div>
                                 <p class="pjc-card-desc">Use um único Gist no GitHub e um arquivo separado para este script.</p>
                             </div>
-                            <button type="button" class="pjc-backup-close" data-pj-backup-close title="Fechar">×</button>
+                            <button type="button" class="pjc-backup-close" data-pj-backup-close title="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
                         </div>
                         <div class="pjc-stack">
                             <div class="pjc-backup-grid">
@@ -2234,7 +2258,7 @@
 
             const closeBtn = popupDockMenu.ownerDocument.createElement("button");
             closeBtn.type = "button";
-            closeBtn.textContent = "×";
+            closeBtn.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
             closeBtn.title = "Fechar arquivo";
             closeBtn.style.cssText = "width:30px; height:30px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; color:#334155; cursor:pointer;";
             closeBtn.addEventListener("click", () => state.close());
@@ -2630,7 +2654,7 @@
 
         const closeBtn = doc.createElement("button");
         closeBtn.type = "button";
-        closeBtn.textContent = "×";
+        closeBtn.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
         closeBtn.style.cssText = "width:28px; height:28px; border:0; border-radius:999px; background:rgba(255,255,255,.2); color:#fff; cursor:pointer;";
 
         actions.appendChild(minBtn);
@@ -5069,7 +5093,7 @@
                     <h3 class="phm-title">Ajuste de Movimentações</h3>
                     <p class="phm-subtitle">Configuração por coluna: Movimentação e Usuário</p>
                   </div>
-                  <button class="phm-close" data-phm-action="close" title="Fechar">×</button>
+                  <button class="phm-close" data-phm-action="close" title="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
                 </div>
               </div>
               <div class="phm-body">
