@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      6.0
+// @version      6.1
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -131,6 +131,7 @@
         googleFontFamily: "",
         sideBackgroundEnabled: false,
         sideBackground: "original",
+        customHeaderEnabled: false,
         modernVisualEnabled: false,
         modernTablesEnabled: false,
         modernFormsEnabled: false,
@@ -503,6 +504,7 @@
         next.googleFontFamily = sanitizeGoogleFontFamily(next.googleFontFamily);
         next.sideBackgroundEnabled = !!next.sideBackgroundEnabled;
         next.sideBackground = sanitizeSideBackground(next.sideBackground);
+        next.customHeaderEnabled = !!next.customHeaderEnabled;
         next.modernVisualEnabled = !!next.modernVisualEnabled;
         next.modernTablesEnabled = !!next.modernTablesEnabled;
         next.modernFormsEnabled = !!next.modernFormsEnabled;
@@ -1222,8 +1224,15 @@
                         <div class="pjc-stack pjc-stack--two">
                             <label class="pjc-card">
                                 <div class="pjc-card-body">
+                                    <p class="pjc-card-title">Cabeçalho personalizado</p>
+                                    <p class="pjc-card-desc">Substitui o layout visual do topo por uma barra moderna, responsiva e independente da largura da página.</p>
+                                </div>
+                                <input type="checkbox" id="pj-custom-header" class="pjc-card-check">
+                            </label>
+                            <label class="pjc-card">
+                                <div class="pjc-card-body">
                                     <p class="pjc-card-title">Largura da página</p>
-                                    <p class="pjc-card-desc">Define a largura do conteúdo e do topo entre 60% e 100%.</p>
+                                    <p class="pjc-card-desc">Define somente a largura do conteúdo entre 60% e 100%.</p>
                                 </div>
                                 <div class="pjc-inline-controls pjc-inline-controls--compact">
                                     <input type="number" id="pj-content-width" min="60" max="100" step="1" class="pjc-input pjc-input--number">
@@ -1466,6 +1475,7 @@
         const googleFont = panel.querySelector("#pj-google-font");
         const enableSideBg = panel.querySelector("#pj-enable-side-bg");
         const sideBg = panel.querySelector("#pj-side-bg");
+        const customHeader = panel.querySelector("#pj-custom-header");
         const modernVisual = panel.querySelector("#pj-modern-visual");
         const modernTables = panel.querySelector("#pj-modern-tables");
         const modernForms = panel.querySelector("#pj-modern-forms");
@@ -1524,6 +1534,7 @@
         googleFont.value = sanitizeGoogleFontFamily(settings.googleFontFamily);
         enableSideBg.checked = !!settings.sideBackgroundEnabled;
         sideBg.value = sanitizeSideBackground(settings.sideBackground);
+        customHeader.checked = !!settings.customHeaderEnabled;
         modernVisual.checked = !!settings.modernVisualEnabled;
         modernTables.checked = !!settings.modernTablesEnabled;
         modernForms.checked = !!settings.modernFormsEnabled;
@@ -1591,6 +1602,7 @@
             googleFont.value = sanitizeGoogleFontFamily(nextSettings.googleFontFamily);
             enableSideBg.checked = !!nextSettings.sideBackgroundEnabled;
             sideBg.value = sanitizeSideBackground(nextSettings.sideBackground);
+            customHeader.checked = !!nextSettings.customHeaderEnabled;
             modernVisual.checked = !!nextSettings.modernVisualEnabled;
             modernTables.checked = !!nextSettings.modernTablesEnabled;
             modernForms.checked = !!nextSettings.modernFormsEnabled;
@@ -1627,6 +1639,7 @@
                 googleFontFamily: sanitizeGoogleFontFamily(googleFont.value),
                 sideBackgroundEnabled: enableSideBg.checked,
                 sideBackground: sanitizeSideBackground(sideBg.value),
+                customHeaderEnabled: customHeader.checked,
                 modernVisualEnabled: modernVisual.checked,
                 modernTablesEnabled: modernTables.checked,
                 modernFormsEnabled: modernForms.checked,
@@ -1721,6 +1734,7 @@
             googleFont.value = DEFAULT_SETTINGS.googleFontFamily;
             enableSideBg.checked = DEFAULT_SETTINGS.sideBackgroundEnabled;
             sideBg.value = DEFAULT_SETTINGS.sideBackground;
+            customHeader.checked = DEFAULT_SETTINGS.customHeaderEnabled;
             modernVisual.checked = DEFAULT_SETTINGS.modernVisualEnabled;
             modernTables.checked = DEFAULT_SETTINGS.modernTablesEnabled;
             modernForms.checked = DEFAULT_SETTINGS.modernFormsEnabled;
@@ -1811,7 +1825,8 @@
                 : widthEnabled && settings.sideBackgroundEnabled && settings.sideBackground === "light"
                     ? "#f3f4f6"
                     : "";
-        const hasHeaderAdjust = settings.hideClock || settings.hideHeaderIcons || settings.modernVisualEnabled || settings.googleFontEnabled;
+        const hasHeaderAdjust = settings.hideClock || settings.hideHeaderIcons || settings.customHeaderEnabled ||
+            settings.modernVisualEnabled || settings.googleFontEnabled;
         if (!hasHeaderAdjust) {
             removeStyleFromDoc(document, "projudi-top-header-style");
             return;
@@ -1969,10 +1984,265 @@
             }
         ` : "";
 
+        const customHeaderCss = settings.customHeaderEnabled ? `
+            :root {
+                --pj-header-primary: #0b3b67;
+                --pj-header-secondary: #125b91;
+                --pj-header-surface: rgba(255, 255, 255, .98);
+                --pj-header-border: #d8e2ec;
+                --pj-header-text: #203247;
+                --pj-header-shadow: 0 8px 24px rgba(15, 45, 78, .14);
+            }
+            #Cabecalho {
+                position: relative !important;
+                z-index: 1200 !important;
+                width: 100% !important;
+                max-width: none !important;
+                height: auto !important;
+                min-height: 64px !important;
+                margin: 0 !important;
+                overflow: visible !important;
+                border: 0 !important;
+                border-bottom: 1px solid rgba(255, 255, 255, .16) !important;
+                background: linear-gradient(115deg, var(--pj-header-primary), var(--pj-header-secondary)) !important;
+                box-shadow: var(--pj-header-shadow) !important;
+            }
+            #pgn_cabecalho {
+                display: flex !important;
+                align-items: center !important;
+                gap: 18px !important;
+                width: min(1480px, calc(100% - 32px)) !important;
+                max-width: none !important;
+                min-height: 64px !important;
+                height: auto !important;
+                margin: 0 auto !important;
+                padding: 8px 4px !important;
+                box-sizing: border-box !important;
+                overflow: visible !important;
+            }
+            #img_logotj {
+                flex: 0 1 auto !important;
+                max-width: min(310px, 42vw) !important;
+                max-height: 46px !important;
+                height: auto !important;
+                margin: 0 !important;
+                object-fit: contain !important;
+            }
+            #pgn_cabecalho > div[style*="float: right"] {
+                display: ${settings.hideHeaderIcons ? "none" : "block"} !important;
+                float: none !important;
+                position: relative !important;
+                z-index: 1300 !important;
+                max-width: none !important;
+                margin: 0 0 0 auto !important;
+                white-space: nowrap !important;
+            }
+            #cssmenu {
+                float: none !important;
+                width: auto !important;
+                max-width: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: transparent !important;
+            }
+            #cssmenu > ul {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: flex-end !important;
+                gap: 4px !important;
+                float: none !important;
+                width: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: transparent !important;
+            }
+            #cssmenu > ul > li {
+                display: block !important;
+                float: none !important;
+                position: relative !important;
+                margin: 0 !important;
+            }
+            #cssmenu > ul > li > a {
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                min-width: 34px !important;
+                min-height: 34px !important;
+                padding: 7px 8px !important;
+                box-sizing: border-box !important;
+                border: 1px solid transparent !important;
+                border-radius: 9px !important;
+                color: #fff !important;
+                line-height: 1 !important;
+                text-decoration: none !important;
+                transition: background-color .16s ease, border-color .16s ease, transform .16s ease !important;
+            }
+            #cssmenu > ul > li:hover > a,
+            #cssmenu > ul > li.active > a {
+                border-color: rgba(255, 255, 255, .16) !important;
+                background: rgba(255, 255, 255, .14) !important;
+                transform: translateY(-1px) !important;
+            }
+            #cssmenu ul ul {
+                z-index: 1400 !important;
+                min-width: 260px !important;
+                max-width: min(420px, calc(100vw - 24px)) !important;
+                padding: 6px !important;
+                overflow: visible !important;
+                border: 1px solid var(--pj-header-border) !important;
+                border-radius: 12px !important;
+                background: var(--pj-header-surface) !important;
+                box-shadow: 0 16px 38px rgba(15, 45, 78, .2) !important;
+            }
+            #cssmenu ul ul li,
+            #cssmenu ul ul a {
+                float: none !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+                white-space: normal !important;
+            }
+            #cssmenu ul ul a {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                min-height: 38px !important;
+                padding: 8px 10px !important;
+                border-radius: 8px !important;
+                color: var(--pj-header-text) !important;
+                line-height: 1.25 !important;
+                text-decoration: none !important;
+            }
+            #cssmenu ul ul li:hover > a {
+                background: #eaf2f9 !important;
+                color: #0b4f83 !important;
+            }
+            #cssmenu > ul > li:nth-last-child(-n+4) > ul { right: 0 !important; left: auto !important; }
+            #cssmenu > ul > li:nth-last-child(-n+4) > ul ul { right: 100% !important; left: auto !important; }
+            body > div[style*="height:28px"][style*="background-color:#ccc"] {
+                position: relative !important;
+                z-index: 1100 !important;
+                height: auto !important;
+                min-height: 44px !important;
+                overflow: visible !important;
+                border: 0 !important;
+                border-bottom: 1px solid var(--pj-header-border) !important;
+                background: var(--pj-header-surface) !important;
+                box-shadow: 0 3px 12px rgba(15, 45, 78, .08) !important;
+            }
+            #menuPrinciapl.menu {
+                display: flex !important;
+                align-items: center !important;
+                width: 100% !important;
+                max-width: none !important;
+                min-height: 44px !important;
+                margin: 0 !important;
+                padding: 0 24px !important;
+                box-sizing: border-box !important;
+                overflow: visible !important;
+                background: var(--pj-header-surface) !important;
+            }
+            #menuPrinciapl.menu > ul {
+                display: flex !important;
+                align-items: center !important;
+                flex-wrap: wrap !important;
+                gap: 2px !important;
+                float: none !important;
+                width: min(1480px, 100%) !important;
+                margin: 0 auto !important;
+                padding: 0 92px 0 0 !important;
+                box-sizing: border-box !important;
+            }
+            #menuPrinciapl.menu > ul > li {
+                display: block !important;
+                float: none !important;
+                margin: 0 !important;
+            }
+            #menuPrinciapl.menu > ul > li > a,
+            #menuPrinciapl.menu > a {
+                display: inline-flex !important;
+                align-items: center !important;
+                min-height: 36px !important;
+                padding: 7px 10px !important;
+                box-sizing: border-box !important;
+                border-radius: 8px !important;
+                color: var(--pj-header-text) !important;
+                font-weight: 650 !important;
+                line-height: 1.2 !important;
+                text-decoration: none !important;
+                transition: background-color .15s ease, color .15s ease !important;
+            }
+            #menuPrinciapl.menu > ul > li:hover > a,
+            #menuPrinciapl.menu > ul > li.active > a,
+            #menuPrinciapl.menu > a:hover {
+                background: #eaf2f9 !important;
+                color: #0b4f83 !important;
+            }
+            #menuPrinciapl.menu ul ul {
+                z-index: 1350 !important;
+                min-width: 230px !important;
+                max-width: min(380px, calc(100vw - 24px)) !important;
+                padding: 6px !important;
+                overflow: visible !important;
+                border: 1px solid var(--pj-header-border) !important;
+                border-radius: 11px !important;
+                background: var(--pj-header-surface) !important;
+                box-shadow: 0 14px 34px rgba(15, 45, 78, .18) !important;
+            }
+            #menuPrinciapl.menu ul ul li,
+            #menuPrinciapl.menu ul ul a {
+                float: none !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+                white-space: normal !important;
+            }
+            #menuPrinciapl.menu ul ul a {
+                display: block !important;
+                min-height: 36px !important;
+                padding: 8px 10px !important;
+                border-radius: 7px !important;
+                color: var(--pj-header-text) !important;
+                line-height: 1.25 !important;
+                text-decoration: none !important;
+            }
+            #menuPrinciapl.menu ul ul li:hover > a {
+                background: #eaf2f9 !important;
+                color: #0b4f83 !important;
+            }
+            #menuPrinciapl #cronometro {
+                position: absolute !important;
+                top: 50% !important;
+                right: 24px !important;
+                float: none !important;
+                margin: 0 !important;
+                transform: translateY(-50%) !important;
+                color: #52657a !important;
+                font-size: 11px !important;
+                font-weight: 700 !important;
+                white-space: nowrap !important;
+            }
+            @media (max-width: 980px) {
+                #pgn_cabecalho { width: calc(100% - 20px) !important; gap: 10px !important; }
+                #cssmenu > ul { gap: 1px !important; }
+                #cssmenu > ul > li > a { min-width: 32px !important; padding: 6px !important; }
+                #menuPrinciapl.menu { padding: 4px 10px !important; }
+                #menuPrinciapl.menu > ul { justify-content: center !important; padding-right: 0 !important; }
+                #menuPrinciapl #cronometro { display: none !important; }
+            }
+            @media (max-width: 680px) {
+                #pgn_cabecalho { min-height: 56px !important; }
+                #img_logotj { max-width: 190px !important; }
+                #cssmenu > ul > li > a { min-width: 30px !important; min-height: 30px !important; }
+                #menuPrinciapl.menu > ul > li > a,
+                #menuPrinciapl.menu > a { padding: 6px 8px !important; font-size: 12px !important; }
+            }
+        ` : "";
+
         const topFontCss = settings.googleFontEnabled && settings.googleFontFamily
             ? `body, #Cabecalho, #cssmenu, #menuPrinciapl { font-family: "${settings.googleFontFamily}", sans-serif !important; }`
             : "";
-        const css = `${widthCss}\n${visibilityCss}\n${modernShellCss}\n${topFontCss}`;
+        const css = `${widthCss}\n${visibilityCss}\n${modernShellCss}\n${customHeaderCss}\n${topFontCss}`;
 
         let style = document.getElementById("projudi-top-header-style");
         if (!style) {
