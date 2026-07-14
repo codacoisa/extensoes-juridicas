@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      6.1
+// @version      6.2
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -2240,7 +2240,12 @@
         ` : "";
 
         const topFontCss = settings.googleFontEnabled && settings.googleFontFamily
-            ? `body, #Cabecalho, #cssmenu, #menuPrinciapl { font-family: "${settings.googleFontFamily}", sans-serif !important; }`
+            ? `
+                body,
+                body *:not(i):not([class^="fa"]):not([class*=" fa-"]):not([class*="icon"]):not([data-icon]):not([aria-hidden="true"]) {
+                    font-family: "${settings.googleFontFamily}", sans-serif !important;
+                }
+            `
             : "";
         const css = `${widthCss}\n${visibilityCss}\n${modernShellCss}\n${customHeaderCss}\n${topFontCss}`;
 
@@ -3290,7 +3295,12 @@
             ? `body { zoom: ${sanitizeFontScale(settings.fontScalePercent) / 100} !important; width: ${10000 / sanitizeFontScale(settings.fontScalePercent)}% !important; }`
             : "";
         const googleFontCss = settings.googleFontEnabled && settings.googleFontFamily
-            ? `body, input, select, textarea, button { font-family: "${settings.googleFontFamily}", sans-serif !important; }`
+            ? `
+                body,
+                body *:not(i):not([class^="fa"]):not([class*=" fa-"]):not([class*="icon"]):not([data-icon]):not([aria-hidden="true"]) {
+                    font-family: "${settings.googleFontFamily}", sans-serif !important;
+                }
+            `
             : "";
         const compactCss = settings.compactMode
             ? `
