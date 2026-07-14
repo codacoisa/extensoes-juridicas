@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      6.3
+// @version      6.4
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -269,6 +269,7 @@
         return !!(
             settings.enableIframeAutoHeight ||
             settings.autoHideHeader ||
+            settings.customHeaderEnabled ||
             settings.enableWidthAdjustments ||
             settings.compactMode ||
             settings.fontScaleEnabled ||
@@ -1955,7 +1956,55 @@
         document.addEventListener("keydown", escClose);
     }
 
+    function syncCustomHeaderStructure() {
+        const attrs = [
+            "data-pjc-custom-header-shell",
+            "data-pjc-custom-nav-shell",
+            "data-pjc-custom-nav",
+            "data-pjc-custom-header-spacer"
+        ];
+        attrs.forEach(attr => {
+            document.querySelectorAll(`[${attr}]`).forEach(node => node.removeAttribute(attr));
+        });
+        if (!settings.customHeaderEnabled || !document.body) return;
+
+        const header = document.getElementById("Cabecalho");
+        const nav = document.getElementById("menuPrinciapl");
+        if (header) header.setAttribute("data-pjc-custom-header-shell", "true");
+        if (nav) nav.setAttribute("data-pjc-custom-nav", "true");
+
+        const navShell = nav && nav.parentElement && nav.parentElement !== document.body
+            ? nav.parentElement
+            : nav;
+        if (navShell) navShell.setAttribute("data-pjc-custom-nav-shell", "true");
+
+        const topChild = node => {
+            let current = node;
+            while (current && current.parentElement !== document.body) current = current.parentElement;
+            return current;
+        };
+        const headerTop = topChild(header);
+        const navTop = topChild(navShell);
+        if (!headerTop || !navTop || headerTop === navTop) return;
+
+        const children = [...document.body.children];
+        const headerIndex = children.indexOf(headerTop);
+        const navIndex = children.indexOf(navTop);
+        if (headerIndex < 0 || navIndex <= headerIndex) return;
+
+        children.slice(headerIndex + 1, navIndex).forEach(node => {
+            if (!node || node.id === "Principal" || node.contains(nav)) return;
+            const text = String(node.textContent || "").replace(/\s+/g, "").trim();
+            const rect = node.getBoundingClientRect();
+            const hasInteractive = !!node.querySelector("a, button, input, select, textarea, iframe");
+            if (!text && !hasInteractive && rect.height > 0 && rect.height <= 90) {
+                node.setAttribute("data-pjc-custom-header-spacer", "true");
+            }
+        });
+    }
+
     function injectTopHeaderCSS() {
+        syncCustomHeaderStructure();
         syncGoogleFont(document);
         // A largura é uma preferência do conteúdo. Alterar a geometria do topo
         // quebra o menu nativo (que mistura floats, medidas fixas e submenus).
@@ -2139,6 +2188,22 @@
                 --pj-header-text: #203247;
                 --pj-header-shadow: 0 8px 24px rgba(15, 45, 78, .14);
             }
+            [data-pjc-custom-header-spacer="true"] {
+                display: none !important;
+            }
+            [data-pjc-custom-nav-shell="true"] {
+                position: relative !important;
+                z-index: 1100 !important;
+                width: 100% !important;
+                height: auto !important;
+                min-height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                border: 0 !important;
+                background: #fff !important;
+                box-shadow: 0 3px 12px rgba(15, 45, 78, .08) !important;
+            }
             #Cabecalho {
                 position: relative !important;
                 z-index: 1200 !important;
@@ -2166,15 +2231,24 @@
                 box-sizing: border-box !important;
                 overflow: visible !important;
             }
+            #pgn_cabecalho::before {
+                content: "⚖";
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                width: 34px !important;
+                height: 34px !important;
+                flex: 0 0 34px !important;
+                border: 1px solid rgba(255, 255, 255, .22) !important;
+                border-radius: 10px !important;
+                background: rgba(255, 255, 255, .12) !important;
+                color: #fff !important;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Symbol", sans-serif !important;
+                font-size: 18px !important;
+                line-height: 1 !important;
+            }
             #img_logotj {
-                flex: 0 0 auto !important;
-                min-width: 32px !important;
-                max-width: min(310px, 42vw) !important;
-                max-height: 38px !important;
-                width: auto !important;
-                height: auto !important;
-                margin: 0 !important;
-                object-fit: contain !important;
+                display: none !important;
             }
             #pgn_cabecalho > div[style*="float: right"] {
                 display: ${settings.hideHeaderIcons ? "none" : "block"} !important;
@@ -2282,6 +2356,7 @@
             #menuPrinciapl.menu {
                 display: flex !important;
                 align-items: center !important;
+                justify-content: center !important;
                 width: 100% !important;
                 max-width: none !important;
                 min-height: 42px !important;
@@ -2297,12 +2372,13 @@
                 display: flex !important;
                 align-items: center !important;
                 flex-wrap: nowrap !important;
-                justify-content: flex-start !important;
+                justify-content: center !important;
                 gap: 0 !important;
                 float: none !important;
-                width: min(1480px, 100%) !important;
+                width: auto !important;
+                max-width: min(1480px, calc(100% - 100px)) !important;
                 margin: 0 auto !important;
-                padding: 0 72px 0 0 !important;
+                padding: 0 !important;
                 box-sizing: border-box !important;
             }
             #menuPrinciapl.menu > ul > li {
@@ -2316,6 +2392,12 @@
             #menuPrinciapl.menu > a {
                 display: inline-flex !important;
                 align-items: center !important;
+                flex: 0 0 auto !important;
+                float: none !important;
+                width: auto !important;
+                min-width: 0 !important;
+                max-width: none !important;
+                margin: 0 !important;
                 min-height: 34px !important;
                 padding: 6px 8px !important;
                 box-sizing: border-box !important;
@@ -3862,6 +3944,7 @@
         requestAnimationFrame(() => {
             topDomWorkScheduled = false;
             safeRun("Falha ao sincronizar observers do topo.", () => {
+                injectTopHeaderCSS();
                 bindIframeLoadListener();
                 setupHeaderAutoHide();
                 ajustarAlturaIframe();
