@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Anotações
 // @namespace    projudi-anotacoes-locais.user.js
-// @version      5.0
+// @version      5.1
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Adiciona Post-it local ao Projudi, com painel de notas, importação e exportação.
 // @author       lourencosv (GPT)
@@ -128,6 +128,31 @@
     })();
     const BACKUP_SETTINGS_KEY = 'projudi_notes_backup_settings_v1';
     const BACKUP_SCHEMA = 'projudi-anotacoes-locais-backup-v1';
+    function persistentGet(key, fallback) {
+        try {
+            const value = typeof GM_getValue === 'function' ? GM_getValue(key, undefined) : undefined;
+            if (value !== undefined) {
+                localStorage.setItem(key, JSON.stringify(value));
+                return value;
+            }
+            const raw = localStorage.getItem(key);
+            return raw === null ? fallback : JSON.parse(raw);
+        } catch (_) { return fallback; }
+    }
+    function persistentSet(key, value) {
+        try { if (typeof GM_setValue === 'function') GM_setValue(key, value); } catch (_) {}
+        try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
+    }
+    function persistentDelete(key) {
+        try { if (typeof GM_deleteValue === 'function') GM_deleteValue(key); } catch (_) {}
+        try { localStorage.removeItem(key); } catch (_) {}
+    }
+    function persistentList() {
+        const keys = new Set();
+        try { if (typeof GM_listValues === 'function') GM_listValues().forEach(key => keys.add(key)); } catch (_) {}
+        try { for (let i = 0; i < localStorage.length; i += 1) keys.add(localStorage.key(i)); } catch (_) {}
+        return [...keys].filter(Boolean);
+    }
     const LOG_PREFIX = '[Anotações Locais]';
     const PROCESS_CONTEXT_SELECTOR = [
         '#span_proc_numero',
@@ -289,7 +314,7 @@
 
     function getNoteColorMeta(noteKey) {
         const fallback = getDefaultNoteColor();
-        const raw = GM_getValue(metaStorageKey(noteKey), '');
+const raw = persistentGet(metaStorageKey(noteKey), '');
         if (!raw) return fallback;
         try {
             const parsed = JSON.parse(raw);
@@ -304,11 +329,11 @@
     function saveNoteColorMeta(noteKey, colorId) {
         const found = NOTE_COLORS.find(c => c.id === colorId);
         if (!found) return;
-        GM_setValue(metaStorageKey(noteKey), JSON.stringify({ colorId: found.id }));
+persistentSet(metaStorageKey(noteKey), JSON.stringify({ colorId: found.id }));
     }
 
     function deleteNoteColorMeta(noteKey) {
-        GM_deleteValue(metaStorageKey(noteKey));
+persistentDelete(metaStorageKey(noteKey));
     }
 
     function normalizeBackupSettings(value) {
@@ -333,14 +358,14 @@
     function loadBackupSettings() {
         return safeRun(
             'Falha ao carregar configuração de backup; usando padrão.',
-            () => normalizeBackupSettings(GM_getValue(BACKUP_SETTINGS_KEY, DEFAULT_BACKUP_SETTINGS)),
+() => normalizeBackupSettings(persistentGet(BACKUP_SETTINGS_KEY, DEFAULT_BACKUP_SETTINGS)),
             normalizeBackupSettings(DEFAULT_BACKUP_SETTINGS)
         );
     }
 
     function saveBackupSettings(next) {
         const normalized = normalizeBackupSettings(next);
-        safeRun('Falha ao salvar configuração de backup.', () => GM_setValue(BACKUP_SETTINGS_KEY, normalized));
+safeRun('Falha ao salvar configuração de backup.', () => persistentSet(BACKUP_SETTINGS_KEY, normalized));
         return normalized;
     }
 
@@ -382,7 +407,7 @@
         notes.forEach(item => {
             if (!item || typeof item !== 'object') return;
             if (!item.key || !String(item.key).startsWith(NOTE_PREFIX)) return;
-            GM_setValue(item.key, String(item.html || ''));
+persistentSet(item.key, String(item.html || ''));
             if (item.colorId) saveNoteColorMeta(item.key, String(item.colorId));
             count++;
         });
@@ -552,7 +577,7 @@
         if (!ctx) return null;
 
         let key = storageKey(ctx);
-        let html = GM_getValue(key, null);
+let html = persistentGet(key, null);
 
         if (html === null || typeof html === 'undefined') {
             const prefixForCnj = `${NOTE_PREFIX}${ctx.key}::`;
@@ -562,14 +587,14 @@
             }
 
             if (!fallbackKey) {
-                const keys = typeof GM_listValues === 'function' ? GM_listValues() : [];
+const keys = persistentList();
                 fallbackKey = keys.find(k => k.startsWith(prefixForCnj)) || null;
                 state.fallbackNoteKeyByCnjKey[ctx.key] = fallbackKey;
             }
 
             if (fallbackKey) {
                 key = fallbackKey;
-                html = GM_getValue(key, '');
+html = persistentGet(key, '');
             } else {
                 html = '';
             }
@@ -1774,7 +1799,7 @@
         editor.innerHTML = saved;
 
         editor.addEventListener('input', () => {
-            GM_setValue(key, editor.innerHTML);
+persistentSet(key, editor.innerHTML);
             invalidateNotesCaches();
             updateNoteIndicator(true);
             scheduleAutoBackup();
@@ -1792,7 +1817,7 @@
 
         delBtn.addEventListener('click', () => {
             if (!window.confirm('Excluir esta nota?')) return;
-            GM_deleteValue(key);
+persistentDelete(key);
             deleteNoteColorMeta(key);
             invalidateNotesCaches();
             note.remove();
@@ -1805,7 +1830,7 @@
     }
 
     function getAllNotes() {
-        const keys = typeof GM_listValues === 'function' ? GM_listValues() : [];
+const keys = persistentList();
         const signature = keys.filter(key => key.startsWith(NOTE_PREFIX)).sort().join('|');
         if (state.notesListCache.signature === signature) {
             return state.notesListCache.notes.map(note => ({ ...note }));
@@ -1824,7 +1849,7 @@
             const subkey = parts.slice(1).join('::');
             const cnj = ctxKey.replace(/^cnj_/, '');
 
-            const html = GM_getValue(key, '');
+const html = persistentGet(key, '');
             if (!html || !html.replace(/<[^>]*>/g, '').replace(/\s+/g, '').trim()) {
                 return;
             }
@@ -2002,7 +2027,7 @@
                 e.stopPropagation();
                 if (!rootWin.confirm('Excluir esta nota?')) return;
 
-                GM_deleteValue(n.key);
+persistentDelete(n.key);
                 deleteNoteColorMeta(n.key);
                 invalidateNotesCaches();
                 const removedIndex = notes.findIndex(note => note.key === n.key);

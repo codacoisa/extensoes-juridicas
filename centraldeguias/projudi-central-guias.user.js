@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Central de Guias
 // @namespace    projudi-central-guias.user.js
-// @version      3.15
+// @version      3.16
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Central local para sincronizar, acompanhar e alertar sobre guias de pagamento no Projudi.
 // @author       lourencosv (GPT)
@@ -172,7 +172,13 @@
   const storage = {
     get(key, fallback) {
       try {
-        if (typeof GM_getValue === 'function') return GM_getValue(key, fallback);
+        if (typeof GM_getValue === 'function') {
+          const value = GM_getValue(key, undefined);
+          if (value !== undefined) {
+            localStorage.setItem(key, JSON.stringify(value));
+            return value;
+          }
+        }
       } catch (_) {}
       try {
         const raw = localStorage.getItem(key);
@@ -184,7 +190,7 @@
     },
     set(key, value) {
       try {
-        if (typeof GM_setValue === 'function') return GM_setValue(key, value);
+        if (typeof GM_setValue === 'function') GM_setValue(key, value);
       } catch (_) {}
       localStorage.setItem(key, JSON.stringify(value));
     }

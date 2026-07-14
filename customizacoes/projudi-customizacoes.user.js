@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      5.9
+// @version      6.0
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -127,6 +127,8 @@
         compactMode: false,
         fontScaleEnabled: false,
         fontScalePercent: 100,
+        googleFontEnabled: false,
+        googleFontFamily: "",
         sideBackgroundEnabled: false,
         sideBackground: "original",
         modernVisualEnabled: false,
@@ -325,9 +327,13 @@
         try {
             if (typeof GM_getValue === "function") {
                 const raw = GM_getValue(STORAGE_KEY, "");
-                if (!raw) return normalizeSettings(DEFAULT_SETTINGS);
-                return normalizeSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) });
+                if (raw) {
+                    localStorage.setItem(STORAGE_KEY, raw);
+                    return normalizeSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) });
+                }
             }
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) return normalizeSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) });
         } catch (error) {
             logWarn("Falha ao carregar configurações; usando padrão.", error);
         }
@@ -343,6 +349,7 @@
                 logError("Falha ao salvar configurações.", error);
             }
         }
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch (_) {}
     }
 
     function normalizeBackupSettings(value) {
@@ -360,9 +367,13 @@
         try {
             if (typeof GM_getValue === "function") {
                 const raw = GM_getValue(BACKUP_STORAGE_KEY, "");
-                if (!raw) return normalizeBackupSettings(DEFAULT_BACKUP_SETTINGS);
-                return normalizeBackupSettings(JSON.parse(raw));
+                if (raw) {
+                    localStorage.setItem(BACKUP_STORAGE_KEY, raw);
+                    return normalizeBackupSettings(JSON.parse(raw));
+                }
             }
+            const raw = localStorage.getItem(BACKUP_STORAGE_KEY);
+            if (raw) return normalizeBackupSettings(JSON.parse(raw));
         } catch (error) {
             logWarn("Falha ao carregar configuração de backup; usando padrão.", error);
         }
@@ -378,6 +389,7 @@
                 logError("Falha ao salvar configuração de backup.", error);
             }
         }
+        try { localStorage.setItem(BACKUP_STORAGE_KEY, JSON.stringify(normalized)); } catch (_) {}
         return normalized;
     }
 
@@ -487,6 +499,8 @@
         next.compactMode = !!next.compactMode;
         next.fontScaleEnabled = !!next.fontScaleEnabled;
         next.fontScalePercent = sanitizeFontScale(next.fontScalePercent);
+        next.googleFontEnabled = !!next.googleFontEnabled;
+        next.googleFontFamily = sanitizeGoogleFontFamily(next.googleFontFamily);
         next.sideBackgroundEnabled = !!next.sideBackgroundEnabled;
         next.sideBackground = sanitizeSideBackground(next.sideBackground);
         next.modernVisualEnabled = !!next.modernVisualEnabled;
@@ -519,7 +533,11 @@
     function sanitizeFontScale(value) {
         const n = Number(value);
         if (!Number.isFinite(n)) return DEFAULT_SETTINGS.fontScalePercent;
-        return [90, 100, 110].includes(n) ? n : DEFAULT_SETTINGS.fontScalePercent;
+        return Math.max(80, Math.min(130, Math.round(n / 5) * 5));
+    }
+
+    function sanitizeGoogleFontFamily(value) {
+        return String(value || "").replace(/[^\p{L}\p{N} _-]/gu, "").trim().slice(0, 80);
     }
 
     function sanitizeSideBackground(value) {
@@ -1255,11 +1273,24 @@
                                 </div>
                                 <div class="pjc-inline-controls">
                                     <select id="pj-font-scale" class="pjc-select">
+                                        <option value="80">80%</option>
                                         <option value="90">90%</option>
                                         <option value="100">100%</option>
                                         <option value="110">110%</option>
+                                        <option value="120">120%</option>
+                                        <option value="130">130%</option>
                                     </select>
                                     <input type="checkbox" id="pj-enable-font-scale" title="Ativar ajuste de fonte" class="pjc-card-check">
+                                </div>
+                            </label>
+                            <label class="pjc-card">
+                                <div class="pjc-card-body">
+                                    <p class="pjc-card-title">Fonte do Google Fonts</p>
+                                    <p class="pjc-card-desc">Informe qualquer família, por exemplo: Inter, Lato ou Source Sans 3.</p>
+                                </div>
+                                <div class="pjc-inline-controls">
+                                    <input id="pj-google-font" class="pjc-select" type="text" placeholder="Inter" maxlength="80">
+                                    <input type="checkbox" id="pj-enable-google-font" title="Ativar fonte personalizada" class="pjc-card-check">
                                 </div>
                             </label>
                             <label class="pjc-card">
@@ -1431,6 +1462,8 @@
         const compactMode = panel.querySelector("#pj-compact-mode");
         const enableFontScale = panel.querySelector("#pj-enable-font-scale");
         const fontScale = panel.querySelector("#pj-font-scale");
+        const enableGoogleFont = panel.querySelector("#pj-enable-google-font");
+        const googleFont = panel.querySelector("#pj-google-font");
         const enableSideBg = panel.querySelector("#pj-enable-side-bg");
         const sideBg = panel.querySelector("#pj-side-bg");
         const modernVisual = panel.querySelector("#pj-modern-visual");
@@ -1487,6 +1520,8 @@
         compactMode.checked = !!settings.compactMode;
         enableFontScale.checked = !!settings.fontScaleEnabled;
         fontScale.value = String(sanitizeFontScale(settings.fontScalePercent));
+        enableGoogleFont.checked = !!settings.googleFontEnabled;
+        googleFont.value = sanitizeGoogleFontFamily(settings.googleFontFamily);
         enableSideBg.checked = !!settings.sideBackgroundEnabled;
         sideBg.value = sanitizeSideBackground(settings.sideBackground);
         modernVisual.checked = !!settings.modernVisualEnabled;
@@ -1514,6 +1549,7 @@
         const syncPanelStates = () => {
             contentW.disabled = !enableWidth.checked;
             fontScale.disabled = !enableFontScale.checked;
+            googleFont.disabled = !enableGoogleFont.checked;
             sideBg.disabled = !enableSideBg.checked;
             standalone.disabled = !enableWidth.checked;
             popupSize.disabled = !processPopup.checked;
@@ -1551,6 +1587,8 @@
             compactMode.checked = !!nextSettings.compactMode;
             enableFontScale.checked = !!nextSettings.fontScaleEnabled;
             fontScale.value = String(sanitizeFontScale(nextSettings.fontScalePercent));
+            enableGoogleFont.checked = !!nextSettings.googleFontEnabled;
+            googleFont.value = sanitizeGoogleFontFamily(nextSettings.googleFontFamily);
             enableSideBg.checked = !!nextSettings.sideBackgroundEnabled;
             sideBg.value = sanitizeSideBackground(nextSettings.sideBackground);
             modernVisual.checked = !!nextSettings.modernVisualEnabled;
@@ -1585,6 +1623,8 @@
                 compactMode: compactMode.checked,
                 fontScaleEnabled: enableFontScale.checked,
                 fontScalePercent: sanitizeFontScale(fontScale.value),
+                googleFontEnabled: enableGoogleFont.checked,
+                googleFontFamily: sanitizeGoogleFontFamily(googleFont.value),
                 sideBackgroundEnabled: enableSideBg.checked,
                 sideBackground: sanitizeSideBackground(sideBg.value),
                 modernVisualEnabled: modernVisual.checked,
@@ -1641,6 +1681,7 @@
         }
         enableWidth.addEventListener("change", syncPanelStates);
         enableFontScale.addEventListener("change", syncPanelStates);
+        enableGoogleFont.addEventListener("change", syncPanelStates);
         enableSideBg.addEventListener("change", syncPanelStates);
         processPopup.addEventListener("change", syncPanelStates);
         enabled.addEventListener("change", syncPanelStates);
@@ -1676,6 +1717,8 @@
             compactMode.checked = DEFAULT_SETTINGS.compactMode;
             enableFontScale.checked = DEFAULT_SETTINGS.fontScaleEnabled;
             fontScale.value = String(DEFAULT_SETTINGS.fontScalePercent);
+            enableGoogleFont.checked = DEFAULT_SETTINGS.googleFontEnabled;
+            googleFont.value = DEFAULT_SETTINGS.googleFontFamily;
             enableSideBg.checked = DEFAULT_SETTINGS.sideBackgroundEnabled;
             sideBg.value = DEFAULT_SETTINGS.sideBackground;
             modernVisual.checked = DEFAULT_SETTINGS.modernVisualEnabled;
@@ -1753,7 +1796,10 @@
     }
 
     function injectTopHeaderCSS() {
-        const widthEnabled = !!settings.enableWidthAdjustments;
+        syncGoogleFont(document);
+        // A largura é uma preferência do conteúdo. Alterar a geometria do topo
+        // quebra o menu nativo (que mistura floats, medidas fixas e submenus).
+        const widthEnabled = false;
         const widthPercent = widthEnabled ? sanitizeWidthPercent(settings.headerWidthPercent) : 100;
         const widthValue = widthPercent + "%";
         const isCentered = settings.centerContent && widthPercent < 100;
@@ -1765,7 +1811,7 @@
                 : widthEnabled && settings.sideBackgroundEnabled && settings.sideBackground === "light"
                     ? "#f3f4f6"
                     : "";
-        const hasHeaderAdjust = widthEnabled || settings.hideClock || settings.hideHeaderIcons || settings.modernVisualEnabled;
+        const hasHeaderAdjust = settings.hideClock || settings.hideHeaderIcons || settings.modernVisualEnabled || settings.googleFontEnabled;
         if (!hasHeaderAdjust) {
             removeStyleFromDoc(document, "projudi-top-header-style");
             return;
@@ -1857,12 +1903,8 @@
         ` : "";
 
         const visibilityCss = `
-            #cronometro {
-                display: ${settings.hideClock ? "none" : "block"} !important;
-            }
-            #pgn_cabecalho > div[style*="float: right"] {
-                display: ${settings.hideHeaderIcons ? "none" : "inline-block"} !important;
-            }
+            ${settings.hideClock ? "#cronometro { display: none !important; }" : ""}
+            ${settings.hideHeaderIcons ? '#pgn_cabecalho > div[style*="float: right"] { display: none !important; }' : ""}
         `;
 
         const modernShellCss = settings.modernVisualEnabled ? `
@@ -1896,12 +1938,23 @@
                 background: rgba(255, 255, 255, .14) !important;
             }
             #cssmenu ul ul {
-                overflow: hidden !important;
+                overflow: visible !important;
+                min-width: 250px !important;
+                max-width: min(420px, calc(100vw - 24px)) !important;
                 border: 1px solid var(--pj-modern-border) !important;
                 border-radius: 10px !important;
                 background: #fff !important;
                 box-shadow: var(--pj-modern-shadow) !important;
             }
+            #Cabecalho, #pgn_cabecalho, #cssmenu, #cssmenu > ul { overflow: visible !important; }
+            #cssmenu ul ul li, #cssmenu ul ul a {
+                white-space: normal !important;
+                overflow: visible !important;
+                text-overflow: clip !important;
+                box-sizing: border-box !important;
+            }
+            #cssmenu > ul > li:nth-last-child(-n+3) > ul { left: auto !important; right: 0 !important; }
+            #cssmenu > ul > li:nth-last-child(-n+3) > ul ul { left: auto !important; right: 100% !important; }
             #menuPrinciapl.menu,
             body > div[style*="height:28px"][style*="background-color:#ccc"] {
                 background: #f8fafc !important;
@@ -1916,7 +1969,10 @@
             }
         ` : "";
 
-        const css = `${widthCss}\n${visibilityCss}\n${modernShellCss}`;
+        const topFontCss = settings.googleFontEnabled && settings.googleFontFamily
+            ? `body, #Cabecalho, #cssmenu, #menuPrinciapl { font-family: "${settings.googleFontFamily}", sans-serif !important; }`
+            : "";
+        const css = `${widthCss}\n${visibilityCss}\n${modernShellCss}\n${topFontCss}`;
 
         let style = document.getElementById("projudi-top-header-style");
         if (!style) {
@@ -2928,8 +2984,28 @@
      * @param {Document} doc
      * @returns {void}
      */
+    function syncGoogleFont(doc) {
+        if (!doc || !doc.head) return;
+        const id = "projudi-google-font-link";
+        const family = sanitizeGoogleFontFamily(settings.googleFontFamily);
+        let link = doc.getElementById(id);
+        if (!settings.googleFontEnabled || !family) {
+            if (link) link.remove();
+            return;
+        }
+        const href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family).replace(/%20/g, "+")}&display=swap`;
+        if (!link) {
+            link = doc.createElement("link");
+            link.id = id;
+            link.rel = "stylesheet";
+            doc.head.appendChild(link);
+        }
+        if (link.href !== href) link.href = href;
+    }
+
     function injectWidthCSS(doc) {
         if (!settings.enabled || !doc || !doc.head || !canInjectIntoDoc(doc)) return;
+        syncGoogleFont(doc);
         const widthEnabled = !!settings.enableWidthAdjustments;
         const widthPercent = widthEnabled ? sanitizeWidthPercent(settings.contentWidthPercent) : 100;
         const widthValue = widthPercent + "%";
@@ -2940,10 +3016,12 @@
                 : widthEnabled && settings.sideBackgroundEnabled && settings.sideBackground === "light"
                     ? "#f3f4f6"
                     : "";
-        const fontScaleCss =
-            settings.fontScaleEnabled && settings.fontScalePercent !== 100
-                ? `body { font-size: ${settings.fontScalePercent}% !important; }`
-                : "";
+        const fontScaleCss = settings.fontScaleEnabled
+            ? `body { zoom: ${sanitizeFontScale(settings.fontScalePercent) / 100} !important; width: ${10000 / sanitizeFontScale(settings.fontScalePercent)}% !important; }`
+            : "";
+        const googleFontCss = settings.googleFontEnabled && settings.googleFontFamily
+            ? `body, input, select, textarea, button { font-family: "${settings.googleFontFamily}", sans-serif !important; }`
+            : "";
         const compactCss = settings.compactMode
             ? `
                 table { border-spacing: 0 !important; }
@@ -3097,6 +3175,20 @@
                 border-color: #e3eaf2 !important;
                 transition: background-color .12s ease !important;
             }
+            table.Tabela:not(.pjip-table) > thead:first-child > tr:first-child > :first-child,
+            table#Tabela:not(.pjip-table) > thead:first-child > tr:first-child > :first-child,
+            table:not(.pjip-table) > tbody:first-child > tr.fundoCabecalhoTabela:first-child > :first-child {
+                border-top-left-radius: 8px !important;
+            }
+            table.Tabela:not(.pjip-table) > thead:first-child > tr:first-child > :last-child,
+            table#Tabela:not(.pjip-table) > thead:first-child > tr:first-child > :last-child,
+            table:not(.pjip-table) > tbody:first-child > tr.fundoCabecalhoTabela:first-child > :last-child {
+                border-top-right-radius: 8px !important;
+            }
+            table.Tabela:not(.pjip-table) > tbody:last-child > tr:last-child > :first-child,
+            table#Tabela:not(.pjip-table) > tbody:last-child > tr:last-child > :first-child { border-bottom-left-radius: 8px !important; }
+            table.Tabela:not(.pjip-table) > tbody:last-child > tr:last-child > :last-child,
+            table#Tabela:not(.pjip-table) > tbody:last-child > tr:last-child > :last-child { border-bottom-right-radius: 8px !important; }
             table.Tabela:not(.pjip-table) tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td,
             table#Tabela:not(.pjip-table) tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td,
             .Tabela table:not(.pjip-table) tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td,
@@ -3241,6 +3333,7 @@
         const css = `
             ${widthLayoutCss}
             ${fontScaleCss}
+            ${googleFontCss}
             ${compactCss}
             ${modernVisualCss}
             ${modernTablesCss}
@@ -3248,6 +3341,7 @@
             ${stickyActionsCss}
             ${stickyTableHeadersCss}
             ${highlightHoveredRowCss}
+            ${googleFontCss}
         `;
 
         if (!style) {

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      3.16
+// @version      3.17
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -304,7 +304,13 @@
   const storage = {
     get(key, fallback) {
       try {
-        if (typeof GM_getValue === 'function') return GM_getValue(key, fallback);
+        if (typeof GM_getValue === 'function') {
+          const value = GM_getValue(key, undefined);
+          if (value !== undefined) {
+            localStorage.setItem(key, JSON.stringify(value));
+            return value;
+          }
+        }
       } catch (error) {
         logWarn(`Falha ao ler ${key} via GM_getValue.`, error);
       }
@@ -319,7 +325,7 @@
     },
     set(key, value) {
       try {
-        if (typeof GM_setValue === 'function') return GM_setValue(key, value);
+        if (typeof GM_setValue === 'function') GM_setValue(key, value);
       } catch (error) {
         logWarn(`Falha ao salvar ${key} via GM_setValue.`, error);
       }
@@ -329,7 +335,7 @@
     },
     del(key) {
       try {
-        if (typeof GM_deleteValue === 'function') return GM_deleteValue(key);
+        if (typeof GM_deleteValue === 'function') GM_deleteValue(key);
       } catch (error) {
         logWarn(`Falha ao remover ${key} via GM_deleteValue.`, error);
       }

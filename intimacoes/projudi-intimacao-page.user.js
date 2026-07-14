@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      5.16
+// @version      5.17
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       louencosv (GPT)
@@ -2014,11 +2014,35 @@
       .pjip-table {
         width: 100% !important;
         margin-right: 0 !important;
+        border: 1px solid #d7e1ec !important;
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+        border-radius: 10px !important;
+        overflow: hidden !important;
+        background: #fff !important;
+        box-shadow: 0 3px 12px rgba(15, 45, 78, .07) !important;
+      }
+      .pjip-table thead th, .pjip-table tr.fundoCabecalhoTabela > td {
+        padding: 8px 9px !important;
+        background: #e8f1fa !important;
+        color: #173f69 !important;
+        border-color: #c9d8e8 !important;
+        font-weight: 700 !important;
+      }
+      .pjip-table thead tr:first-child > :first-child { border-top-left-radius: 9px !important; }
+      .pjip-table thead tr:first-child > :last-child { border-top-right-radius: 9px !important; }
+      .pjip-table tbody tr:last-child > :first-child { border-bottom-left-radius: 9px !important; }
+      .pjip-table tbody tr:last-child > :last-child { border-bottom-right-radius: 9px !important; }
+      .pjip-table tbody tr:nth-child(even):not(.pjip-row--marked):not(.pjip-row--done) > td {
+        background-color: #f8fafc !important;
+      }
+      .pjip-table tbody tr:not(.pjip-row--marked):not(.pjip-row--done):hover > td {
+        background-color: #eef5fb !important;
       }
       .pjip-table tbody tr td {
-        padding-top: 1px !important;
-        padding-bottom: 1px !important;
-        line-height: 1.15 !important;
+        padding: 6px 8px !important;
+        line-height: 1.25 !important;
+        border-color: #e3eaf2 !important;
       }
       .pjip-row--marked {
         background: linear-gradient(90deg, rgba(70, 141, 255, 0.16), rgba(70, 141, 255, 0.04)) !important;
@@ -3631,9 +3655,16 @@
    */
   function getDeadlineStored(key, fallback = '') {
     try {
-      if (typeof GM_getValue === 'function') return GM_getValue(key, fallback);
+      if (typeof GM_getValue === 'function') {
+        const value = GM_getValue(key, undefined);
+        if (value !== undefined) {
+          localStorage.setItem(key, JSON.stringify(value));
+          return value;
+        }
+      }
       const value = localStorage.getItem(key);
-      return value === null ? fallback : value;
+      if (value === null) return fallback;
+      try { return JSON.parse(value); } catch (_) { return value; }
     } catch (error) {
       logWarn(`Falha ao ler configuracao de prazo "${key}".`, error);
       return fallback;
@@ -3648,7 +3679,7 @@
   function setDeadlineStored(key, value) {
     try {
       if (typeof GM_setValue === 'function') GM_setValue(key, value);
-      else localStorage.setItem(key, String(value));
+      localStorage.setItem(key, JSON.stringify(value));
     } catch (error) {
       logWarn(`Falha ao salvar configuracao de prazo "${key}".`, error);
     }
@@ -3661,7 +3692,7 @@
   function clearDeadlineStored(key) {
     try {
       if (typeof GM_deleteValue === 'function') GM_deleteValue(key);
-      else localStorage.removeItem(key);
+      localStorage.removeItem(key);
     } catch (error) {
       logWarn(`Falha ao limpar configuracao de prazo "${key}".`, error);
     }
