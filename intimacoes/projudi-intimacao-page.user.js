@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      5.17
+// @version      5.18
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       louencosv (GPT)
@@ -144,15 +144,6 @@
     filterHiddenAttr: 'data-tm-filter-hidden',
     cellAttr: 'data-tm-deadline-class'
   };
-
-  const DEADLINE_WEEKDAY_PALETTE = [
-    { bg: 'rgba(255,205,210,1)', fg: 'rgba(183,28,28,1)' },
-    { bg: 'rgba(255,224,178,1)', fg: 'rgba(191,54,12,1)' },
-    { bg: 'rgba(255,249,196,1)', fg: 'rgba(245,127,23,1)' },
-    { bg: 'rgba(220,237,200,1)', fg: 'rgba(51,105,30,1)' },
-    { bg: 'rgba(200,230,201,1)', fg: 'rgba(27,94,32,1)' }
-  ];
-  const DEADLINE_WEEKEND_COLOR = { bg: 'rgba(227,242,253,1)', fg: 'rgba(13,71,161,1)' };
 
   const BACKUP_DEFAULTS = {
     enabled: false,
@@ -2011,50 +2002,11 @@
     const style = doc.createElement('style');
     style.id = IDS.frameStyle;
     style.textContent = `
-      .pjip-table {
-        width: 100% !important;
-        margin-right: 0 !important;
-        border: 1px solid #d7e1ec !important;
-        border-collapse: separate !important;
-        border-spacing: 0 !important;
-        border-radius: 10px !important;
-        overflow: hidden !important;
-        background: #fff !important;
-        box-shadow: 0 3px 12px rgba(15, 45, 78, .07) !important;
-      }
-      .pjip-table thead th, .pjip-table tr.fundoCabecalhoTabela > td {
-        padding: 8px 9px !important;
-        background: #e8f1fa !important;
-        color: #173f69 !important;
-        border-color: #c9d8e8 !important;
-        font-weight: 700 !important;
-      }
-      .pjip-table thead tr:first-child > :first-child { border-top-left-radius: 9px !important; }
-      .pjip-table thead tr:first-child > :last-child { border-top-right-radius: 9px !important; }
-      .pjip-table tbody tr:last-child > :first-child { border-bottom-left-radius: 9px !important; }
-      .pjip-table tbody tr:last-child > :last-child { border-bottom-right-radius: 9px !important; }
-      .pjip-table tbody tr:nth-child(even):not(.pjip-row--marked):not(.pjip-row--done) > td {
-        background-color: #f8fafc !important;
-      }
-      .pjip-table tbody tr:not(.pjip-row--marked):not(.pjip-row--done):hover > td {
-        background-color: #eef5fb !important;
-      }
-      .pjip-table tbody tr td {
-        padding: 6px 8px !important;
-        line-height: 1.25 !important;
-        border-color: #e3eaf2 !important;
-      }
-      .pjip-row--marked {
-        background: linear-gradient(90deg, rgba(70, 141, 255, 0.16), rgba(70, 141, 255, 0.04)) !important;
-      }
       .pjip-table tbody tr.pjip-row--marked > td {
-        background-color: rgba(70, 141, 255, 0.10) !important;
-      }
-      .pjip-row--done {
-        background: linear-gradient(90deg, rgba(72, 178, 115, 0.18), rgba(72, 178, 115, 0.05)) !important;
+        background-color: #eaf3ff !important;
       }
       .pjip-table tbody tr.pjip-row--done > td {
-        background-color: rgba(72, 178, 115, 0.11) !important;
+        background-color: #eaf8ef !important;
       }
       .pjip-row--hidden {
         display: none !important;
@@ -3730,42 +3682,13 @@
   }
 
   /**
-   * Monta o estado derivado do destaque de prazos.
-   * @returns {{todayYmd: string, byYmd: Map<string, any>, entries: any[], highlightSnapshot: string, settingsSnapshot: string}}
+   * Monta o estado derivado dos filtros de prazo.
+   * @returns {{todayYmd: string, settingsSnapshot: string}}
    */
   function buildDeadlineState() {
     const today = cloneDay(new Date());
-    const windowDates = [];
-    for (let index = 0; index < DEADLINE.windowDays; index += 1) windowDates.push(addDays(today, index));
-    const weekdays = windowDates.map((date, index) => ({ date, index })).filter((entry) => !isWeekend(entry.date));
-    const entries = windowDates.map((date, offset) => {
-      if (isWeekend(date)) {
-        return {
-          ymd: toYmd(date),
-          className: `${DEADLINE.classPrefix}-weekend`,
-          tooltip: `Fim de semana (${weekdayShortPT(date)}) • ${formatDay(date)}`,
-          color: DEADLINE_WEEKEND_COLOR
-        };
-      }
-      const weekdayPos = weekdays.findIndex((entry) => entry.index === offset);
-      const color = interpolateDeadlinePalette(
-        DEADLINE_WEEKDAY_PALETTE,
-        Math.max(0, weekdayPos),
-        Math.max(1, weekdays.length)
-      );
-      return {
-        ymd: toYmd(date),
-        className: `${DEADLINE.classPrefix}-wd-${weekdayPos}`,
-        tooltip: `Possível vencimento em ${offset === 0 ? 'HOJE' : `${offset} dia(s)`} • ${weekdayShortPT(date)} • ${formatDay(date)}`,
-        color
-      };
-    });
-
     return {
       todayYmd: toYmd(today),
-      byYmd: new Map(entries.map((entry) => [entry.ymd, entry])),
-      entries,
-      highlightSnapshot: entries.map((entry) => entry.ymd).join('|'),
       settingsSnapshot: JSON.stringify({
         filterDate: getDeadlineFilterDate(),
         filterEnabled: getDeadlineFilterEnabled(),
@@ -3777,66 +3700,15 @@
   }
 
   /**
-   * Injeta CSS de destaque de prazo no documento alvo.
+   * Remove estilos de prazo de versões anteriores sem afetar os filtros.
    * @param {Document} doc
    */
   function injectDeadlineStyles(doc) {
     const baseId = `${DEADLINE.classPrefix}-style`;
-    if (!doc.getElementById(baseId)) {
-      const style = doc.createElement('style');
-      style.id = baseId;
-      style.textContent = `
-        td.${DEADLINE.classPrefix}-cell {
-          position: relative;
-          font-weight: 600 !important;
-          border-radius: 4px;
-          box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
-        }
-        td.${DEADLINE.classPrefix}-cell[data-tooltip] { cursor: help; }
-        td.${DEADLINE.classPrefix}-cell[data-tooltip]::after {
-          content: attr(data-tooltip);
-          position: absolute;
-          left: 50%;
-          top: -6px;
-          transform: translateX(-50%) translateY(-100%);
-          background: #333;
-          color: #fff;
-          padding: 4px 8px;
-          font-size: 11px;
-          border-radius: 4px;
-          white-space: nowrap;
-          opacity: 0;
-          pointer-events: none;
-          transition: opacity .2s;
-          z-index: 99999;
-        }
-        td.${DEADLINE.classPrefix}-cell[data-tooltip]::before {
-          content: "";
-          position: absolute;
-          left: 50%;
-          top: -6px;
-          transform: translateX(-50%);
-          border-width: 5px;
-          border-style: solid;
-          border-color: transparent transparent #333 transparent;
-          opacity: 0;
-          transition: opacity .2s;
-          z-index: 99998;
-        }
-        td.${DEADLINE.classPrefix}-cell:hover::after,
-        td.${DEADLINE.classPrefix}-cell:hover::before { opacity: 1; }
-      `;
-      (doc.head || doc.documentElement).appendChild(style);
-    }
-
     const dynId = `${DEADLINE.classPrefix}-dyn`;
+    doc.getElementById(baseId)?.remove();
     doc.getElementById(dynId)?.remove();
-    const dyn = doc.createElement('style');
-    dyn.id = dynId;
-    dyn.textContent = state.deadlineState.entries
-      .map((entry) => `td.${DEADLINE.classPrefix}-cell.${entry.className}{background-color:${entry.color.bg} !important;color:${entry.color.fg} !important;}`)
-      .join('\n');
-    (doc.head || doc.documentElement).appendChild(dyn);
+    clearDeadlineProcessedState(doc);
   }
 
   /**
@@ -3869,7 +3741,7 @@
     for (const row of rows) {
       const cells = getDeadlineRowCells(row);
       for (let col = 0; col < cells.length; col += 1) {
-        if (targetCols.has(col)) applyDeadlineHighlightToCell(cells[col]);
+        if (targetCols.has(col)) clearDeadlineCellHighlight(cells[col]);
       }
 
       if (!filterSpec) showDeadlineRow(row);
@@ -3947,41 +3819,18 @@
 
   /**
    * @param {HTMLTableCellElement} cell
-   */
-  function applyDeadlineHighlightToCell(cell) {
-    clearDeadlineCellHighlight(cell);
-    const entry = analyzeDeadlineCell(cell).highlightEntry;
-    if (!entry) return;
-    cell.classList.add(`${DEADLINE.classPrefix}-cell`, entry.className);
-    cell.setAttribute(DEADLINE.cellAttr, entry.className);
-    cell.setAttribute('data-tooltip', entry.tooltip);
-  }
-
-  /**
-   * @param {HTMLTableCellElement} cell
-   * @returns {{text: string, missing: boolean, dates: Date[], highlightEntry: any, highlightSnapshot: string}}
+   * @returns {{text: string, missing: boolean, dates: Date[]}}
    */
   function analyzeDeadlineCell(cell) {
     const text = String(cell?.textContent || '').trim();
     const cached = state.deadlineCellAnalysisCache.get(cell);
-    if (cached && cached.text === text && cached.highlightSnapshot === state.deadlineState.highlightSnapshot) return cached;
+    if (cached && cached.text === text) return cached;
 
     const dates = extractDeadlineDatesFromText(text);
-    let highlightEntry = null;
-    for (const date of dates) {
-      const entry = state.deadlineState.byYmd.get(toYmd(date));
-      if (entry) {
-        highlightEntry = entry;
-        break;
-      }
-    }
-
     const analysis = {
       text,
       missing: isMissingDeadlineText(text),
-      dates,
-      highlightEntry,
-      highlightSnapshot: state.deadlineState.highlightSnapshot
+      dates
     };
     state.deadlineCellAnalysisCache.set(cell, analysis);
     return analysis;
@@ -4154,45 +4003,6 @@
   function isWeekend(date) {
     const day = date.getDay();
     return day === 0 || day === 6;
-  }
-
-  function interpolateDeadlinePalette(palette, index, total) {
-    if (total <= 1) return palette[0];
-    const position = index / (total - 1);
-    const segmentCount = palette.length - 1;
-    const scaled = position * segmentCount;
-    const floor = Math.floor(scaled);
-    const fraction = scaled - floor;
-    const current = palette[Math.min(floor, palette.length - 1)];
-    const next = palette[Math.min(floor + 1, palette.length - 1)];
-    const bg0 = parseRgba(current.bg);
-    const bg1 = parseRgba(next.bg);
-    const fg0 = parseRgba(current.fg);
-    const fg1 = parseRgba(next.fg);
-    if (!bg0 || !bg1 || !fg0 || !fg1) return palette[Math.min(index, palette.length - 1)];
-    return {
-      bg: rgbaToString(interpolateRgba(bg0, bg1, fraction)),
-      fg: rgbaToString(interpolateRgba(fg0, fg1, fraction))
-    };
-  }
-
-  function parseRgba(value) {
-    const match = /rgba\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*\)/i.exec(value);
-    if (!match) return null;
-    return { r: Number(match[1]), g: Number(match[2]), b: Number(match[3]), a: Number(match[4]) };
-  }
-
-  function interpolateRgba(left, right, fraction) {
-    return {
-      r: left.r + (right.r - left.r) * fraction,
-      g: left.g + (right.g - left.g) * fraction,
-      b: left.b + (right.b - left.b) * fraction,
-      a: left.a + (right.a - left.a) * fraction
-    };
-  }
-
-  function rgbaToString(color) {
-    return `rgba(${Math.round(color.r)},${Math.round(color.g)},${Math.round(color.b)},${color.a})`;
   }
 
   /**
