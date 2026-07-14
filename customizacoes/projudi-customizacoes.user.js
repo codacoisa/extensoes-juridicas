@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      5.8
+// @version      5.9
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -1272,7 +1272,7 @@
                             <label class="pjc-card">
                                 <div class="pjc-card-body">
                                     <p class="pjc-card-title">Tabelas mais legíveis</p>
-                                    <p class="pjc-card-desc">Adiciona cabeçalho destacado, linhas alternadas e realce ao passar o mouse.</p>
+                                    <p class="pjc-card-desc">Adiciona cabeçalho destacado e linhas alternadas sem substituir cores funcionais.</p>
                                 </div>
                                 <input type="checkbox" id="pj-modern-tables" class="pjc-card-check">
                             </label>
@@ -1833,7 +1833,7 @@
                 display: block !important;
                 width: ${widthValue} !important;
                 max-width: ${widthValue} !important;
-                margin-top: -28px !important;
+                margin-top: 0 !important;
                 margin-left: ${centeredMargins} !important;
                 margin-right: ${centeredMargins} !important;
                 box-sizing: border-box !important;
@@ -2947,17 +2947,21 @@
         const compactCss = settings.compactMode
             ? `
                 table { border-spacing: 0 !important; }
-                td, th {
+                table:not(.pjip-table) td,
+                table:not(.pjip-table) th {
                     padding-top: 2px !important;
                     padding-bottom: 2px !important;
                     line-height: 1.15 !important;
                 }
-                .Tabela td, .Tabela th {
+                table.Tabela:not(.pjip-table) td,
+                table.Tabela:not(.pjip-table) th,
+                .Tabela table:not(.pjip-table) td,
+                .Tabela table:not(.pjip-table) th {
                     padding-top: 2px !important;
                     padding-bottom: 2px !important;
                     line-height: 1.15 !important;
                 }
-                tr { line-height: 1.15 !important; }
+                table:not(.pjip-table) tr { line-height: 1.15 !important; }
                 #divCorpo, .divCorpo, #Corpo, #conteudo, #conteudoPrincipal, #pgn_corpo, #Formulario, .Tela, .Corpo, .conteudo {
                     padding-top: 4px !important;
                 }
@@ -3013,19 +3017,42 @@
                 color: var(--pj-ui-primary) !important;
                 letter-spacing: -.01em !important;
             }
-            #abas, .abas, .ui-tabs-nav, [role="tablist"] {
+            #abas > .ui-tabs-nav,
+            .abas > .ui-tabs-nav,
+            .ui-tabs > .ui-tabs-nav,
+            [role="tablist"] {
                 border-color: var(--pj-ui-border) !important;
                 background: #f8fafc !important;
             }
-            #abas a, .abas a, .ui-tabs-nav a, [role="tab"] {
+            #abas > .ui-tabs-nav > li > a,
+            .abas > .ui-tabs-nav > li > a,
+            .ui-tabs > .ui-tabs-nav > li > a,
+            [role="tablist"] > [role="tab"],
+            [role="tablist"] > [role="tab"] > a {
                 border-radius: 7px 7px 0 0 !important;
                 color: #334155 !important;
                 font-weight: 600 !important;
                 text-decoration: none !important;
             }
-            #abas a:hover, .abas a:hover, .ui-tabs-nav a:hover, [role="tab"]:hover {
+            #abas > .ui-tabs-nav > li:not(.ui-tabs-active):not(.ui-tabs-selected) > a:hover,
+            .abas > .ui-tabs-nav > li:not(.ui-tabs-active):not(.ui-tabs-selected) > a:hover,
+            .ui-tabs > .ui-tabs-nav > li:not(.ui-tabs-active):not(.ui-tabs-selected) > a:hover,
+            [role="tablist"] > [role="tab"]:not([aria-selected="true"]):hover,
+            [role="tablist"] > [role="tab"]:not([aria-selected="true"]) > a:hover {
                 background: var(--pj-ui-primary-soft) !important;
                 color: var(--pj-ui-primary) !important;
+            }
+            #abas > .ui-tabs-nav > li.ui-tabs-active > a,
+            #abas > .ui-tabs-nav > li.ui-tabs-selected > a,
+            .abas > .ui-tabs-nav > li.ui-tabs-active > a,
+            .abas > .ui-tabs-nav > li.ui-tabs-selected > a,
+            .ui-tabs > .ui-tabs-nav > li.ui-tabs-active > a,
+            .ui-tabs > .ui-tabs-nav > li.ui-tabs-selected > a,
+            [role="tablist"] > [role="tab"][aria-selected="true"],
+            [role="tablist"] > [role="tab"][aria-selected="true"] > a {
+                background: var(--pj-ui-primary) !important;
+                color: #ffffff !important;
+                text-shadow: 0 1px 1px rgba(0, 0, 0, .18) !important;
             }
             a {
                 text-underline-offset: 2px;
@@ -3037,8 +3064,10 @@
         ` : "";
 
         const modernTablesCss = settings.modernTablesEnabled ? `
-            table.Tabela, table#Tabela, .Tabela table, .divTabela table,
-            #TabelaArquivos, table.lista, table.listagem {
+            table.Tabela:not(.pjip-table), table#Tabela:not(.pjip-table),
+            .Tabela table:not(.pjip-table), .divTabela table:not(.pjip-table),
+            #TabelaArquivos:not(.pjip-table), table.lista:not(.pjip-table),
+            table.listagem:not(.pjip-table) {
                 overflow: ${settings.stickyTableHeadersEnabled ? "visible" : "hidden"} !important;
                 border: 1px solid #d7e1ec !important;
                 border-collapse: separate !important;
@@ -3047,9 +3076,12 @@
                 background: #fff !important;
                 box-shadow: 0 3px 12px rgba(15, 45, 78, .07) !important;
             }
-            table.Tabela th, table#Tabela th, .Tabela table th, .divTabela table th,
-            #TabelaArquivos th, table.lista th, table.listagem th,
-            tr.fundoCabecalhoTabela > td, tr.tituloTabela > td {
+            table.Tabela:not(.pjip-table) th, table#Tabela:not(.pjip-table) th,
+            .Tabela table:not(.pjip-table) th, .divTabela table:not(.pjip-table) th,
+            #TabelaArquivos:not(.pjip-table) th, table.lista:not(.pjip-table) th,
+            table.listagem:not(.pjip-table) th,
+            table:not(.pjip-table) tr.fundoCabecalhoTabela > td,
+            table:not(.pjip-table) tr.tituloTabela > td {
                 padding: 8px 9px !important;
                 border-color: #c9d8e8 !important;
                 background: #e8f1fa !important;
@@ -3057,23 +3089,22 @@
                 font-weight: 700 !important;
                 line-height: 1.25 !important;
             }
-            table.Tabela td, table#Tabela td, .Tabela table td, .divTabela table td,
-            #TabelaArquivos td, table.lista td, table.listagem td {
+            table.Tabela:not(.pjip-table) td, table#Tabela:not(.pjip-table) td,
+            .Tabela table:not(.pjip-table) td, .divTabela table:not(.pjip-table) td,
+            #TabelaArquivos:not(.pjip-table) td, table.lista:not(.pjip-table) td,
+            table.listagem:not(.pjip-table) td {
                 padding: 7px 9px !important;
                 border-color: #e3eaf2 !important;
                 transition: background-color .12s ease !important;
             }
-            table.Tabela tbody tr:nth-child(even) > td, table#Tabela tbody tr:nth-child(even) > td,
-            .Tabela table tbody tr:nth-child(even) > td, .divTabela table tbody tr:nth-child(even) > td,
-            #TabelaArquivos tbody tr:nth-child(even) > td, table.lista tbody tr:nth-child(even) > td,
-            table.listagem tbody tr:nth-child(even) > td {
+            table.Tabela:not(.pjip-table) tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td,
+            table#Tabela:not(.pjip-table) tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td,
+            .Tabela table:not(.pjip-table) tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td,
+            .divTabela table:not(.pjip-table) tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td,
+            #TabelaArquivos:not(.pjip-table) tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td,
+            table.lista:not(.pjip-table) tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td,
+            table.listagem:not(.pjip-table) tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td {
                 background-color: #f8fafc !important;
-            }
-            table.Tabela tbody tr:hover > td, table#Tabela tbody tr:hover > td,
-            .Tabela table tbody tr:hover > td, .divTabela table tbody tr:hover > td,
-            #TabelaArquivos tbody tr:hover > td, table.lista tbody tr:hover > td,
-            table.listagem tbody tr:hover > td {
-                background-color: #edf5fc !important;
             }
         ` : "";
 
@@ -3120,22 +3151,22 @@
         ` : "";
 
         const stickyTableHeadersCss = settings.stickyTableHeadersEnabled ? `
-            table.Tabela > thead > tr > th,
-            table.Tabela > thead > tr > td,
-            table#Tabela > thead > tr > th,
-            table#Tabela > thead > tr > td,
-            #TabelaArquivos > thead > tr > th,
-            #TabelaArquivos > thead > tr > td,
-            #tabListaProcesso > thead > tr > th,
-            #tabListaProcesso > thead > tr > td,
-            .Tabela table > thead > tr > th,
-            .Tabela table > thead > tr > td,
-            .divTabela table > thead > tr > th,
-            .divTabela table > thead > tr > td,
-            table.lista > thead > tr > th,
-            table.lista > thead > tr > td,
-            table.listagem > thead > tr > th,
-            table.listagem > thead > tr > td {
+            table.Tabela:not(.pjip-table) > thead > tr > th,
+            table.Tabela:not(.pjip-table) > thead > tr > td,
+            table#Tabela:not(.pjip-table) > thead > tr > th,
+            table#Tabela:not(.pjip-table) > thead > tr > td,
+            #TabelaArquivos:not(.pjip-table) > thead > tr > th,
+            #TabelaArquivos:not(.pjip-table) > thead > tr > td,
+            #tabListaProcesso:not(.pjip-table) > thead > tr > th,
+            #tabListaProcesso:not(.pjip-table) > thead > tr > td,
+            .Tabela table:not(.pjip-table) > thead > tr > th,
+            .Tabela table:not(.pjip-table) > thead > tr > td,
+            .divTabela table:not(.pjip-table) > thead > tr > th,
+            .divTabela table:not(.pjip-table) > thead > tr > td,
+            table.lista:not(.pjip-table) > thead > tr > th,
+            table.lista:not(.pjip-table) > thead > tr > td,
+            table.listagem:not(.pjip-table) > thead > tr > th,
+            table.listagem:not(.pjip-table) > thead > tr > td {
                 position: sticky !important;
                 top: ${settings.stickyActionsEnabled ? "44px" : "0"} !important;
                 z-index: 850 !important;
@@ -3144,17 +3175,17 @@
         ` : "";
 
         const highlightHoveredRowCss = settings.highlightHoveredRowEnabled ? `
-            table.Tabela > tbody > tr:hover,
-            table#Tabela > tbody > tr:hover,
-            #TabelaArquivos > tbody > tr:hover,
-            #tabListaProcesso > tbody > tr:hover {
+            table.Tabela:not(.pjip-table) > tbody > tr:hover,
+            table#Tabela:not(.pjip-table) > tbody > tr:hover,
+            #TabelaArquivos:not(.pjip-table) > tbody > tr:hover,
+            #tabListaProcesso:not(.pjip-table) > tbody > tr:hover {
                 outline: 1px solid rgba(23, 79, 134, .34) !important;
                 outline-offset: -1px !important;
             }
-            table.Tabela > tbody > tr:hover > td:first-child,
-            table#Tabela > tbody > tr:hover > td:first-child,
-            #TabelaArquivos > tbody > tr:hover > td:first-child,
-            #tabListaProcesso > tbody > tr:hover > td:first-child {
+            table.Tabela:not(.pjip-table) > tbody > tr:hover > td:first-child,
+            table#Tabela:not(.pjip-table) > tbody > tr:hover > td:first-child,
+            #TabelaArquivos:not(.pjip-table) > tbody > tr:hover > td:first-child,
+            #tabListaProcesso:not(.pjip-table) > tbody > tr:hover > td:first-child {
                 box-shadow: inset 3px 0 0 #1f67a6 !important;
             }
         ` : "";

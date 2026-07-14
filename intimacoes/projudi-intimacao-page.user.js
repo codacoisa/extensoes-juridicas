@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      5.15
+// @version      5.16
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       louencosv (GPT)
@@ -2023,8 +2023,14 @@
       .pjip-row--marked {
         background: linear-gradient(90deg, rgba(70, 141, 255, 0.16), rgba(70, 141, 255, 0.04)) !important;
       }
+      .pjip-table tbody tr.pjip-row--marked > td {
+        background-color: rgba(70, 141, 255, 0.10) !important;
+      }
       .pjip-row--done {
         background: linear-gradient(90deg, rgba(72, 178, 115, 0.18), rgba(72, 178, 115, 0.05)) !important;
+      }
+      .pjip-table tbody tr.pjip-row--done > td {
+        background-color: rgba(72, 178, 115, 0.11) !important;
       }
       .pjip-row--hidden {
         display: none !important;

@@ -14,7 +14,17 @@ Coleção de userscripts para tornar a rotina no Projudi do TJGO mais prática. 
 
 ## Instalação
 
-Abra a pasta da extensão desejada e siga as instruções do respectivo `README.md`. Os scripts foram feitos para gerenciadores de userscripts como Tampermonkey, Violentmonkey, Greasemonkey e Userscripts.
+Os scripts foram feitos para gerenciadores de userscripts como Tampermonkey, Violentmonkey, Greasemonkey e Userscripts. Com um deles instalado, use os links abaixo:
+
+| Extensão | Instalar |
+| --- | --- |
+| Central de Guias | [Instalar Central de Guias](https://raw.githubusercontent.com/codacoisa/extensoes-juridicas/refs/heads/main/centraldeguias/projudi-central-guias.user.js) |
+| Tarefas | [Instalar Tarefas](https://raw.githubusercontent.com/codacoisa/extensoes-juridicas/refs/heads/main/tarefas/projudi-tarefas-locais.user.js) |
+| Customizações | [Instalar Customizações](https://raw.githubusercontent.com/codacoisa/extensoes-juridicas/refs/heads/main/customizacoes/projudi-customizacoes.user.js) |
+| Anotações | [Instalar Anotações](https://raw.githubusercontent.com/codacoisa/extensoes-juridicas/refs/heads/main/anotacoes/projudi-anotacoes-locais.user.js) |
+| Intimações | [Instalar Intimações](https://raw.githubusercontent.com/codacoisa/extensoes-juridicas/refs/heads/main/intimacoes/projudi-intimacao-page.user.js) |
+
+Para detalhes de funcionamento e configuração, consulte o `README.md` da pasta correspondente.
 
 ## Arquivo histórico
 
