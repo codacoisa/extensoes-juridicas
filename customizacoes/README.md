@@ -5,12 +5,20 @@ Script para reunir ajustes visuais e de navegação no Projudi do TJGO, deixando
 ## O que ele faz
 
 - centraliza customizações visuais em um único script;
+- oferece visual moderno opcional para cabeçalho, superfícies, títulos e abas;
+- melhora tabelas com linhas alternadas, destaque de cabeçalhos e foco na linha ativa;
+- moderniza campos e botões com foco de teclado mais visível;
+- permite manter as abas do processo visíveis durante a rolagem;
+- permite fixar cabeçalhos de tabelas extensas sem alterar as cores das movimentações;
+- realça a linha sob o cursor para facilitar a leitura horizontal;
 - permite ocultar as barras de rolagem do iframe principal;
 - integra o destaque configurável de movimentações processuais;
 - aplica ajustes de navegação na interface do sistema;
 - melhora a usabilidade em tarefas repetitivas do dia a dia;
 - atua de forma integrada no ambiente do Projudi;
 - reduz a necessidade de mudanças manuais na visualização.
+
+As opções visuais são independentes e ficam desativadas por padrão. Assim, cada pessoa pode habilitar somente os ajustes que façam sentido para sua rotina.
 
 ## Requisitos
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      5.5
+// @version      5.6
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -13,6 +13,7 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_info
 // @grant        GM_xmlhttpRequest
 // @grant        GM.xmlHttpRequest
 // @connect      api.github.com
@@ -22,7 +23,7 @@
     "use strict";
 
     // ---- Compatibilidade quoid/userscripts (Safari) e demais gestores ----
-    // Atalho cohesivo: Alt+Shift+C abre o painel de Customizacoes.
+    // Atalho: Ctrl+; e, em seguida, C abre o painel de Customizações.
     try {
         if (typeof GM_registerMenuCommand !== "function") {
             window.GM_registerMenuCommand = function () { return null; };
@@ -128,6 +129,12 @@
         fontScalePercent: 100,
         sideBackgroundEnabled: false,
         sideBackground: "original",
+        modernVisualEnabled: false,
+        modernTablesEnabled: false,
+        modernFormsEnabled: false,
+        stickyActionsEnabled: false,
+        stickyTableHeadersEnabled: false,
+        highlightHoveredRowEnabled: false,
         hideClock: false,
         hideHeaderIcons: false,
         applyToStandalonePages: false,
@@ -260,6 +267,12 @@
             settings.enableIframeAutoHeight ||
             settings.autoHideHeader ||
             settings.enableWidthAdjustments ||
+            settings.modernVisualEnabled ||
+            settings.modernTablesEnabled ||
+            settings.modernFormsEnabled ||
+            settings.stickyActionsEnabled ||
+            settings.stickyTableHeadersEnabled ||
+            settings.highlightHoveredRowEnabled ||
             settings.openProcessFilesInPopup ||
             settings.enableProcessMirrorPdf ||
             settings.enableRemoveScrollbar
@@ -476,6 +489,12 @@
         next.fontScalePercent = sanitizeFontScale(next.fontScalePercent);
         next.sideBackgroundEnabled = !!next.sideBackgroundEnabled;
         next.sideBackground = sanitizeSideBackground(next.sideBackground);
+        next.modernVisualEnabled = !!next.modernVisualEnabled;
+        next.modernTablesEnabled = !!next.modernTablesEnabled;
+        next.modernFormsEnabled = !!next.modernFormsEnabled;
+        next.stickyActionsEnabled = !!next.stickyActionsEnabled;
+        next.stickyTableHeadersEnabled = !!next.stickyTableHeadersEnabled;
+        next.highlightHoveredRowEnabled = !!next.highlightHoveredRowEnabled;
         next.hideClock = !!next.hideClock;
         next.hideHeaderIcons = !!next.hideHeaderIcons;
         next.applyToStandalonePages = !!next.applyToStandalonePages;
@@ -1203,6 +1222,48 @@
                                     <input type="checkbox" id="pj-enable-font-scale" title="Ativar ajuste de fonte" class="pjc-card-check">
                                 </div>
                             </label>
+                            <label class="pjc-card">
+                                <div class="pjc-card-body">
+                                    <p class="pjc-card-title">Visual moderno</p>
+                                    <p class="pjc-card-desc">Atualiza superfícies, títulos, abas e hierarquia visual sem alterar o conteúdo.</p>
+                                </div>
+                                <input type="checkbox" id="pj-modern-visual" class="pjc-card-check">
+                            </label>
+                            <label class="pjc-card">
+                                <div class="pjc-card-body">
+                                    <p class="pjc-card-title">Tabelas mais legíveis</p>
+                                    <p class="pjc-card-desc">Adiciona cabeçalho destacado, linhas alternadas e realce ao passar o mouse.</p>
+                                </div>
+                                <input type="checkbox" id="pj-modern-tables" class="pjc-card-check">
+                            </label>
+                            <label class="pjc-card">
+                                <div class="pjc-card-body">
+                                    <p class="pjc-card-title">Formulários modernos</p>
+                                    <p class="pjc-card-desc">Melhora campos, seletores, botões e o indicador de foco do teclado.</p>
+                                </div>
+                                <input type="checkbox" id="pj-modern-forms" class="pjc-card-check">
+                            </label>
+                            <label class="pjc-card">
+                                <div class="pjc-card-body">
+                                    <p class="pjc-card-title">Fixar abas do processo</p>
+                                    <p class="pjc-card-desc">Mantém as abas de eventos, índice e navegação visíveis durante a rolagem.</p>
+                                </div>
+                                <input type="checkbox" id="pj-sticky-actions" class="pjc-card-check">
+                            </label>
+                            <label class="pjc-card">
+                                <div class="pjc-card-body">
+                                    <p class="pjc-card-title">Fixar cabeçalhos das tabelas</p>
+                                    <p class="pjc-card-desc">Mantém os nomes das colunas visíveis em listas e movimentações extensas.</p>
+                                </div>
+                                <input type="checkbox" id="pj-sticky-table-headers" class="pjc-card-check">
+                            </label>
+                            <label class="pjc-card">
+                                <div class="pjc-card-body">
+                                    <p class="pjc-card-title">Realçar linha em leitura</p>
+                                    <p class="pjc-card-desc">Marca discretamente a linha sob o cursor sem substituir cores de movimentações ou prazos.</p>
+                                </div>
+                                <input type="checkbox" id="pj-highlight-hovered-row" class="pjc-card-check">
+                            </label>
                         </div>
                     </section>
 
@@ -1332,6 +1393,12 @@
         const fontScale = panel.querySelector("#pj-font-scale");
         const enableSideBg = panel.querySelector("#pj-enable-side-bg");
         const sideBg = panel.querySelector("#pj-side-bg");
+        const modernVisual = panel.querySelector("#pj-modern-visual");
+        const modernTables = panel.querySelector("#pj-modern-tables");
+        const modernForms = panel.querySelector("#pj-modern-forms");
+        const stickyActions = panel.querySelector("#pj-sticky-actions");
+        const stickyTableHeaders = panel.querySelector("#pj-sticky-table-headers");
+        const highlightHoveredRow = panel.querySelector("#pj-highlight-hovered-row");
         const hideClock = panel.querySelector("#pj-hide-clock");
         const hideIcons = panel.querySelector("#pj-hide-icons");
         const removeScrollbar = panel.querySelector("#pj-remove-scrollbar");
@@ -1380,6 +1447,12 @@
         fontScale.value = String(sanitizeFontScale(settings.fontScalePercent));
         enableSideBg.checked = !!settings.sideBackgroundEnabled;
         sideBg.value = sanitizeSideBackground(settings.sideBackground);
+        modernVisual.checked = !!settings.modernVisualEnabled;
+        modernTables.checked = !!settings.modernTablesEnabled;
+        modernForms.checked = !!settings.modernFormsEnabled;
+        stickyActions.checked = !!settings.stickyActionsEnabled;
+        stickyTableHeaders.checked = !!settings.stickyTableHeadersEnabled;
+        highlightHoveredRow.checked = !!settings.highlightHoveredRowEnabled;
         hideClock.checked = !!settings.hideClock;
         hideIcons.checked = !!settings.hideHeaderIcons;
         removeScrollbar.checked = !!settings.enableRemoveScrollbar;
@@ -1438,6 +1511,12 @@
             fontScale.value = String(sanitizeFontScale(nextSettings.fontScalePercent));
             enableSideBg.checked = !!nextSettings.sideBackgroundEnabled;
             sideBg.value = sanitizeSideBackground(nextSettings.sideBackground);
+            modernVisual.checked = !!nextSettings.modernVisualEnabled;
+            modernTables.checked = !!nextSettings.modernTablesEnabled;
+            modernForms.checked = !!nextSettings.modernFormsEnabled;
+            stickyActions.checked = !!nextSettings.stickyActionsEnabled;
+            stickyTableHeaders.checked = !!nextSettings.stickyTableHeadersEnabled;
+            highlightHoveredRow.checked = !!nextSettings.highlightHoveredRowEnabled;
             hideClock.checked = !!nextSettings.hideClock;
             hideIcons.checked = !!nextSettings.hideHeaderIcons;
             removeScrollbar.checked = !!nextSettings.enableRemoveScrollbar;
@@ -1466,6 +1545,12 @@
                 fontScalePercent: sanitizeFontScale(fontScale.value),
                 sideBackgroundEnabled: enableSideBg.checked,
                 sideBackground: sanitizeSideBackground(sideBg.value),
+                modernVisualEnabled: modernVisual.checked,
+                modernTablesEnabled: modernTables.checked,
+                modernFormsEnabled: modernForms.checked,
+                stickyActionsEnabled: stickyActions.checked,
+                stickyTableHeadersEnabled: stickyTableHeaders.checked,
+                highlightHoveredRowEnabled: highlightHoveredRow.checked,
                 hideClock: hideClock.checked,
                 hideHeaderIcons: hideIcons.checked,
                 enableRemoveScrollbar: removeScrollbar.checked,
@@ -1536,6 +1621,12 @@
             fontScale.value = String(DEFAULT_SETTINGS.fontScalePercent);
             enableSideBg.checked = DEFAULT_SETTINGS.sideBackgroundEnabled;
             sideBg.value = DEFAULT_SETTINGS.sideBackground;
+            modernVisual.checked = DEFAULT_SETTINGS.modernVisualEnabled;
+            modernTables.checked = DEFAULT_SETTINGS.modernTablesEnabled;
+            modernForms.checked = DEFAULT_SETTINGS.modernFormsEnabled;
+            stickyActions.checked = DEFAULT_SETTINGS.stickyActionsEnabled;
+            stickyTableHeaders.checked = DEFAULT_SETTINGS.stickyTableHeadersEnabled;
+            highlightHoveredRow.checked = DEFAULT_SETTINGS.highlightHoveredRowEnabled;
             hideClock.checked = DEFAULT_SETTINGS.hideClock;
             hideIcons.checked = DEFAULT_SETTINGS.hideHeaderIcons;
             removeScrollbar.checked = DEFAULT_SETTINGS.enableRemoveScrollbar;
@@ -1617,7 +1708,7 @@
                 : widthEnabled && settings.sideBackgroundEnabled && settings.sideBackground === "light"
                     ? "#f3f4f6"
                     : "";
-        const hasHeaderAdjust = widthEnabled || settings.hideClock || settings.hideHeaderIcons;
+        const hasHeaderAdjust = widthEnabled || settings.hideClock || settings.hideHeaderIcons || settings.modernVisualEnabled;
         if (!hasHeaderAdjust) {
             removeStyleFromDoc(document, "projudi-top-header-style");
             return;
@@ -1717,7 +1808,58 @@
             }
         `;
 
-        const css = `${widthCss}\n${visibilityCss}`;
+        const modernShellCss = settings.modernVisualEnabled ? `
+            :root {
+                --pj-modern-primary: #123f72;
+                --pj-modern-primary-strong: #0b2f57;
+                --pj-modern-border: #d8e2ef;
+                --pj-modern-shadow: 0 8px 24px rgba(15, 45, 78, .12);
+            }
+            body.fundo {
+                background-color: #eef3f8 !important;
+                color: #172033 !important;
+            }
+            #Cabecalho {
+                position: relative;
+                z-index: 10;
+                background: linear-gradient(135deg, var(--pj-modern-primary-strong), var(--pj-modern-primary)) !important;
+                border-bottom: 1px solid rgba(255, 255, 255, .16) !important;
+                box-shadow: var(--pj-modern-shadow) !important;
+            }
+            #cssmenu,
+            #cssmenu > ul {
+                background: transparent !important;
+            }
+            #cssmenu > ul > li > a {
+                border-radius: 7px !important;
+                transition: background-color .16s ease, color .16s ease !important;
+            }
+            #cssmenu > ul > li:hover > a,
+            #cssmenu > ul > li.active > a {
+                background: rgba(255, 255, 255, .14) !important;
+            }
+            #cssmenu ul ul {
+                overflow: hidden !important;
+                border: 1px solid var(--pj-modern-border) !important;
+                border-radius: 10px !important;
+                background: #fff !important;
+                box-shadow: var(--pj-modern-shadow) !important;
+            }
+            #menuPrinciapl.menu,
+            body > div[style*="height:28px"][style*="background-color:#ccc"] {
+                background: #f8fafc !important;
+                border-bottom: 1px solid var(--pj-modern-border) !important;
+            }
+            #cronometro {
+                color: #334155 !important;
+                font-weight: 600 !important;
+            }
+            #Principal {
+                background: #eef3f8 !important;
+            }
+        ` : "";
+
+        const css = `${widthCss}\n${visibilityCss}\n${modernShellCss}`;
 
         let style = document.getElementById("projudi-top-header-style");
         if (!style) {
@@ -2767,15 +2909,211 @@
             `
             : "";
 
-        const styleId = "projudi-ajuste-largura";
-        const hasCssAdjust = widthEnabled || !!settings.compactMode || !!settings.fontScaleEnabled;
-        if (!hasCssAdjust) {
-            removeStyleFromDoc(doc, styleId);
-            return;
-        }
-        let style = doc.getElementById(styleId);
+        const modernVisualCss = settings.modernVisualEnabled ? `
+            :root {
+                --pj-ui-primary: #174f86;
+                --pj-ui-primary-soft: #e8f1fa;
+                --pj-ui-text: #172033;
+                --pj-ui-muted: #5c6b7d;
+                --pj-ui-border: #d7e1ec;
+                --pj-ui-surface: #ffffff;
+                --pj-ui-canvas: #eef3f8;
+                --pj-ui-radius: 10px;
+                --pj-ui-shadow: 0 4px 16px rgba(15, 45, 78, .08);
+            }
+            body {
+                background: var(--pj-ui-canvas) !important;
+                color: var(--pj-ui-text) !important;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
+                line-height: 1.4 !important;
+            }
+            #divCorpo, .divCorpo, #Corpo, #conteudo, #conteudoPrincipal,
+            #pgn_corpo, #Formulario, .Tela, .Corpo, .conteudo, #content,
+            #container, #principal, .container, .wrapper, .main {
+                background: var(--pj-ui-surface) !important;
+                border-color: var(--pj-ui-border) !important;
+            }
+            fieldset {
+                border: 1px solid var(--pj-ui-border) !important;
+                border-radius: var(--pj-ui-radius) !important;
+            }
+            body > fieldset,
+            #divCorpo > fieldset,
+            .divCorpo > fieldset,
+            #Corpo > fieldset,
+            #Formulario > fieldset {
+                background: var(--pj-ui-surface) !important;
+                box-shadow: var(--pj-ui-shadow) !important;
+            }
+            legend {
+                padding: 3px 9px !important;
+                border-radius: 5px !important;
+                color: var(--pj-ui-primary) !important;
+                font-weight: 700 !important;
+            }
+            h1, h2, h3, h4, h5, h6,
+            .titulo, .Titulo, .tituloTela, .tituloPagina {
+                color: var(--pj-ui-primary) !important;
+                letter-spacing: -.01em !important;
+            }
+            #abas, .abas, .ui-tabs-nav, [role="tablist"] {
+                border-color: var(--pj-ui-border) !important;
+                background: #f8fafc !important;
+            }
+            #abas a, .abas a, .ui-tabs-nav a, [role="tab"] {
+                border-radius: 7px 7px 0 0 !important;
+                color: #334155 !important;
+                font-weight: 600 !important;
+                text-decoration: none !important;
+            }
+            #abas a:hover, .abas a:hover, .ui-tabs-nav a:hover, [role="tab"]:hover {
+                background: var(--pj-ui-primary-soft) !important;
+                color: var(--pj-ui-primary) !important;
+            }
+            a {
+                text-underline-offset: 2px;
+            }
+            hr {
+                border: 0 !important;
+                border-top: 1px solid var(--pj-ui-border) !important;
+            }
+        ` : "";
 
-        const css = `
+        const modernTablesCss = settings.modernTablesEnabled ? `
+            table.Tabela, table#Tabela, .Tabela table, .divTabela table,
+            #TabelaArquivos, table.lista, table.listagem {
+                overflow: hidden !important;
+                border: 1px solid #d7e1ec !important;
+                border-collapse: separate !important;
+                border-spacing: 0 !important;
+                border-radius: 9px !important;
+                background: #fff !important;
+                box-shadow: 0 3px 12px rgba(15, 45, 78, .07) !important;
+            }
+            table.Tabela th, table#Tabela th, .Tabela table th, .divTabela table th,
+            #TabelaArquivos th, table.lista th, table.listagem th,
+            tr.fundoCabecalhoTabela > td, tr.tituloTabela > td {
+                padding: 8px 9px !important;
+                border-color: #c9d8e8 !important;
+                background: #e8f1fa !important;
+                color: #173f69 !important;
+                font-weight: 700 !important;
+                line-height: 1.25 !important;
+            }
+            table.Tabela td, table#Tabela td, .Tabela table td, .divTabela table td,
+            #TabelaArquivos td, table.lista td, table.listagem td {
+                padding: 7px 9px !important;
+                border-color: #e3eaf2 !important;
+                transition: background-color .12s ease !important;
+            }
+            table.Tabela tbody tr:nth-child(even) > td, table#Tabela tbody tr:nth-child(even) > td,
+            .Tabela table tbody tr:nth-child(even) > td, .divTabela table tbody tr:nth-child(even) > td,
+            #TabelaArquivos tbody tr:nth-child(even) > td, table.lista tbody tr:nth-child(even) > td,
+            table.listagem tbody tr:nth-child(even) > td {
+                background-color: #f8fafc !important;
+            }
+            table.Tabela tbody tr:hover > td, table#Tabela tbody tr:hover > td,
+            .Tabela table tbody tr:hover > td, .divTabela table tbody tr:hover > td,
+            #TabelaArquivos tbody tr:hover > td, table.lista tbody tr:hover > td,
+            table.listagem tbody tr:hover > td {
+                background-color: #edf5fc !important;
+            }
+        ` : "";
+
+        const modernFormsCss = settings.modernFormsEnabled ? `
+            input:not([type="image"]):not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]),
+            select, textarea {
+                min-height: 32px !important;
+                padding: 5px 8px !important;
+                border: 1px solid #b9c8d8 !important;
+                border-radius: 7px !important;
+                background: #fff !important;
+                color: #172033 !important;
+                box-shadow: inset 0 1px 2px rgba(15, 45, 78, .05) !important;
+                box-sizing: border-box !important;
+            }
+            textarea { min-height: 72px !important; }
+            input:not([type="image"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+            select:focus, textarea:focus, button:focus-visible, a:focus-visible {
+                outline: 3px solid rgba(30, 103, 173, .22) !important;
+                outline-offset: 1px !important;
+                border-color: #1e67ad !important;
+            }
+            button:not([title]), input[type="button"], input[type="submit"], input[type="reset"],
+            .botao:not([title]), .Botao:not([title]), .button:not([title]), .btn:not([title]) {
+                min-height: 32px !important;
+                padding: 6px 11px !important;
+                border: 1px solid #b9c8d8 !important;
+                border-radius: 7px !important;
+                background: linear-gradient(180deg, #fff, #f1f5f9) !important;
+                color: #173f69 !important;
+                font-weight: 600 !important;
+                cursor: pointer !important;
+                box-shadow: 0 1px 2px rgba(15, 45, 78, .08) !important;
+            }
+            button:not([title]):hover, input[type="button"]:hover, input[type="submit"]:hover,
+            input[type="reset"]:hover, .botao:not([title]):hover, .Botao:not([title]):hover,
+            .button:not([title]):hover, .btn:not([title]):hover {
+                border-color: #7fa3c5 !important;
+                background: #e8f1fa !important;
+            }
+            button:disabled, input:disabled, select:disabled, textarea:disabled {
+                cursor: not-allowed !important;
+                opacity: .62 !important;
+            }
+        ` : "";
+
+        const stickyActionsCss = settings.stickyActionsEnabled ? `
+            #abas, .abas, .ui-tabs-nav, [role="tablist"] {
+                position: sticky !important;
+                top: 0 !important;
+                z-index: 900 !important;
+                padding-top: 5px !important;
+                padding-bottom: 5px !important;
+                background-color: rgba(255, 255, 255, .96) !important;
+                box-shadow: 0 4px 10px rgba(15, 45, 78, .08) !important;
+                backdrop-filter: blur(7px) !important;
+                -webkit-backdrop-filter: blur(7px) !important;
+            }
+        ` : "";
+
+        const stickyTableHeadersCss = settings.stickyTableHeadersEnabled ? `
+            table.Tabela > thead > tr > th,
+            table.Tabela > thead > tr > td,
+            table#Tabela > thead > tr > th,
+            table#Tabela > thead > tr > td,
+            #TabelaArquivos > thead > tr > th,
+            #TabelaArquivos > thead > tr > td,
+            #tabListaProcesso > thead > tr > th,
+            #tabListaProcesso > thead > tr > td,
+            tr.fundoCabecalhoTabela > th,
+            tr.fundoCabecalhoTabela > td,
+            tr.tituloTabela > th,
+            tr.tituloTabela > td {
+                position: sticky !important;
+                top: ${settings.stickyActionsEnabled ? "44px" : "0"} !important;
+                z-index: 850 !important;
+                box-shadow: 0 2px 0 rgba(15, 62, 117, .16) !important;
+            }
+        ` : "";
+
+        const highlightHoveredRowCss = settings.highlightHoveredRowEnabled ? `
+            table.Tabela > tbody > tr:hover,
+            table#Tabela > tbody > tr:hover,
+            #TabelaArquivos > tbody > tr:hover,
+            #tabListaProcesso > tbody > tr:hover {
+                outline: 1px solid rgba(23, 79, 134, .34) !important;
+                outline-offset: -1px !important;
+            }
+            table.Tabela > tbody > tr:hover > td:first-child,
+            table#Tabela > tbody > tr:hover > td:first-child,
+            #TabelaArquivos > tbody > tr:hover > td:first-child,
+            #tabListaProcesso > tbody > tr:hover > td:first-child {
+                box-shadow: inset 3px 0 0 #1f67a6 !important;
+            }
+        ` : "";
+
+        const widthLayoutCss = widthEnabled ? `
             html, body {
                 width: 100% !important;
                 max-width: 100% !important;
@@ -2783,51 +3121,26 @@
                 box-sizing: border-box !important;
                 ${pageBg ? `background-color: ${pageBg} !important;` : ""}
             }
-            ${fontScaleCss}
-
-            #divCorpo,
-            .divCorpo,
-            #Corpo,
-            #conteudo,
-            #conteudoPrincipal,
-            #pgn_corpo,
-            .Tela,
-            .Corpo,
-            .conteudo,
-            #content,
-            #container,
-            #principal,
-            .container,
-            .wrapper,
-            .main,
-            table[width="980"],
-            table[width="1000"] {
+            #divCorpo, .divCorpo, #Corpo, #conteudo, #conteudoPrincipal,
+            #pgn_corpo, .Tela, .Corpo, .conteudo, #content, #container,
+            #principal, .container, .wrapper, .main,
+            table[width="980"], table[width="1000"] {
                 width: ${widthValue} !important;
                 max-width: ${widthValue} !important;
                 margin-left: ${centeredMargins} !important;
                 margin-right: ${centeredMargins} !important;
                 box-sizing: border-box !important;
             }
-
-            #Formulario,
-            #divEditar,
-            .divEditar,
-            .VisualizaDados,
-            #abas {
+            #Formulario, #divEditar, .divEditar, .VisualizaDados, #abas {
                 width: 100% !important;
                 max-width: 100% !important;
                 margin-left: 0 !important;
                 margin-right: 0 !important;
                 box-sizing: border-box !important;
             }
-
-            table,
-            .Tabela,
-            .divTabela,
-            .divTabela table {
+            table, .Tabela, .divTabela, .divTabela table {
                 max-width: 100% !important;
             }
-
             body > div[style*="width:"][style*="margin"],
             body > table[style*="width:"] {
                 width: ${widthValue} !important;
@@ -2835,8 +3148,29 @@
                 margin-left: ${centeredMargins} !important;
                 margin-right: ${centeredMargins} !important;
             }
+        ` : "";
 
+        const styleId = "projudi-ajuste-largura";
+        const hasCssAdjust = widthEnabled || !!settings.compactMode || !!settings.fontScaleEnabled ||
+            !!settings.modernVisualEnabled || !!settings.modernTablesEnabled ||
+            !!settings.modernFormsEnabled || !!settings.stickyActionsEnabled ||
+            !!settings.stickyTableHeadersEnabled || !!settings.highlightHoveredRowEnabled;
+        if (!hasCssAdjust) {
+            removeStyleFromDoc(doc, styleId);
+            return;
+        }
+        let style = doc.getElementById(styleId);
+
+        const css = `
+            ${widthLayoutCss}
+            ${fontScaleCss}
             ${compactCss}
+            ${modernVisualCss}
+            ${modernTablesCss}
+            ${modernFormsCss}
+            ${stickyActionsCss}
+            ${stickyTableHeadersCss}
+            ${highlightHoveredRowCss}
         `;
 
         if (!style) {
