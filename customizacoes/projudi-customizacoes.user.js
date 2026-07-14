@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      6.5
+// @version      6.6
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -186,6 +186,7 @@
     let mirrorPdfWorkScheduled = false;
     let mirrorPdfDepsPromise = null;
     let movimentacoesModule = null;
+    let customHeaderMount = null;
     const NO_SCROLLBAR_STYLE_ID = "tm-no-scrollbar-style";
     const NO_SCROLLBAR_CSS = "html,body{-ms-overflow-style:none!important;scrollbar-width:none!important;}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none!important;width:0!important;height:0!important;background:transparent!important;}";
 
@@ -1954,6 +1955,16 @@
     }
 
     function syncCustomHeaderStructure() {
+        const restore = () => {
+            if (!customHeaderMount) return;
+            customHeaderMount.items.forEach(({ node, marker }) => {
+                if (marker.parentNode) marker.parentNode.insertBefore(node, marker);
+                marker.remove();
+            });
+            customHeaderMount.root.remove();
+            customHeaderMount = null;
+        };
+
         const attrs = [
             "data-pjc-custom-header-shell",
             "data-pjc-custom-nav-shell",
@@ -1962,10 +1973,14 @@
         attrs.forEach(attr => {
             document.querySelectorAll(`[${attr}]`).forEach(node => node.removeAttribute(attr));
         });
-        if (!settings.customHeaderEnabled || !document.body) return;
+        if (!settings.customHeaderEnabled || !document.body) {
+            restore();
+            return;
+        }
 
         const header = document.getElementById("Cabecalho");
         const nav = document.getElementById("menuPrinciapl");
+        if (!header || !nav) return;
         if (header) header.setAttribute("data-pjc-custom-header-shell", "true");
         if (nav) nav.setAttribute("data-pjc-custom-nav", "true");
 
@@ -1973,13 +1988,36 @@
             ? nav.parentElement
             : nav;
         if (navShell) navShell.setAttribute("data-pjc-custom-nav-shell", "true");
+
+        if (customHeaderMount?.root?.isConnected) return;
+        restore();
+        const topChild = node => {
+            let current = node;
+            while (current?.parentElement && current.parentElement !== document.body) current = current.parentElement;
+            return current?.parentElement === document.body ? current : null;
+        };
+        const nodes = [...new Set([topChild(header), topChild(navShell)].filter(Boolean))];
+        if (!nodes.length) return;
+        nodes.sort((left, right) => [...document.body.children].indexOf(left) - [...document.body.children].indexOf(right));
+
+        const root = document.createElement("section");
+        root.id = "pjc-custom-header-root";
+        root.setAttribute("aria-label", "Cabeçalho personalizado do Projudi");
+        document.body.insertBefore(root, nodes[0]);
+        const items = nodes.map(node => {
+            const marker = document.createComment("projudi-custom-header-position");
+            node.parentNode.insertBefore(marker, node);
+            root.appendChild(node);
+            return { node, marker };
+        });
+        customHeaderMount = { root, items };
     }
 
     function injectTopHeaderCSS() {
         syncCustomHeaderStructure();
         syncGoogleFont(document);
-        const hasHeaderAdjust = settings.hideClock || settings.hideHeaderIcons || settings.customHeaderEnabled ||
-            settings.modernVisualEnabled || settings.googleFontEnabled;
+        const hasHeaderAdjust = settings.hideClock || settings.hideHeaderIcons ||
+            settings.customHeaderEnabled || settings.googleFontEnabled;
         if (!hasHeaderAdjust) {
             removeStyleFromDoc(document, "projudi-top-header-style");
             return;
@@ -1990,165 +2028,53 @@
             ${settings.hideHeaderIcons ? '#pgn_cabecalho > div[style*="float: right"] { display: none !important; }' : ""}
         `;
 
-        const modernShellCss = settings.modernVisualEnabled ? `
-            :root {
-                --pj-modern-primary: #123f72;
-                --pj-modern-primary-strong: #0b2f57;
-                --pj-modern-border: #d8e2ef;
-                --pj-modern-shadow: 0 8px 24px rgba(15, 45, 78, .12);
-            }
-            body.fundo {
-                background-color: #eef3f8 !important;
-                color: #172033 !important;
-            }
-            #Cabecalho {
-                position: relative;
-                z-index: 10;
-                background: linear-gradient(135deg, var(--pj-modern-primary-strong), var(--pj-modern-primary)) !important;
-                border-bottom: 1px solid rgba(255, 255, 255, .16) !important;
-                box-shadow: var(--pj-modern-shadow) !important;
-            }
-            #cssmenu,
-            #cssmenu > ul {
-                background: transparent !important;
-            }
-            #cssmenu > ul > li > a {
-                border-radius: 7px !important;
-                transition: background-color .16s ease, color .16s ease !important;
-            }
-            #cssmenu > ul > li:hover > a,
-            #cssmenu > ul > li.active > a {
-                background: rgba(255, 255, 255, .14) !important;
-            }
-            #cssmenu ul ul {
-                overflow: visible !important;
-                min-width: 250px !important;
-                max-width: min(420px, calc(100vw - 24px)) !important;
-                border: 1px solid var(--pj-modern-border) !important;
-                border-radius: 10px !important;
-                background: #fff !important;
-                box-shadow: var(--pj-modern-shadow) !important;
-            }
-            #Cabecalho, #pgn_cabecalho, #cssmenu, #cssmenu > ul { overflow: visible !important; }
-            #cssmenu ul ul li, #cssmenu ul ul a {
-                white-space: normal !important;
-                overflow: visible !important;
-                text-overflow: clip !important;
-                box-sizing: border-box !important;
-            }
-            #cssmenu > ul > li:nth-last-child(-n+3) > ul { left: auto !important; right: 0 !important; }
-            #cssmenu > ul > li:nth-last-child(-n+3) > ul ul { left: auto !important; right: 100% !important; }
-            #menuPrinciapl.menu,
-            body > div[style*="height:28px"][style*="background-color:#ccc"] {
-                background: #f8fafc !important;
-                border-bottom: 1px solid var(--pj-modern-border) !important;
-            }
-            #cronometro {
-                color: #334155 !important;
-                font-weight: 600 !important;
-            }
-            #Principal {
-                background: #eef3f8 !important;
-            }
-        ` : "";
-
         // Mantém a geometria nativa do Projudi e moderniza apenas a aparência.
         const stableCustomHeaderCss = settings.customHeaderEnabled ? `
-            :root {
-                --pj-header-primary: #0b3b67;
-                --pj-header-secondary: #17689f;
-                --pj-header-surface: #ffffff;
-                --pj-header-border: #d9e4ef;
-                --pj-header-text: #24364a;
-                --pj-header-shadow: 0 6px 20px rgba(15, 45, 78, .14);
-            }
-            #Cabecalho {
+            #pjc-custom-header-root {
                 position: relative !important;
                 z-index: 1200 !important;
+                width: 100% !important;
                 overflow: visible !important;
-                border-bottom: 1px solid rgba(255, 255, 255, .16) !important;
-                background: linear-gradient(110deg, var(--pj-header-primary), var(--pj-header-secondary)) !important;
-                box-shadow: var(--pj-header-shadow) !important;
+                background: #f8fafc !important;
+                box-shadow: 0 6px 20px rgba(15, 45, 78, .14) !important;
             }
-            #pgn_cabecalho {
+            #pjc-custom-header-root #Cabecalho {
+                position: relative !important;
+                z-index: 2 !important;
+                overflow: visible !important;
+                border-bottom: 1px solid rgba(255,255,255,.16) !important;
+                background: linear-gradient(110deg, #0b3b67, #17689f) !important;
+            }
+            #pjc-custom-header-root #pgn_cabecalho {
                 width: min(1480px, calc(100% - 28px)) !important;
                 max-width: none !important;
                 margin-left: auto !important;
                 margin-right: auto !important;
                 box-sizing: border-box !important;
-                overflow: visible !important;
             }
-            #cssmenu, #cssmenu > ul { overflow: visible !important; background: transparent !important; }
-            #cssmenu > ul > li > a {
-                border-radius: 8px !important;
-                transition: background-color .16s ease, transform .16s ease !important;
-            }
-            #cssmenu > ul > li:hover > a, #cssmenu > ul > li.active > a {
-                background: rgba(255, 255, 255, .15) !important;
-                transform: translateY(-1px);
-            }
-            #cssmenu ul ul, #menuPrinciapl.menu ul ul {
-                z-index: 1400 !important;
-                min-width: 230px !important;
-                max-width: min(380px, calc(100vw - 24px)) !important;
-                padding: 5px !important;
-                overflow: visible !important;
-                border: 1px solid var(--pj-header-border) !important;
-                border-radius: 10px !important;
-                background: var(--pj-header-surface) !important;
-                box-shadow: 0 16px 36px rgba(15, 45, 78, .2) !important;
-            }
-            #cssmenu ul ul li, #cssmenu ul ul a,
-            #menuPrinciapl.menu ul ul li, #menuPrinciapl.menu ul ul a {
-                box-sizing: border-box !important;
-                white-space: normal !important;
-            }
-            #cssmenu ul ul a, #menuPrinciapl.menu ul ul a {
-                padding: 7px 9px !important;
-                border-radius: 7px !important;
-                color: var(--pj-header-text) !important;
-                font-size: 13px !important;
-                line-height: 1.3 !important;
-                text-decoration: none !important;
-            }
-            #cssmenu ul ul li:hover > a, #menuPrinciapl.menu ul ul li:hover > a {
-                background: #eaf3fb !important;
-                color: #0b548b !important;
-            }
-            #cssmenu > ul > li:nth-last-child(-n+4) > ul,
-            #menuPrinciapl.menu > ul > li:nth-last-child(-n+4) > ul { right: 0 !important; left: auto !important; }
-            #cssmenu > ul > li:nth-last-child(-n+4) > ul ul,
-            #menuPrinciapl.menu > ul > li:nth-last-child(-n+4) > ul ul { right: 100% !important; left: auto !important; }
-            [data-pjc-custom-nav-shell="true"], #menuPrinciapl.menu {
+            #pjc-custom-header-root [data-pjc-custom-nav-shell="true"],
+            #pjc-custom-header-root #menuPrinciapl.menu {
                 position: relative !important;
-                z-index: 1100 !important;
+                z-index: 1 !important;
                 overflow: visible !important;
-                border-bottom: 1px solid var(--pj-header-border) !important;
+                border-bottom: 1px solid #d9e4ef !important;
                 background: #f8fafc !important;
-                box-shadow: 0 3px 12px rgba(15, 45, 78, .08) !important;
             }
-            #menuPrinciapl.menu > ul > li > a, #menuPrinciapl.menu > a {
-                padding: 6px 9px !important;
+            #pjc-custom-header-root #cssmenu > ul > li > a,
+            #pjc-custom-header-root #menuPrinciapl.menu > ul > li > a,
+            #pjc-custom-header-root #menuPrinciapl.menu > a {
                 border-radius: 7px !important;
-                color: var(--pj-header-text) !important;
-                font-size: 14px !important;
-                line-height: 1.25 !important;
-                text-decoration: none !important;
+                transition: background-color .15s ease, color .15s ease !important;
             }
-            #menuPrinciapl.menu > ul > li:hover > a,
-            #menuPrinciapl.menu > ul > li.active > a, #menuPrinciapl.menu > a:hover {
+            #pjc-custom-header-root #cssmenu > ul > li:hover > a {
+                background: rgba(255,255,255,.15) !important;
+            }
+            #pjc-custom-header-root #menuPrinciapl.menu > ul > li:hover > a,
+            #pjc-custom-header-root #menuPrinciapl.menu > ul > li.active > a {
                 background: #eaf3fb !important;
                 color: #0b548b !important;
             }
-            #cronometro { color: #52657a !important; font-weight: 650 !important; }
-            @media (max-width: 980px) {
-                #pgn_cabecalho { width: calc(100% - 16px) !important; }
-                #menuPrinciapl.menu > ul > li > a, #menuPrinciapl.menu > a {
-                    padding-left: 6px !important;
-                    padding-right: 6px !important;
-                    font-size: 13px !important;
-                }
-            }
+            #pjc-custom-header-root #cronometro { color: #52657a !important; font-weight: 650 !important; }
         ` : "";
 
         const topFontCss = settings.googleFontEnabled && settings.googleFontFamily
@@ -2159,7 +2085,7 @@
                 }
             `
             : "";
-        const css = `${visibilityCss}\n${modernShellCss}\n${stableCustomHeaderCss}\n${topFontCss}`;
+        const css = `${visibilityCss}\n${stableCustomHeaderCss}\n${topFontCss}`;
 
         let style = document.getElementById("projudi-top-header-style");
         if (!style) {
@@ -3196,14 +3122,16 @@
         const widthEnabled = !!settings.enableWidthAdjustments;
         const widthPercent = widthEnabled ? sanitizeWidthPercent(settings.contentWidthPercent) : 100;
         const widthValue = widthPercent + "%";
-        const centeredMargins = settings.centerContent && widthPercent < 100 ? "auto" : "0";
+        const widthGutter = `calc(100% - ${widthValue})`;
+        const leftGutter = settings.centerContent ? `calc(${widthGutter} / 2)` : "0px";
+        const rightGutter = settings.centerContent ? `calc(${widthGutter} / 2)` : widthGutter;
         const pageBg =
             widthEnabled && settings.sideBackgroundEnabled && settings.sideBackground === "white"
                 ? "#ffffff"
                 : widthEnabled && settings.sideBackgroundEnabled && settings.sideBackground === "light"
                     ? "#f3f4f6"
                     : "";
-        const scaledFontPx = Math.round(14 * sanitizeFontScale(settings.fontScalePercent) / 100 * 10) / 10;
+        const scaledFontPx = Math.round(13.5 * sanitizeFontScale(settings.fontScalePercent) / 100 * 10) / 10;
         const fontScaleCss = settings.fontScaleEnabled
             ? `
                 body, table, td, th, label, input, select, textarea, button {
@@ -3261,11 +3189,20 @@
                 background: var(--pj-ui-canvas) !important;
                 color: var(--pj-ui-text) !important;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
-                font-size: ${settings.fontScaleEnabled ? scaledFontPx : 14}px !important;
+                font-size: ${settings.fontScaleEnabled ? scaledFontPx : 13.5}px !important;
                 line-height: 1.48 !important;
             }
             table, td, th, label, input, select, textarea, button {
-                font-size: ${settings.fontScaleEnabled ? scaledFontPx : 14}px !important;
+                font-size: ${settings.fontScaleEnabled ? scaledFontPx : 13.5}px !important;
+            }
+            :where(i.fa, i.fas, i.far, i.fal, i.fab, i.fa-solid, i.fa-regular, i.fa-brands,
+              [class^="fa-"], [class*=" fa-"]) {
+                width: auto !important;
+                height: auto !important;
+                font-size: 1em !important;
+                line-height: 1 !important;
+                text-indent: 0 !important;
+                letter-spacing: normal !important;
             }
             #divCorpo, .divCorpo, #Corpo, #conteudo, #conteudoPrincipal,
             #pgn_corpo, #Formulario, .Tela, .Corpo, .conteudo, #content,
@@ -3367,6 +3304,19 @@
                 color: #173f69 !important;
                 font-weight: 700 !important;
                 line-height: 1.25 !important;
+                height: auto !important;
+                vertical-align: middle !important;
+                text-align: left !important;
+            }
+            table:not(.pjip-table) th[align="center"],
+            table:not(.pjip-table) tr.fundoCabecalhoTabela > td[align="center"],
+            table:not(.pjip-table) tr.tituloTabela > td[align="center"] {
+                text-align: center !important;
+            }
+            table:not(.pjip-table) th[align="right"],
+            table:not(.pjip-table) tr.fundoCabecalhoTabela > td[align="right"],
+            table:not(.pjip-table) tr.tituloTabela > td[align="right"] {
+                text-align: right !important;
             }
             table.Tabela:not(.pjip-table) td, table#Tabela:not(.pjip-table) td,
             .Tabela table:not(.pjip-table) td, .divTabela table:not(.pjip-table) td,
@@ -3488,15 +3438,17 @@
                 width: 100% !important;
                 max-width: 100% !important;
                 margin: 0 !important;
+                padding-left: ${leftGutter} !important;
+                padding-right: ${rightGutter} !important;
                 box-sizing: border-box !important;
                 ${pageBg ? `background-color: ${pageBg} !important;` : ""}
             }
             body {
-                width: ${widthValue} !important;
-                max-width: ${widthValue} !important;
+                width: 100% !important;
+                max-width: none !important;
                 min-width: 0 !important;
-                margin-left: ${centeredMargins} !important;
-                margin-right: ${centeredMargins} !important;
+                margin-left: 0 !important;
+                margin-right: 0 !important;
                 box-sizing: border-box !important;
                 overflow-x: auto !important;
             }
