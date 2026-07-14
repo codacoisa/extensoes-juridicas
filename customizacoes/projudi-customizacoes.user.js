@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      6.2
+// @version      6.3
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -270,6 +270,9 @@
             settings.enableIframeAutoHeight ||
             settings.autoHideHeader ||
             settings.enableWidthAdjustments ||
+            settings.compactMode ||
+            settings.fontScaleEnabled ||
+            settings.googleFontEnabled ||
             settings.modernVisualEnabled ||
             settings.modernTablesEnabled ||
             settings.modernFormsEnabled ||
@@ -606,6 +609,11 @@
                 box-sizing: border-box;
             }
 
+            #projudi-wide-panel-overlay .pjc-panel,
+            #projudi-wide-panel-overlay .pjc-panel *:not(i):not([class^="fa"]):not([class*=" fa-"]) {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
+            }
+
             #projudi-wide-panel-overlay #pj-reset,
             #projudi-wide-panel-overlay #pj-cancel,
             #projudi-wide-panel-overlay #pj-save,
@@ -635,6 +643,15 @@
 
             #projudi-wide-panel-overlay #pj-close {
                 color: #ffffff !important;
+            }
+
+            #projudi-wide-panel-overlay #pj-reset,
+            #projudi-wide-panel-overlay #pj-cancel,
+            #projudi-wide-panel-overlay #pj-save {
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 7px !important;
             }
 
             #projudi-wide-panel-overlay input[type="number"] {
@@ -713,7 +730,8 @@
             }
 
             #projudi-wide-panel-overlay .pjc-section--nav,
-            #projudi-wide-panel-overlay .pjc-section--layout {
+            #projudi-wide-panel-overlay .pjc-section--layout,
+            #projudi-wide-panel-overlay .pjc-section--reading {
                 grid-area: content;
             }
 
@@ -746,6 +764,59 @@
                 text-transform: uppercase;
             }
 
+            #projudi-wide-panel-overlay .pjc-pane-head {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 2px 2px 10px;
+                border-bottom: 1px solid #dbe3ef;
+            }
+
+            #projudi-wide-panel-overlay .pjc-pane-icon {
+                width: 38px;
+                height: 38px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                flex: 0 0 auto;
+                border-radius: 11px;
+                background: #e8f1fa;
+                color: #175a9d;
+                font-size: 16px;
+            }
+
+            #projudi-wide-panel-overlay .pjc-pane-title {
+                margin: 0;
+                color: #102a43;
+                font-size: 18px;
+                font-weight: 800;
+                line-height: 1.2;
+            }
+
+            #projudi-wide-panel-overlay .pjc-pane-desc {
+                margin: 2px 0 0;
+                color: #64748b;
+                font-size: 12px;
+            }
+
+            #projudi-wide-panel-overlay .pjc-subsection {
+                grid-column: 1 / -1;
+                display: flex;
+                align-items: center;
+                gap: 7px;
+                margin: 4px 2px -2px;
+                color: #36536f;
+                font-size: 12px;
+                font-weight: 800;
+                letter-spacing: .02em;
+            }
+
+            #projudi-wide-panel-overlay .pjc-subsection i {
+                width: 15px;
+                color: #1f69a8;
+                text-align: center;
+            }
+
             #projudi-wide-panel-overlay .pjc-stack {
                 display: grid;
                 grid-template-columns: 1fr;
@@ -766,6 +837,12 @@
                 border-radius: 12px;
                 background: #ffffff;
                 box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+                transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+            }
+
+            #projudi-wide-panel-overlay .pjc-card:hover {
+                border-color: #b8c9da;
+                box-shadow: 0 4px 14px rgba(15, 45, 78, .07);
             }
 
             #projudi-wide-panel-overlay .pjc-card--hero {
@@ -848,10 +925,45 @@
             }
 
             #projudi-wide-panel-overlay .pjc-card-check {
-                width: 18px;
-                height: 18px;
-                margin-top: 2px;
+                appearance: none !important;
+                -webkit-appearance: none !important;
+                position: relative;
+                width: 38px;
+                height: 22px;
+                margin: 0;
                 flex: 0 0 auto;
+                border: 1px solid #b8c5d3;
+                border-radius: 999px;
+                background: #dbe3ec;
+                cursor: pointer;
+                transition: background-color .16s ease, border-color .16s ease;
+            }
+
+            #projudi-wide-panel-overlay .pjc-card-check::before {
+                content: "";
+                position: absolute;
+                top: 2px;
+                left: 2px;
+                width: 16px;
+                height: 16px;
+                border-radius: 50%;
+                background: #fff;
+                box-shadow: 0 1px 3px rgba(15, 23, 42, .28);
+                transition: transform .16s ease;
+            }
+
+            #projudi-wide-panel-overlay .pjc-card-check:checked {
+                border-color: #1767a7;
+                background: #1767a7;
+            }
+
+            #projudi-wide-panel-overlay .pjc-card-check:checked::before {
+                transform: translateX(16px);
+            }
+
+            #projudi-wide-panel-overlay .pjc-card-check:disabled {
+                opacity: .5;
+                cursor: default;
             }
 
             #projudi-wide-panel-overlay .pjc-inline-controls {
@@ -1139,6 +1251,9 @@
                 #projudi-wide-panel-overlay .pjc-input--number {
                     width: 84px;
                 }
+                #projudi-wide-panel-overlay #pj-panel-footer .pjc-note {
+                    display: none;
+                }
             }
         `;
 
@@ -1148,8 +1263,8 @@
                     <div class="pjc-panel-brand">
                         <span class="pjc-panel-brand-icon"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i></span>
                         <div>
-                            <div style="font-size:16px; font-weight:700; line-height:1.2;">Customizações</div>
-                            <div style="font-size:12px; opacity:.9; margin-top:2px;">Configurações visuais e de abertura de arquivos</div>
+                            <div style="font-size:17px; font-weight:800; line-height:1.2;">Aparência do Projudi</div>
+                            <div style="font-size:12px; opacity:.9; margin-top:2px;">Personalize a interface sem alterar o funcionamento do sistema</div>
                         </div>
                     </div>
                     <button id="pj-close" title="Fechar" style="border:0; background:rgba(255,255,255,.2); color:#fff; width:30px; height:30px; border-radius:999px; cursor:pointer; font-size:14px; font-weight:500; line-height:1.2;"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
@@ -1158,29 +1273,63 @@
             <div id="pj-panel-body">
                 <div class="pjc-body">
                     <section class="pjc-section pjc-section--summary">
-                        <div class="pjc-section-title">Painel principal</div>
+                        <div class="pjc-section-title">Configurações</div>
                         <div class="pjc-card pjc-card--hero">
-                            <p class="pjc-summary-title">Customizações do Projudi</p>
-                            <p class="pjc-card-desc">Ajustes visuais, navegação, arquivos do processo e backup ficam reunidos nesta tela.</p>
+                            <p class="pjc-summary-title">Escolha uma área</p>
+                            <p class="pjc-card-desc">As opções foram separadas pelo efeito que produzem na interface.</p>
                             <div class="pjc-category-nav" aria-label="Categorias de configurações">
-                                <button type="button" class="pjc-category-button" data-pjc-section-target="layout" data-active="true"><i class="fa-solid fa-palette" aria-hidden="true"></i><span>Aparência</span></button>
-                                <button type="button" class="pjc-category-button" data-pjc-section-target="nav"><i class="fa-solid fa-compass" aria-hidden="true"></i><span>Navegação</span></button>
+                                <button type="button" class="pjc-category-button" data-pjc-section-target="layout" data-active="true"><i class="fa-solid fa-palette" aria-hidden="true"></i><span>Visual e fonte</span></button>
+                                <button type="button" class="pjc-category-button" data-pjc-section-target="nav"><i class="fa-solid fa-window-maximize" aria-hidden="true"></i><span>Tela e topo</span></button>
+                                <button type="button" class="pjc-category-button" data-pjc-section-target="reading"><i class="fa-solid fa-table-list" aria-hidden="true"></i><span>Leitura e tabelas</span></button>
                                 <button type="button" class="pjc-category-button" data-pjc-section-target="process"><i class="fa-solid fa-folder-open" aria-hidden="true"></i><span>Processo</span></button>
-                                <button type="button" class="pjc-category-button" data-pjc-section-target="backup"><i class="fa-solid fa-cloud" aria-hidden="true"></i><span>Backup</span></button>
+                                <button type="button" class="pjc-category-button" data-pjc-section-target="backup"><i class="fa-solid fa-database" aria-hidden="true"></i><span>Dados e backup</span></button>
                             </div>
                         </div>
                         <label class="pjc-card pjc-card--soft">
                             <div class="pjc-card-body">
-                                <p class="pjc-card-title">Ativar script</p>
-                                <p class="pjc-card-desc">Liga e desliga todos os ajustes sem precisar mexer nas configurações da extensão.</p>
+                                <p class="pjc-card-title">Personalizações ativas</p>
+                                <p class="pjc-card-desc">Desative para voltar temporariamente ao visual original.</p>
                             </div>
                             <input type="checkbox" id="pj-enabled" class="pjc-card-check">
                         </label>
                     </section>
 
                     <section class="pjc-section pjc-section--nav" data-pjc-pane="nav" data-active="false">
-                        <div class="pjc-section-title">Navegação e Cabeçalho</div>
-                        <div class="pjc-stack">
+                        <div class="pjc-pane-head">
+                            <span class="pjc-pane-icon"><i class="fa-solid fa-window-maximize" aria-hidden="true"></i></span>
+                            <div><p class="pjc-pane-title">Tela e topo</p><p class="pjc-pane-desc">Controle o cabeçalho e o aproveitamento vertical da janela.</p></div>
+                        </div>
+                        <div class="pjc-stack pjc-stack--two">
+                            <div class="pjc-subsection"><i class="fa-solid fa-heading" aria-hidden="true"></i><span>Cabeçalho</span></div>
+                            <label class="pjc-card">
+                                <div class="pjc-card-body">
+                                    <p class="pjc-card-title">Cabeçalho personalizado</p>
+                                    <p class="pjc-card-desc">Usa uma composição moderna e independente da largura do conteúdo.</p>
+                                </div>
+                                <input type="checkbox" id="pj-custom-header" class="pjc-card-check">
+                            </label>
+                            <label class="pjc-card">
+                                <div class="pjc-card-body">
+                                    <p class="pjc-card-title">Ocultar cabeçalho automaticamente</p>
+                                    <p class="pjc-card-desc">Recolhe o topo quando o cursor entra na área do processo.</p>
+                                </div>
+                                <input type="checkbox" id="pj-auto-hide" class="pjc-card-check">
+                            </label>
+                            <label class="pjc-card">
+                                <div class="pjc-card-body">
+                                    <p class="pjc-card-title">Ocultar relógio</p>
+                                    <p class="pjc-card-desc">Esconde somente o cronômetro do topo.</p>
+                                </div>
+                                <input type="checkbox" id="pj-hide-clock" class="pjc-card-check">
+                            </label>
+                            <label class="pjc-card">
+                                <div class="pjc-card-body">
+                                    <p class="pjc-card-title">Ocultar ícones utilitários</p>
+                                    <p class="pjc-card-desc">Esconde fonte, ajuda, downloads, voltar e sair.</p>
+                                </div>
+                                <input type="checkbox" id="pj-hide-icons" class="pjc-card-check">
+                            </label>
+                            <div class="pjc-subsection"><i class="fa-solid fa-expand" aria-hidden="true"></i><span>Área de trabalho</span></div>
                             <label class="pjc-card">
                                 <div class="pjc-card-body">
                                     <p class="pjc-card-title">Remover barras de rolagem do iframe</p>
@@ -1190,45 +1339,21 @@
                             </label>
                             <label class="pjc-card">
                                 <div class="pjc-card-body">
-                                    <p class="pjc-card-title">Ocultar cabeçalho automaticamente</p>
-                                    <p class="pjc-card-desc">Esconde o topo ao passar o mouse na área do processo.</p>
-                                </div>
-                                <input type="checkbox" id="pj-auto-hide" class="pjc-card-check">
-                            </label>
-                            <label class="pjc-card">
-                                <div class="pjc-card-body">
                                     <p class="pjc-card-title">Ajuste automático da altura</p>
                                     <p class="pjc-card-desc">Calcula a altura ideal do iframe para usar melhor a tela.</p>
                                 </div>
                                 <input type="checkbox" id="pj-iframe-height" class="pjc-card-check">
                             </label>
-                            <label class="pjc-card">
-                                <div class="pjc-card-body">
-                                    <p class="pjc-card-title">Ocultar relógio</p>
-                                    <p class="pjc-card-desc">Esconde apenas o cronômetro do topo.</p>
-                                </div>
-                                <input type="checkbox" id="pj-hide-clock" class="pjc-card-check">
-                            </label>
-                            <label class="pjc-card">
-                                <div class="pjc-card-body">
-                                    <p class="pjc-card-title">Ocultar ícones utilitários</p>
-                                    <p class="pjc-card-desc">Esconde os ícones do topo, como fonte, ajuda, voltar e sair.</p>
-                                </div>
-                                <input type="checkbox" id="pj-hide-icons" class="pjc-card-check">
-                            </label>
                         </div>
                     </section>
 
                     <section class="pjc-section pjc-section--layout" data-pjc-pane="layout" data-active="true">
-                        <div class="pjc-section-title">Layout e Aparência</div>
+                        <div class="pjc-pane-head">
+                            <span class="pjc-pane-icon"><i class="fa-solid fa-palette" aria-hidden="true"></i></span>
+                            <div><p class="pjc-pane-title">Visual e fonte</p><p class="pjc-pane-desc">Defina dimensões, densidade e identidade visual do conteúdo.</p></div>
+                        </div>
                         <div class="pjc-stack pjc-stack--two">
-                            <label class="pjc-card">
-                                <div class="pjc-card-body">
-                                    <p class="pjc-card-title">Cabeçalho personalizado</p>
-                                    <p class="pjc-card-desc">Substitui o layout visual do topo por uma barra moderna, responsiva e independente da largura da página.</p>
-                                </div>
-                                <input type="checkbox" id="pj-custom-header" class="pjc-card-check">
-                            </label>
+                            <div class="pjc-subsection"><i class="fa-solid fa-ruler-combined" aria-hidden="true"></i><span>Dimensões</span></div>
                             <label class="pjc-card">
                                 <div class="pjc-card-body">
                                     <p class="pjc-card-title">Largura da página</p>
@@ -1268,6 +1393,7 @@
                                     <input type="checkbox" id="pj-enable-side-bg" title="Ativar ajuste de fundo lateral" class="pjc-card-check">
                                 </div>
                             </label>
+                            <div class="pjc-subsection"><i class="fa-solid fa-font" aria-hidden="true"></i><span>Tipografia e densidade</span></div>
                             <label class="pjc-card">
                                 <div class="pjc-card-body">
                                     <p class="pjc-card-title">Modo compacto</p>
@@ -1302,6 +1428,7 @@
                                     <input type="checkbox" id="pj-enable-google-font" title="Ativar fonte personalizada" class="pjc-card-check">
                                 </div>
                             </label>
+                            <div class="pjc-subsection"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><span>Estilo geral</span></div>
                             <label class="pjc-card">
                                 <div class="pjc-card-body">
                                     <p class="pjc-card-title">Visual moderno</p>
@@ -1309,38 +1436,49 @@
                                 </div>
                                 <input type="checkbox" id="pj-modern-visual" class="pjc-card-check">
                             </label>
+                        </div>
+                    </section>
+
+                    <section class="pjc-section pjc-section--reading" data-pjc-pane="reading" data-active="false">
+                        <div class="pjc-pane-head">
+                            <span class="pjc-pane-icon"><i class="fa-solid fa-table-list" aria-hidden="true"></i></span>
+                            <div><p class="pjc-pane-title">Leitura e tabelas</p><p class="pjc-pane-desc">Melhore a leitura de formulários, listas e movimentações extensas.</p></div>
+                        </div>
+                        <div class="pjc-stack pjc-stack--two">
+                            <div class="pjc-subsection"><i class="fa-solid fa-layer-group" aria-hidden="true"></i><span>Componentes</span></div>
                             <label class="pjc-card">
                                 <div class="pjc-card-body">
                                     <p class="pjc-card-title">Tabelas mais legíveis</p>
-                                    <p class="pjc-card-desc">Adiciona cabeçalho destacado e linhas alternadas sem substituir cores funcionais.</p>
+                                    <p class="pjc-card-desc">Destaca cabeçalhos e alterna linhas sem apagar cores funcionais.</p>
                                 </div>
                                 <input type="checkbox" id="pj-modern-tables" class="pjc-card-check">
                             </label>
                             <label class="pjc-card">
                                 <div class="pjc-card-body">
                                     <p class="pjc-card-title">Formulários modernos</p>
-                                    <p class="pjc-card-desc">Melhora campos e o indicador de foco sem substituir botões nativos do Projudi.</p>
+                                    <p class="pjc-card-desc">Melhora campos, seletores e indicadores de foco.</p>
                                 </div>
                                 <input type="checkbox" id="pj-modern-forms" class="pjc-card-check">
                             </label>
+                            <div class="pjc-subsection"><i class="fa-solid fa-thumbtack" aria-hidden="true"></i><span>Auxílios de leitura</span></div>
                             <label class="pjc-card">
                                 <div class="pjc-card-body">
                                     <p class="pjc-card-title">Fixar abas do processo</p>
-                                    <p class="pjc-card-desc">Mantém somente a barra de abas do processo visível durante a rolagem.</p>
+                                    <p class="pjc-card-desc">Mantém a barra de abas visível durante a rolagem.</p>
                                 </div>
                                 <input type="checkbox" id="pj-sticky-actions" class="pjc-card-check">
                             </label>
                             <label class="pjc-card">
                                 <div class="pjc-card-body">
                                     <p class="pjc-card-title">Fixar cabeçalhos das tabelas</p>
-                                    <p class="pjc-card-desc">Mantém os nomes das colunas visíveis em listas e movimentações extensas.</p>
+                                    <p class="pjc-card-desc">Mantém os nomes das colunas visíveis em listas extensas.</p>
                                 </div>
                                 <input type="checkbox" id="pj-sticky-table-headers" class="pjc-card-check">
                             </label>
                             <label class="pjc-card">
                                 <div class="pjc-card-body">
                                     <p class="pjc-card-title">Realçar linha em leitura</p>
-                                    <p class="pjc-card-desc">Marca discretamente a linha sob o cursor sem substituir cores de movimentações ou prazos.</p>
+                                    <p class="pjc-card-desc">Marca discretamente a linha sob o cursor.</p>
                                 </div>
                                 <input type="checkbox" id="pj-highlight-hovered-row" class="pjc-card-check">
                             </label>
@@ -1348,8 +1486,12 @@
                     </section>
 
                     <section class="pjc-section pjc-section--process" data-pjc-pane="process" data-active="false">
-                        <div class="pjc-section-title">Arquivos do Processo</div>
+                        <div class="pjc-pane-head">
+                            <span class="pjc-pane-icon"><i class="fa-solid fa-folder-open" aria-hidden="true"></i></span>
+                            <div><p class="pjc-pane-title">Processo e arquivos</p><p class="pjc-pane-desc">Configure movimentações, documentos e ferramentas de geração.</p></div>
+                        </div>
                         <div class="pjc-stack pjc-stack--two">
+                            <div class="pjc-subsection"><i class="fa-solid fa-file-lines" aria-hidden="true"></i><span>Documentos e movimentações</span></div>
                             <div class="pjc-card">
                                 <div class="pjc-card-body">
                                     <p class="pjc-card-title">Destacar movimentações</p>
@@ -1389,11 +1531,14 @@
                     </section>
 
                     <section class="pjc-section pjc-section--backup" data-pjc-pane="backup" data-active="false">
-                        <div class="pjc-section-title">Backup remoto</div>
+                        <div class="pjc-pane-head">
+                            <span class="pjc-pane-icon"><i class="fa-solid fa-database" aria-hidden="true"></i></span>
+                            <div><p class="pjc-pane-title">Dados e backup</p><p class="pjc-pane-desc">As preferências já ficam salvas neste navegador; o Gist cria uma cópia remota opcional.</p></div>
+                        </div>
                         <div class="pjc-card pjc-card--soft">
                             <div class="pjc-card-body">
-                                <p class="pjc-card-title">Backup remoto</p>
-                                <p class="pjc-card-desc">Configure Gist, token, restauração e envio automático em uma janela dedicada.</p>
+                                <p class="pjc-card-title">Cópia no GitHub Gist</p>
+                                <p class="pjc-card-desc">Configure token, restauração e envio automático em uma janela separada.</p>
                             </div>
                             <button id="pj-backup-open" type="button" class="pjc-btn-secondary pjc-backup-toggle"><i class="fa-solid fa-cloud" aria-hidden="true"></i><span>Backup remoto</span></button>
                         </div>
@@ -1447,10 +1592,11 @@
                     </div>
                 </section>
             </div>
-            <div id="pj-panel-footer" style="display:flex; gap:8px; justify-content:flex-end; padding:12px 16px; border-top:1px solid #dbe3ef; background:#f8fafc;">
-                <button id="pj-reset" style="padding:7px 11px; min-width:86px; border:1px solid #cbd5e1; background:#fff; border-radius:8px; cursor:pointer;">Padrão</button>
-                <button id="pj-cancel" style="padding:7px 11px; min-width:86px; border:1px solid #cbd5e1; background:#fff; border-radius:8px; cursor:pointer;">Fechar</button>
-                <button id="pj-save" style="padding:7px 11px; min-width:86px; background:#0f3e75; color:#fff; border:0; border-radius:8px; cursor:pointer; font-weight:600;">Salvar</button>
+            <div id="pj-panel-footer" style="display:flex; align-items:center; gap:8px; justify-content:flex-end; padding:12px 16px; border-top:1px solid #dbe3ef; background:#f8fafc;">
+                <span class="pjc-note" style="margin-right:auto;"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> As mudanças são aplicadas ao salvar.</span>
+                <button id="pj-reset" style="padding:8px 12px; min-width:96px; border:1px solid #cbd5e1; background:#fff; border-radius:8px; cursor:pointer;"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Restaurar</button>
+                <button id="pj-cancel" style="padding:8px 12px; min-width:86px; border:1px solid #cbd5e1; background:#fff; border-radius:8px; cursor:pointer;">Cancelar</button>
+                <button id="pj-save" style="padding:8px 14px; min-width:132px; background:#0f3e75; color:#fff; border:0; border-radius:8px; cursor:pointer; font-weight:700;"><i class="fa-solid fa-check" aria-hidden="true"></i> Salvar alterações</button>
             </div>
         `;
 
@@ -1999,7 +2145,7 @@
                 width: 100% !important;
                 max-width: none !important;
                 height: auto !important;
-                min-height: 64px !important;
+                min-height: 52px !important;
                 margin: 0 !important;
                 overflow: visible !important;
                 border: 0 !important;
@@ -2010,20 +2156,22 @@
             #pgn_cabecalho {
                 display: flex !important;
                 align-items: center !important;
-                gap: 18px !important;
+                gap: 14px !important;
                 width: min(1480px, calc(100% - 32px)) !important;
                 max-width: none !important;
-                min-height: 64px !important;
+                min-height: 52px !important;
                 height: auto !important;
                 margin: 0 auto !important;
-                padding: 8px 4px !important;
+                padding: 4px !important;
                 box-sizing: border-box !important;
                 overflow: visible !important;
             }
             #img_logotj {
-                flex: 0 1 auto !important;
+                flex: 0 0 auto !important;
+                min-width: 32px !important;
                 max-width: min(310px, 42vw) !important;
-                max-height: 46px !important;
+                max-height: 38px !important;
+                width: auto !important;
                 height: auto !important;
                 margin: 0 !important;
                 object-fit: contain !important;
@@ -2050,7 +2198,7 @@
                 display: flex !important;
                 align-items: center !important;
                 justify-content: flex-end !important;
-                gap: 4px !important;
+                gap: 2px !important;
                 float: none !important;
                 width: auto !important;
                 margin: 0 !important;
@@ -2068,9 +2216,9 @@
                 display: inline-flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                min-width: 34px !important;
-                min-height: 34px !important;
-                padding: 7px 8px !important;
+                min-width: 32px !important;
+                min-height: 32px !important;
+                padding: 6px 7px !important;
                 box-sizing: border-box !important;
                 border: 1px solid transparent !important;
                 border-radius: 9px !important;
@@ -2087,12 +2235,12 @@
             }
             #cssmenu ul ul {
                 z-index: 1400 !important;
-                min-width: 260px !important;
-                max-width: min(420px, calc(100vw - 24px)) !important;
-                padding: 6px !important;
+                min-width: 224px !important;
+                max-width: min(320px, calc(100vw - 24px)) !important;
+                padding: 4px !important;
                 overflow: visible !important;
                 border: 1px solid var(--pj-header-border) !important;
-                border-radius: 12px !important;
+                border-radius: 10px !important;
                 background: var(--pj-header-surface) !important;
                 box-shadow: 0 16px 38px rgba(15, 45, 78, .2) !important;
             }
@@ -2107,10 +2255,11 @@
                 display: flex !important;
                 align-items: center !important;
                 justify-content: space-between !important;
-                min-height: 38px !important;
-                padding: 8px 10px !important;
+                min-height: 32px !important;
+                padding: 6px 8px !important;
                 border-radius: 8px !important;
                 color: var(--pj-header-text) !important;
+                font-size: 13px !important;
                 line-height: 1.25 !important;
                 text-decoration: none !important;
             }
@@ -2123,53 +2272,59 @@
             body > div[style*="height:28px"][style*="background-color:#ccc"] {
                 position: relative !important;
                 z-index: 1100 !important;
-                height: auto !important;
-                min-height: 44px !important;
+                height: 0 !important;
+                min-height: 0 !important;
                 overflow: visible !important;
                 border: 0 !important;
-                border-bottom: 1px solid var(--pj-header-border) !important;
-                background: var(--pj-header-surface) !important;
-                box-shadow: 0 3px 12px rgba(15, 45, 78, .08) !important;
+                background: transparent !important;
+                box-shadow: none !important;
             }
             #menuPrinciapl.menu {
                 display: flex !important;
                 align-items: center !important;
                 width: 100% !important;
                 max-width: none !important;
-                min-height: 44px !important;
+                min-height: 42px !important;
                 margin: 0 !important;
-                padding: 0 24px !important;
+                padding: 0 18px !important;
                 box-sizing: border-box !important;
                 overflow: visible !important;
                 background: var(--pj-header-surface) !important;
+                border-bottom: 1px solid var(--pj-header-border) !important;
+                box-shadow: 0 3px 12px rgba(15, 45, 78, .08) !important;
             }
             #menuPrinciapl.menu > ul {
                 display: flex !important;
                 align-items: center !important;
-                flex-wrap: wrap !important;
-                gap: 2px !important;
+                flex-wrap: nowrap !important;
+                justify-content: flex-start !important;
+                gap: 0 !important;
                 float: none !important;
                 width: min(1480px, 100%) !important;
                 margin: 0 auto !important;
-                padding: 0 92px 0 0 !important;
+                padding: 0 72px 0 0 !important;
                 box-sizing: border-box !important;
             }
             #menuPrinciapl.menu > ul > li {
                 display: block !important;
                 float: none !important;
+                flex: 0 0 auto !important;
+                width: auto !important;
                 margin: 0 !important;
             }
             #menuPrinciapl.menu > ul > li > a,
             #menuPrinciapl.menu > a {
                 display: inline-flex !important;
                 align-items: center !important;
-                min-height: 36px !important;
-                padding: 7px 10px !important;
+                min-height: 34px !important;
+                padding: 6px 8px !important;
                 box-sizing: border-box !important;
                 border-radius: 8px !important;
                 color: var(--pj-header-text) !important;
+                font-size: 13px !important;
                 font-weight: 650 !important;
                 line-height: 1.2 !important;
+                white-space: nowrap !important;
                 text-decoration: none !important;
                 transition: background-color .15s ease, color .15s ease !important;
             }
@@ -2181,12 +2336,12 @@
             }
             #menuPrinciapl.menu ul ul {
                 z-index: 1350 !important;
-                min-width: 230px !important;
-                max-width: min(380px, calc(100vw - 24px)) !important;
-                padding: 6px !important;
+                min-width: 220px !important;
+                max-width: min(320px, calc(100vw - 24px)) !important;
+                padding: 4px !important;
                 overflow: visible !important;
                 border: 1px solid var(--pj-header-border) !important;
-                border-radius: 11px !important;
+                border-radius: 10px !important;
                 background: var(--pj-header-surface) !important;
                 box-shadow: 0 14px 34px rgba(15, 45, 78, .18) !important;
             }
@@ -2199,10 +2354,11 @@
             }
             #menuPrinciapl.menu ul ul a {
                 display: block !important;
-                min-height: 36px !important;
-                padding: 8px 10px !important;
+                min-height: 32px !important;
+                padding: 6px 8px !important;
                 border-radius: 7px !important;
                 color: var(--pj-header-text) !important;
+                font-size: 13px !important;
                 line-height: 1.25 !important;
                 text-decoration: none !important;
             }
@@ -2213,7 +2369,7 @@
             #menuPrinciapl #cronometro {
                 position: absolute !important;
                 top: 50% !important;
-                right: 24px !important;
+                right: 18px !important;
                 float: none !important;
                 margin: 0 !important;
                 transform: translateY(-50%) !important;
@@ -3601,6 +3757,7 @@
 
         const styleId = "projudi-ajuste-largura";
         const hasCssAdjust = widthEnabled || !!settings.compactMode || !!settings.fontScaleEnabled ||
+            !!settings.googleFontEnabled ||
             !!settings.modernVisualEnabled || !!settings.modernTablesEnabled ||
             !!settings.modernFormsEnabled || !!settings.stickyActionsEnabled ||
             !!settings.stickyTableHeadersEnabled || !!settings.highlightHoveredRowEnabled;
@@ -3648,7 +3805,7 @@
     }
 
     function injectCSSInIframe() {
-        if (!settings.enabled || !shouldManageIframeFeatures()) return;
+        if (!settings.enabled) return;
         const iframe = document.getElementById("Principal");
         if (!iframe || !iframe.contentDocument) return;
 
@@ -3656,6 +3813,11 @@
         iframe.style.display = "block";
 
         const iframeDoc = iframe.contentDocument;
+        if (!shouldManageIframeFeatures()) {
+            removeStyleFromDoc(iframeDoc, "projudi-ajuste-largura");
+            syncGoogleFont(iframeDoc);
+            return;
+        }
         injectWidthCSS(iframeDoc);
         syncNoScrollbarForDoc(iframeDoc);
         if (settings.enableProcessMirrorPdf) initProcessMirrorPdfFeature(iframeDoc);
@@ -5842,6 +6004,7 @@
         ajustarAlturaIframe();
         if (headerHidden && !settings.autoHideHeader) setHeaderHidden(false);
         updateHeaderRevealZone();
+        injectCSSInIframe();
         if (shouldManageIframeFeatures()) retryInjectInIframe(3, 120);
     }
 
