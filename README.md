@@ -26,6 +26,19 @@ Os scripts foram feitos para gerenciadores de userscripts como Tampermonkey, Vio
 
 Para detalhes de funcionamento e configuração, consulte o `README.md` da pasta correspondente.
 
+## Interface e armazenamento
+
+As extensões ativas compartilham o mesmo sistema visual: tipografia nativa do sistema, componentes, estados de cor, navegação por teclado e ícones Font Awesome 7.2.0 renderizados em SVG (sem webfonts).
+
+Cada extensão mantém somente dois documentos persistentes no navegador:
+
+- `projudi-suite::<extensao>::data`: dados e preferências funcionais;
+- `projudi-suite::<extensao>::gist`: configuração privada do backup remoto.
+
+Token, Gist ID e demais parâmetros de conexão nunca são incluídos em exportações, assinaturas de conteúdo ou arquivos enviados ao Gist. As versões atuais migram automaticamente as chaves legadas e continuam aceitando os formatos anteriores de backup.
+
+As versões dos userscripts seguem o instante da edição no formato `YYYY.MM.DD-HHmm`, usando o fuso `America/Sao_Paulo`. O formato mantém ordenação cronológica direta; uma nova edição não deve reutilizar o mesmo minuto da versão anterior.
+
 ## Arquivo histórico
 
 Projetos descontinuados ficam preservados em [`arquivo/`](arquivo/), separados das extensões ativas. Eles não recebem correções, suporte ou atualizações e não são recomendados para instalação.

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Anotações
 // @namespace    projudi-anotacoes-locais.user.js
-// @version      5.1
+// @version      2026.07.19-0237
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Adiciona Post-it local ao Projudi, com painel de notas, importação e exportação.
 // @author       lourencosv (GPT)
@@ -96,6 +96,7 @@
     const Z_UI = 2147483000;
     const NOTE_PREFIX = 'projudi_note::';
     const NOTE_META_PREFIX = 'projudi_note_meta::';
+    const DATA_KEY = 'projudi-suite::anotacoes::data';
     const CNJ_REGEX = /\b\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\b/;
     const NOTE_COLORS = [
         { id: 'yellow', label: 'Amarela', body: '#fff7b2', header: '#f4e38a', border: '#e3d37d', text: '#4a3f00' },
@@ -126,9 +127,10 @@
             return { name: fallbackName, version: 'unknown', id: fallbackId, fileName: `${fallbackId}.json` };
         }
     })();
-    const BACKUP_SETTINGS_KEY = 'projudi_notes_backup_settings_v1';
+    const BACKUP_SETTINGS_KEY = 'projudi-suite::anotacoes::gist';
+    const LEGACY_BACKUP_SETTINGS_KEY = 'projudi_notes_backup_settings_v1';
     const BACKUP_SCHEMA = 'projudi-anotacoes-locais-backup-v1';
-    function persistentGet(key, fallback) {
+    function rawPersistentGet(key, fallback) {
         try {
             const value = typeof GM_getValue === 'function' ? GM_getValue(key, undefined) : undefined;
             if (value !== undefined) {
@@ -139,19 +141,75 @@
             return raw === null ? fallback : JSON.parse(raw);
         } catch (_) { return fallback; }
     }
-    function persistentSet(key, value) {
+    function rawPersistentSet(key, value) {
         try { if (typeof GM_setValue === 'function') GM_setValue(key, value); } catch (_) {}
         try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
     }
-    function persistentDelete(key) {
+    function rawPersistentDelete(key) {
         try { if (typeof GM_deleteValue === 'function') GM_deleteValue(key); } catch (_) {}
         try { localStorage.removeItem(key); } catch (_) {}
     }
-    function persistentList() {
+    function rawPersistentList() {
         const keys = new Set();
         try { if (typeof GM_listValues === 'function') GM_listValues().forEach(key => keys.add(key)); } catch (_) {}
         try { for (let i = 0; i < localStorage.length; i += 1) keys.add(localStorage.key(i)); } catch (_) {}
         return [...keys].filter(Boolean);
+    }
+    let notesDataCache = null;
+    function normalizeNotesDataEnvelope(value) {
+        const source = value && typeof value === 'object' ? value : {};
+        return {
+            schema: 'projudi-suite/anotacoes-data',
+            version: 2,
+            revision: Number.isFinite(Number(source.revision)) ? Number(source.revision) : 1,
+            updatedAt: String(source.updatedAt || new Date().toISOString()),
+            values: source.values && typeof source.values === 'object' ? source.values : {}
+        };
+    }
+    function loadNotesDataEnvelope() {
+        if (notesDataCache) return notesDataCache;
+        const current = rawPersistentGet(DATA_KEY, null);
+        if (current && typeof current === 'object') {
+            notesDataCache = normalizeNotesDataEnvelope(current);
+        } else {
+            const values = {};
+            const legacyKeys = rawPersistentList().filter(key => key.startsWith(NOTE_PREFIX) || key.startsWith(NOTE_META_PREFIX));
+            legacyKeys.forEach(key => { values[key] = rawPersistentGet(key, null); });
+            notesDataCache = normalizeNotesDataEnvelope({ values });
+            rawPersistentSet(DATA_KEY, notesDataCache);
+            const verified = rawPersistentGet(DATA_KEY, null);
+            if (verified && verified.values && typeof verified.values === 'object') legacyKeys.forEach(rawPersistentDelete);
+        }
+        const legacyGist = rawPersistentGet(LEGACY_BACKUP_SETTINGS_KEY, null);
+        if (rawPersistentGet(BACKUP_SETTINGS_KEY, null) == null && legacyGist != null) rawPersistentSet(BACKUP_SETTINGS_KEY, legacyGist);
+        if (legacyGist != null && rawPersistentGet(BACKUP_SETTINGS_KEY, null) != null) rawPersistentDelete(LEGACY_BACKUP_SETTINGS_KEY);
+        return notesDataCache;
+    }
+    function saveNotesDataEnvelope() {
+        const next = normalizeNotesDataEnvelope(notesDataCache);
+        next.revision += 1;
+        next.updatedAt = new Date().toISOString();
+        notesDataCache = next;
+        rawPersistentSet(DATA_KEY, next);
+    }
+    function persistentGet(key, fallback) {
+        if (key === BACKUP_SETTINGS_KEY || key === DATA_KEY) return rawPersistentGet(key, fallback);
+        const envelope = loadNotesDataEnvelope();
+        return Object.prototype.hasOwnProperty.call(envelope.values, key) ? envelope.values[key] : fallback;
+    }
+    function persistentSet(key, value) {
+        if (key === BACKUP_SETTINGS_KEY || key === DATA_KEY) return rawPersistentSet(key, value);
+        loadNotesDataEnvelope().values[key] = value;
+        saveNotesDataEnvelope();
+    }
+    function persistentDelete(key) {
+        if (key === BACKUP_SETTINGS_KEY || key === DATA_KEY) return rawPersistentDelete(key);
+        const envelope = loadNotesDataEnvelope();
+        delete envelope.values[key];
+        saveNotesDataEnvelope();
+    }
+    function persistentList() {
+        return Object.keys(loadNotesDataEnvelope().values || {});
     }
     const LOG_PREFIX = '[Anotações Locais]';
     const PROCESS_CONTEXT_SELECTOR = [
@@ -716,12 +774,13 @@ html = persistentGet(key, '');
     scheduleEvaluate(80, { reset: true });
 
     function ensureUiAssetsLoaded(targetDoc = document) {
-        if (!targetDoc.getElementById('pj-fa-link')) {
-            const link = targetDoc.createElement('link');
-            link.id = 'pj-fa-link';
-            link.rel = 'stylesheet';
-            link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css';
-            targetDoc.head.appendChild(link);
+        if (!targetDoc.querySelector('script[data-pj-fa-svg="1"]')) {
+            const script = targetDoc.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/js/all.min.js';
+            script.defer = true;
+            script.dataset.pjFaSvg = '1';
+            script.dataset.autoReplaceSvg = 'nest';
+            targetDoc.head.appendChild(script);
         }
 
         if (targetDoc.getElementById('pj-ui-style')) return;
@@ -784,7 +843,7 @@ html = persistentGet(key, '');
                 display: flex;
                 flex-direction: column;
                 overflow: hidden;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
                 color: var(--pj-note-text, #4a3f00);
             }
 
@@ -917,7 +976,7 @@ html = persistentGet(key, '');
                 padding: 8px;
                 outline: none;
                 overflow-y: auto;
-                font: 13px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+                font: 13px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
                 color: var(--pj-note-text, #4a3f00);
                 background: transparent;
             }
@@ -934,7 +993,7 @@ html = persistentGet(key, '');
             }
 
             #pj-notes-panel {
-                --pj-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+                --pj-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
                 --pj-font-size-base: 14px;
                 --pj-line-height-base: 1.35;
                 --pj-color-text: #0f172a;
@@ -969,6 +1028,14 @@ html = persistentGet(key, '');
             #pj-notes-panel * {
                 box-sizing: border-box;
             }
+
+            #pj-notes-panel :where(button, input, select, textarea, [contenteditable="true"]):focus-visible {
+                outline: 3px solid rgba(37, 118, 189, .28);
+                outline-offset: 2px;
+                border-color: #2476bd;
+            }
+
+            #pj-notes-panel .svg-inline--fa { width: 1em; height: 1em; }
 
             #pj-notes-panel .pj-panel {
                 position: relative;
@@ -1159,6 +1226,7 @@ html = persistentGet(key, '');
 
             #pj-notes-panel .pj-note-item {
                 border: 1px solid #dbe3ef;
+                border-left: 4px solid var(--pj-note-accent, #dbe3ef);
                 border-radius: 11px;
                 background: #ffffff;
                 padding: 12px;
@@ -1206,13 +1274,13 @@ html = persistentGet(key, '');
                 position: absolute;
                 top: 8px;
                 right: 8px;
-                border: 1px solid #cbd5e1;
+                border: 1px solid #fecaca;
                 border-radius: 6px;
                 padding: 4px 8px;
                 font-size: 11px;
                 cursor: pointer;
-                background: #fff;
-                color: #334155;
+                background: #fff7f7;
+                color: #b42318;
                 font-weight: 600;
             }
 
@@ -1894,10 +1962,10 @@ const html = persistentGet(key, '');
         const headerText = rootDoc.createElement('div');
         const title = rootDoc.createElement('div');
         title.className = 'pj-panel-title';
-        title.textContent = 'Notas Locais do Projudi';
+        title.textContent = 'Anotações';
         const subtitle = rootDoc.createElement('div');
         subtitle.className = 'pj-panel-subtitle';
-        subtitle.textContent = 'Gerencie suas notas salvas localmente com importação e exportação';
+        subtitle.textContent = 'Notas locais organizadas por processo, cor e conteúdo';
         headerText.append(title, subtitle);
         headerLeft.append(brandIcon, headerText);
 
@@ -1996,6 +2064,8 @@ const html = persistentGet(key, '');
             item.className = 'pj-note-item';
             item.dataset.noteKey = n.key;
             item.dataset.selected = '0';
+            const noteColor = NOTE_COLORS.find(color => color.id === n.colorId) || getDefaultNoteColor();
+            item.style.setProperty('--pj-note-accent', noteColor.border);
 
             const line1 = rootDoc.createElement('div');
             line1.className = 'pj-note-line1';
@@ -2064,13 +2134,13 @@ persistentDelete(n.key);
 
         const toolsTitle = rootDoc.createElement('div');
         toolsTitle.className = 'pj-section-title';
-        toolsTitle.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left" aria-hidden="true"></i><span>Importar / Exportar</span>';
+        toolsTitle.innerHTML = '<i class="fa-solid fa-database" aria-hidden="true"></i><span>Dados e backup</span>';
 
         const info = rootDoc.createElement('div');
         info.className = 'pj-info';
         info.innerHTML = [
-            'Use <strong>Baixar JSON</strong> para salvar um arquivo com todas as notas.',
-            'Use <strong>Enviar JSON</strong> para importar um arquivo exportado anteriormente.'
+            'O JSON contém apenas notas e cores.',
+            'Credenciais do Gist permanecem isoladas neste navegador.'
         ].join('<br>');
 
         const textarea = rootDoc.createElement('textarea');
@@ -2082,13 +2152,11 @@ persistentDelete(n.key);
         const btnExport = rootDoc.createElement('button');
         btnExport.className = 'pj-btn';
         btnExport.type = 'button';
-        btnExport.dataset.variant = 'primary';
         btnExport.innerHTML = '<i class="fa-solid fa-download" aria-hidden="true"></i><span>Baixar JSON</span>';
 
         const btnImport = rootDoc.createElement('button');
         btnImport.className = 'pj-btn';
         btnImport.type = 'button';
-        btnImport.dataset.variant = 'success';
         btnImport.innerHTML = '<i class="fa-solid fa-upload" aria-hidden="true"></i><span>Enviar JSON</span>';
 
         const fileInput = rootDoc.createElement('input');
@@ -2162,7 +2230,7 @@ persistentDelete(n.key);
             <div class="pj-backup-head">
                 <div>
                     <div class="pj-section-title"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Backup remoto</span></div>
-                    <div class="pj-summary-sub">Use um único Gist no GitHub e um arquivo separado para este script.</div>
+                    <div class="pj-summary-sub">Credenciais ficam somente neste navegador e nunca entram no arquivo de backup.</div>
                 </div>
                 <button class="pj-backup-close" type="button" data-pj-backup-close title="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
@@ -2187,7 +2255,7 @@ persistentDelete(n.key);
             <div class="pj-backup-actions">
                 <button id="pj-notes-backup-send" class="pj-btn" type="button" data-variant="primary"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Enviar backup</span></button>
                 <button id="pj-notes-backup-restore" class="pj-btn" type="button" data-variant="success"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span>Restaurar backup</span></button>
-                <button id="pj-notes-backup-clear" class="pj-btn pj-backup-danger" type="button" data-variant="secondary"><i class="fa-solid fa-eraser" aria-hidden="true"></i><span>Limpar backup</span></button>
+                <button id="pj-notes-backup-clear" class="pj-btn pj-backup-danger" type="button" data-variant="secondary"><i class="fa-solid fa-key" aria-hidden="true"></i><span>Remover configuração</span></button>
                 <button class="pj-btn" type="button" data-variant="secondary" data-pj-backup-close><i class="fa-solid fa-xmark" aria-hidden="true"></i><span>Fechar</span></button>
             </div>
             <div id="pj-notes-backup-status" class="pj-backup-status"></div>

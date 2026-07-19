@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Central de Guias
 // @namespace    projudi-central-guias.user.js
-// @version      3.16
+// @version      2026.07.19-0237
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Central local para sincronizar, acompanhar e alertar sobre guias de pagamento no Projudi.
 // @author       lourencosv (GPT)
@@ -12,6 +12,7 @@
 // @run-at       document-end
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_deleteValue
 // @grant        GM_registerMenuCommand
 // @grant        GM_xmlhttpRequest
 // @grant        GM.xmlHttpRequest
@@ -91,7 +92,8 @@
     try { window[INSTANCE_KEY].destroy(); } catch (_) {}
   }
 
-  const STORAGE_KEY = 'projudi_guides_central::db';
+  const STORAGE_KEY = 'projudi-suite::central-guias::data';
+  const LEGACY_STORAGE_KEY = 'projudi_guides_central::db';
   const SCRIPT_META = (() => {
     const fallbackName = 'Central de Guias';
     const fallbackId = 'projudi-central-guias';
@@ -113,10 +115,11 @@
       return { name: fallbackName, version: 'unknown', id: fallbackId, fileName: `${fallbackId}.json` };
     }
   })();
-  const BACKUP_KEY = 'projudi_guides_central::backup';
+  const BACKUP_KEY = 'projudi-suite::central-guias::gist';
+  const LEGACY_BACKUP_KEY = 'projudi_guides_central::backup';
   const MENU_LABEL = 'Gerenciar Central de Guias';
   const BACKUP_SCHEMA = 'projudi-central-guias-backup-v1';
-  const FA_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css';
+  const FA_CDN = 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/js/all.min.js';
   const DEFAULT_BACKUP_SETTINGS = {
     enabled: false,
     gistId: '',
@@ -193,6 +196,10 @@
         if (typeof GM_setValue === 'function') GM_setValue(key, value);
       } catch (_) {}
       localStorage.setItem(key, JSON.stringify(value));
+    },
+    del(key) {
+      try { if (typeof GM_deleteValue === 'function') GM_deleteValue(key); } catch (_) {}
+      try { localStorage.removeItem(key); } catch (_) {}
     }
   };
 
@@ -216,16 +223,23 @@
   }
 
   function ensureFontAwesome() {
-    if (!document.head || document.querySelector('link[data-pj-guides-fa="1"]')) return;
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = FA_CDN;
-    link.dataset.pjGuidesFa = '1';
-    document.head.appendChild(link);
+    if (!document.head || document.querySelector('script[data-pj-fa-svg="1"]')) return;
+    const script = document.createElement('script');
+    script.src = FA_CDN;
+    script.defer = true;
+    script.dataset.pjFaSvg = '1';
+    script.dataset.autoReplaceSvg = 'nest';
+    document.head.appendChild(script);
   }
 
   function loadBackupSettings() {
-    return normalizeBackupSettings(storage.get(BACKUP_KEY, DEFAULT_BACKUP_SETTINGS));
+    let value = storage.get(BACKUP_KEY, null);
+    if (value == null) {
+      value = storage.get(LEGACY_BACKUP_KEY, DEFAULT_BACKUP_SETTINGS);
+      storage.set(BACKUP_KEY, value);
+      storage.del(LEGACY_BACKUP_KEY);
+    }
+    return normalizeBackupSettings(value);
   }
 
   function saveBackupSettings(next) {
@@ -472,7 +486,14 @@
   }
 
   function loadDb() {
-    const raw = storage.get(STORAGE_KEY, null);
+    let raw = storage.get(STORAGE_KEY, null);
+    if (raw == null) {
+      raw = storage.get(LEGACY_STORAGE_KEY, null);
+      if (raw != null) {
+        storage.set(STORAGE_KEY, raw);
+        if (storage.get(STORAGE_KEY, null) != null) storage.del(LEGACY_STORAGE_KEY);
+      }
+    }
     return normalizeDb(raw);
   }
 
@@ -1025,7 +1046,7 @@
       .pj-guides-inline,
       .pj-guides-manager,
       .pj-guides-toast {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
       .pj-guides-inline {
         margin: 8px 0 10px;
@@ -1280,7 +1301,8 @@
         backdrop-filter: blur(3px);
       }
       .pj-guides-manager {
-        width: min(1240px, calc(100vw - 24px));
+        width: min(1180px, calc(100vw - 28px));
+        height: min(88vh, 900px);
         max-height: min(88vh, 900px);
         overflow: hidden;
         display: flex;
@@ -1294,6 +1316,12 @@
       .pj-guides-manager * {
         box-sizing: border-box;
       }
+      .pj-guides-manager :where(button, input, select, textarea):focus-visible {
+        outline: 3px solid rgba(37, 118, 189, .28);
+        outline-offset: 2px;
+        border-color: #2476bd;
+      }
+      .pj-guides-manager .svg-inline--fa { width: 1em; height: 1em; }
       .pj-guides-manager__header {
         padding: 16px 18px;
         margin-bottom: 0;
@@ -2564,7 +2592,7 @@
             <div class="pj-guides-manager__backup-head">
               <div>
                 <div class="pj-guides-manager__backup-title"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i> Backup remoto</div>
-                <div class="pj-guides-manager__backup-desc">Use um único Gist no GitHub e um arquivo separado para este script.</div>
+                <div class="pj-guides-manager__backup-desc">Credenciais ficam somente neste navegador e nunca entram no arquivo de backup.</div>
               </div>
               <button type="button" class="pj-guides-manager__backup-close" data-pj-guides-backup-close title="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
@@ -2591,7 +2619,7 @@
             <div class="pj-guides-manager__backup-actions">
               <button type="button" id="pj-guides-backup-send" class="pj-guides-btn pj-guides-manager__backup-primary"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Enviar backup</span></button>
               <button type="button" id="pj-guides-backup-restore" class="pj-guides-btn pj-guides-manager__backup-success"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span>Restaurar backup</span></button>
-              <button type="button" id="pj-guides-backup-clear" class="pj-guides-btn pj-guides-btn--danger"><i class="fa-solid fa-eraser" aria-hidden="true"></i><span>Limpar backup</span></button>
+              <button type="button" id="pj-guides-backup-clear" class="pj-guides-btn pj-guides-btn--danger"><i class="fa-solid fa-key" aria-hidden="true"></i><span>Remover configuração</span></button>
               <button type="button" class="pj-guides-btn" data-pj-guides-backup-close><i class="fa-solid fa-xmark" aria-hidden="true"></i><span>Fechar</span></button>
             </div>
             <span id="pj-guides-backup-status" class="pj-guides-manager__backup-status"></span>

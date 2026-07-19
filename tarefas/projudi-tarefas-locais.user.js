@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      3.17
+// @version      2026.07.19-0237
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -115,10 +115,12 @@
     }
   })();
   const KEY_PREFIX = 'projudi_todo::';
+  const DATA_KEY = 'projudi-suite::tarefas::data';
+  const KEY_BACKUP = 'projudi-suite::tarefas::gist';
+  const LEGACY_BACKUP_KEY = `${KEY_PREFIX}gist-backup`;
   const KEY_INDEX = `${KEY_PREFIX}index`;
   const KEY_GLOBAL_ITEMS = `${KEY_PREFIX}global::items`;
   const KEY_GLOBAL_UI = `${KEY_PREFIX}global::ui`;
-  const KEY_BACKUP = `${KEY_PREFIX}gist-backup`;
   const EXPORT_EXCLUDED_KEYS = new Set([KEY_BACKUP]);
   const DEFAULT_UI = { minimized: true, right: 12, top: 12 };
   const EXPORT_SCHEMA = 'projudi-tarefas-export-v1';
@@ -134,7 +136,7 @@
   };
   const AUTO_BACKUP_IDLE_DELAY_MS = 30000;
   const AUTO_BACKUP_MIN_INTERVAL_MS = 15 * 60 * 1000;
-  const FA_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css';
+  const FA_CDN = 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/js/all.min.js';
   const FAB_UI = {
     right: 16,
     bottom: 16,
@@ -301,8 +303,7 @@
     return true;
   }
 
-  const storage = {
-    get(key, fallback) {
+  function rawStorageGet(key, fallback) {
       try {
         if (typeof GM_getValue === 'function') {
           const value = GM_getValue(key, undefined);
@@ -322,8 +323,9 @@
         logWarn(`Falha ao interpretar ${key} do localStorage.`, error);
         return fallback;
       }
-    },
-    set(key, value) {
+  }
+
+  function rawStorageSet(key, value) {
       try {
         if (typeof GM_setValue === 'function') GM_setValue(key, value);
       } catch (error) {
@@ -332,8 +334,9 @@
       safeRun(`Falha ao salvar ${key} no localStorage.`, () => {
         localStorage.setItem(key, JSON.stringify(value));
       });
-    },
-    del(key) {
+  }
+
+  function rawStorageDelete(key) {
       try {
         if (typeof GM_deleteValue === 'function') GM_deleteValue(key);
       } catch (error) {
@@ -342,6 +345,80 @@
       safeRun(`Falha ao remover ${key} do localStorage.`, () => {
         localStorage.removeItem(key);
       });
+  }
+
+  let taskDataCache = null;
+
+  function listLegacyTaskKeys() {
+    const keys = new Set();
+    try {
+      if (typeof GM_listValues === 'function') {
+        const listed = GM_listValues();
+        if (Array.isArray(listed)) listed.forEach(key => keys.add(String(key)));
+      }
+    } catch (_) {}
+    try {
+      for (let i = 0; i < localStorage.length; i += 1) keys.add(String(localStorage.key(i) || ''));
+    } catch (_) {}
+    return [...keys].filter(key => key.startsWith(KEY_PREFIX) && key !== LEGACY_BACKUP_KEY);
+  }
+
+  function normalizeTaskDataEnvelope(value) {
+    const source = value && typeof value === 'object' ? value : {};
+    return {
+      schema: 'projudi-suite/tarefas-data',
+      version: 2,
+      revision: Number.isFinite(Number(source.revision)) ? Number(source.revision) : 1,
+      updatedAt: String(source.updatedAt || new Date().toISOString()),
+      values: source.values && typeof source.values === 'object' ? source.values : {}
+    };
+  }
+
+  function loadTaskDataEnvelope() {
+    if (taskDataCache) return taskDataCache;
+    const current = rawStorageGet(DATA_KEY, null);
+    if (current && typeof current === 'object') {
+      taskDataCache = normalizeTaskDataEnvelope(current);
+    } else {
+      const values = {};
+      listLegacyTaskKeys().forEach(key => { values[key] = rawStorageGet(key, null); });
+      taskDataCache = normalizeTaskDataEnvelope({ values });
+      rawStorageSet(DATA_KEY, taskDataCache);
+      const verified = rawStorageGet(DATA_KEY, null);
+      if (verified && verified.values && typeof verified.values === 'object') {
+        listLegacyTaskKeys().forEach(rawStorageDelete);
+      }
+    }
+    const legacyGist = rawStorageGet(LEGACY_BACKUP_KEY, null);
+    if (rawStorageGet(KEY_BACKUP, null) == null && legacyGist != null) rawStorageSet(KEY_BACKUP, legacyGist);
+    if (legacyGist != null && rawStorageGet(KEY_BACKUP, null) != null) rawStorageDelete(LEGACY_BACKUP_KEY);
+    return taskDataCache;
+  }
+
+  function saveTaskDataEnvelope() {
+    const next = normalizeTaskDataEnvelope(taskDataCache);
+    next.revision += 1;
+    next.updatedAt = new Date().toISOString();
+    taskDataCache = next;
+    rawStorageSet(DATA_KEY, next);
+  }
+
+  const storage = {
+    get(key, fallback) {
+      if (key === KEY_BACKUP || key === DATA_KEY) return rawStorageGet(key, fallback);
+      const envelope = loadTaskDataEnvelope();
+      return Object.prototype.hasOwnProperty.call(envelope.values, key) ? envelope.values[key] : fallback;
+    },
+    set(key, value) {
+      if (key === KEY_BACKUP || key === DATA_KEY) return rawStorageSet(key, value);
+      loadTaskDataEnvelope().values[key] = value;
+      saveTaskDataEnvelope();
+    },
+    del(key) {
+      if (key === KEY_BACKUP || key === DATA_KEY) return rawStorageDelete(key);
+      const envelope = loadTaskDataEnvelope();
+      delete envelope.values[key];
+      saveTaskDataEnvelope();
     }
   };
 
@@ -819,21 +896,8 @@
   }
 
   function listTodoKeys() {
-    try {
-      if (typeof GM_listValues === 'function') {
-        const keys = GM_listValues();
-        if (Array.isArray(keys)) return keys.filter(k => String(k).startsWith(KEY_PREFIX));
-      }
-    } catch (_) {}
-
-    const set = new Set(getKnownTodoKeysFromIndex());
-    try {
-      for (let i = 0; i < localStorage.length; i += 1) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith(KEY_PREFIX)) set.add(k);
-      }
-    } catch (_) {}
-    return [...set];
+    const envelopeKeys = Object.keys(loadTaskDataEnvelope().values || {}).filter(key => key.startsWith(KEY_PREFIX));
+    return [...new Set([...getKnownTodoKeysFromIndex(), ...envelopeKeys])];
   }
 
   function exportTodoPayload() {
@@ -1123,13 +1187,11 @@
   }
 
   function ensureFontAwesome() {
-    if (document.querySelector('link[data-pj-fa="1"]')) return;
-    const link = el('link', {
-      rel: 'stylesheet',
-      href: FA_CDN
-    });
-    link.setAttribute('data-pj-fa', '1');
-    document.head.appendChild(link);
+    if (document.querySelector('script[data-pj-fa-svg="1"]')) return;
+    const script = el('script', { src: FA_CDN, defer: true });
+    script.setAttribute('data-pj-fa-svg', '1');
+    script.setAttribute('data-auto-replace-svg', 'nest');
+    document.head.appendChild(script);
   }
 
   function faIcon(className) {
@@ -1145,17 +1207,17 @@
         position: fixed;
         right: 12px;
         top: 12px;
-        width: 382px;
+        width: min(420px, calc(100vw - 24px));
         max-height: 84vh;
         background: #fff;
         border: 1px solid #dbe3ef;
-        border-radius: 12px;
+        border-radius: 16px;
         box-shadow: 0 24px 70px rgba(2, 6, 23, .30);
         z-index: ${Z_UI};
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         font-size: 13px;
         line-height: 1.3;
         overscroll-behavior: contain;
@@ -1166,21 +1228,22 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 6px;
-        padding: 6px 9px;
-        background: linear-gradient(135deg, #0f3e75, #1f5ca4);
+        gap: 10px;
+        min-height: 52px;
+        padding: 10px 12px 10px 14px;
+        background: linear-gradient(135deg, #0b315f 0%, #175a9d 55%, #2476bd 100%);
         color: #fff;
         cursor: move;
         user-select: none;
       }
       #pj-todo-title {
-        font-size: 12px;
-        font-weight: 700;
+        font-size: 14px;
+        font-weight: 800;
         line-height: 1.15;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        max-width: 272px;
+        max-width: 310px;
       }
       #pj-todo-actions { display: inline-flex; gap: 4px; }
       .pj-todo-btn {
@@ -1217,10 +1280,10 @@
       }
 
       #pj-todo-body {
-        padding: 8px;
+        padding: 12px;
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 10px;
         overflow: hidden;
         flex: 1;
         min-height: 0;
@@ -1228,7 +1291,7 @@
 
       .pj-section {
         border: 1px solid #dbe3ef;
-        border-radius: 8px;
+        border-radius: 12px;
         overflow: hidden;
         display: flex;
         flex-direction: column;
@@ -1236,8 +1299,8 @@
       }
 
       .pj-sec-head {
-        padding: 6px 10px;
-        font-size: 11px;
+        padding: 9px 11px;
+        font-size: 12px;
         font-weight: 700;
         background: #f8fafc;
         display: flex;
@@ -1665,6 +1728,14 @@
         -webkit-backdrop-filter: blur(4px);
       }
       #${ID_MANAGER_OVERLAY}, #${ID_MANAGER_OVERLAY} * { box-sizing: border-box; }
+      #${ID_MANAGER_OVERLAY} :where(button, input, select, textarea):focus-visible,
+      #pj-todo :where(button, input, select, textarea):focus-visible {
+        outline: 3px solid rgba(37, 118, 189, .28);
+        outline-offset: 2px;
+        border-color: #2476bd;
+      }
+      #${ID_MANAGER_OVERLAY} .svg-inline--fa,
+      #pj-todo .svg-inline--fa { width: 1em; height: 1em; }
       #${ID_MANAGER_OVERLAY} .pjm-panel {
         position: relative;
         width: min(1180px, calc(100vw - 28px));
@@ -1677,7 +1748,7 @@
         overflow: hidden;
         display: flex;
         flex-direction: column;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         font-size: 14px;
         line-height: 1.35;
       }
@@ -1939,6 +2010,17 @@
       #${ID_MANAGER_OVERLAY} .pjm-actions .pjm-btn {
         width: 100%;
         min-width: 0;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-btn--primary {
+        border-color: #1f69d5;
+        background: #1f69d5;
+        color: #fff;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-btn--danger {
+        border-color: #fecaca;
+        background: #fff7f7;
+        color: #b42318;
+        box-shadow: none;
       }
       #${ID_MANAGER_OVERLAY} .pjm-item-title { font-size: 14px; font-weight: 700; color: #0f172a; }
       #${ID_MANAGER_OVERLAY} .pjm-item-meta { margin-top: 4px; font-size: 12px; color: #64748b; }
@@ -2455,8 +2537,8 @@
           <div class="pjm-brand">
             <span class="pjm-brand-icon"><i class="fa-solid fa-list-check" aria-hidden="true"></i></span>
             <div>
-              <div class="pjm-title">Gestão de Tarefas</div>
-              <div class="pjm-sub">Ativas, concluídas e backup JSON</div>
+              <div class="pjm-title">Tarefas</div>
+              <div class="pjm-sub">Pendências globais e por processo em um só lugar</div>
             </div>
           </div>
           <button type="button" class="pjm-close" data-pjm-action="close" title="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
@@ -2518,7 +2600,7 @@
             <div class="pjm-list-head">
               <div>
                 <div class="pjm-section-title"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Backup remoto</span></div>
-                <div class="pjm-item-meta">Use um único Gist no GitHub e um arquivo separado para este script.</div>
+                <div class="pjm-item-meta">Credenciais ficam somente neste navegador e nunca entram no arquivo de backup.</div>
               </div>
               <button type="button" class="pjm-close" data-pjm-backup-close title="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
@@ -2543,7 +2625,7 @@
             <div class="pjm-backup-actions">
               <button class="pjm-btn pjm-backup-primary" id="pjm-backup-send"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Enviar backup</span></button>
               <button class="pjm-btn pjm-backup-success" id="pjm-backup-restore"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span>Restaurar backup</span></button>
-              <button class="pjm-btn pjm-backup-danger" id="pjm-backup-clear"><i class="fa-solid fa-eraser" aria-hidden="true"></i><span>Limpar backup</span></button>
+              <button class="pjm-btn pjm-backup-danger" id="pjm-backup-clear"><i class="fa-solid fa-key" aria-hidden="true"></i><span>Remover configuração</span></button>
               <button class="pjm-btn" type="button" data-pjm-backup-close><i class="fa-solid fa-xmark" aria-hidden="true"></i><span>Fechar</span></button>
             </div>
             <div class="pjm-item-meta" id="pjm-backup-status"></div>
@@ -2748,10 +2830,10 @@
 
         const left = el('div', { className: 'pjm-item-main' }, [title, meta, badges]);
 
-        const btnToggle = el('button', { className: 'pjm-btn' }, [row.done ? 'Reabrir' : 'Concluir']);
-        const btnEdit = el('button', { className: 'pjm-btn' }, ['Editar']);
-        const btnTags = el('button', { className: 'pjm-btn' }, ['Tags']);
-        const btnDelete = el('button', { className: 'pjm-btn' }, ['Excluir']);
+        const btnToggle = el('button', { className: 'pjm-btn pjm-btn--primary' }, [faIcon(row.done ? 'fa-solid fa-rotate-left' : 'fa-solid fa-check'), row.done ? 'Reabrir' : 'Concluir']);
+        const btnEdit = el('button', { className: 'pjm-btn' }, [faIcon('fa-solid fa-pen'), 'Editar']);
+        const btnTags = el('button', { className: 'pjm-btn' }, [faIcon('fa-solid fa-tags'), 'Tags']);
+        const btnDelete = el('button', { className: 'pjm-btn pjm-btn--danger' }, [faIcon('fa-solid fa-trash-can'), 'Excluir']);
         const actions = el('div', { className: 'pjm-actions' }, [btnToggle, btnEdit, btnTags, btnDelete]);
 
         btnToggle.addEventListener('click', () => {
@@ -2779,6 +2861,7 @@
           scheduleEvaluate(50);
         });
         btnDelete.addEventListener('click', () => {
+          if (!confirm('Excluir esta tarefa?')) return;
           removeRow(row);
           renderManagerRows();
           scheduleEvaluate(50);
@@ -3308,7 +3391,7 @@
     if (!(node instanceof Element)) return false;
     if (node.id === 'pj-todo' || node.id === ID_MIN_BTN || node.id === ID_PROC_BTN) return true;
     if (node.id === 'pj-todo-style') return true;
-    if (node.matches('link[data-pj-fa="1"]')) return true;
+    if (node.matches('script[data-pj-fa-svg="1"]')) return true;
     return !!node.closest?.(`#pj-todo, #${ID_MIN_BTN}, #${ID_PROC_BTN}`);
   }
 

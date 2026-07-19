@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      6.6
+// @version      2026.07.19-0237
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -13,6 +13,7 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_deleteValue
 // @grant        GM_info
 // @grant        GM_xmlhttpRequest
 // @grant        GM.xmlHttpRequest
@@ -87,7 +88,8 @@
         }
     })();
 
-    const STORAGE_KEY = "projudi-wide-settings-v1";
+    const STORAGE_KEY = "projudi-suite::customizacoes::data";
+    const LEGACY_STORAGE_KEY = "projudi-wide-settings-v1";
     const SCRIPT_META = (() => {
         const fallbackName = "Customizacoes";
         const fallbackId = "projudi-customizacoes";
@@ -109,11 +111,12 @@
             return { name: fallbackName, version: "unknown", id: fallbackId, fileName: `${fallbackId}.json` };
         }
     })();
-    const BACKUP_STORAGE_KEY = "projudi-wide-settings-v1::gist-backup";
+    const BACKUP_STORAGE_KEY = "projudi-suite::customizacoes::gist";
+    const LEGACY_BACKUP_STORAGE_KEY = "projudi-wide-settings-v1::gist-backup";
     const BACKUP_SCHEMA = "projudi-customizacoes-backup-v1";
     const OPEN_SETTINGS_MESSAGE = "projudi-customizacoes-open-settings";
     const LOG_PREFIX = "[Customizações]";
-    const FA_CDN = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css";
+    const FA_CDN = "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/js/all.min.js";
     const DEFAULT_SETTINGS = {
         enabled: true,
         autoHideHeader: false,
@@ -142,7 +145,8 @@
         applyToStandalonePages: false,
         enableProcessMirrorPdf: true,
         enableRemoveScrollbar: false,
-        enableMovimentacoes: false
+        enableMovimentacoes: false,
+        movimentacoesConfig: null
     };
     const DEFAULT_BACKUP_SETTINGS = {
         enabled: false,
@@ -257,12 +261,13 @@
 
     function ensureFontAwesome(doc = document) {
         if (!doc || !doc.head) return;
-        if (doc.querySelector('link[data-pjc-fa="1"]')) return;
-        const link = doc.createElement("link");
-        link.rel = "stylesheet";
-        link.href = FA_CDN;
-        link.dataset.pjcFa = "1";
-        doc.head.appendChild(link);
+        if (doc.querySelector('script[data-pj-fa-svg="1"]')) return;
+        const script = doc.createElement("script");
+        script.src = FA_CDN;
+        script.defer = true;
+        script.dataset.pjFaSvg = "1";
+        script.dataset.autoReplaceSvg = "nest";
+        doc.head.appendChild(script);
     }
 
     function shouldManageIframeFeatures() {
@@ -330,15 +335,37 @@
 
     function loadSettings() {
         try {
+            let migrated = false;
             if (typeof GM_getValue === "function") {
-                const raw = GM_getValue(STORAGE_KEY, "");
+                let raw = GM_getValue(STORAGE_KEY, "");
+                if (!raw) {
+                    raw = GM_getValue(LEGACY_STORAGE_KEY, "");
+                    migrated = !!raw;
+                }
                 if (raw) {
                     localStorage.setItem(STORAGE_KEY, raw);
-                    return normalizeSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) });
+                    const normalized = normalizeSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) });
+                    if (migrated) {
+                        GM_setValue(STORAGE_KEY, JSON.stringify(normalized));
+                        try { if (typeof GM_deleteValue === "function") GM_deleteValue(LEGACY_STORAGE_KEY); } catch (_) {}
+                        localStorage.removeItem(LEGACY_STORAGE_KEY);
+                    }
+                    return normalized;
                 }
             }
-            const raw = localStorage.getItem(STORAGE_KEY);
-            if (raw) return normalizeSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) });
+            let raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) {
+                raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+                migrated = !!raw;
+            }
+            if (raw) {
+                const normalized = normalizeSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) });
+                if (migrated) {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+                    localStorage.removeItem(LEGACY_STORAGE_KEY);
+                }
+                return normalized;
+            }
         } catch (error) {
             logWarn("Falha ao carregar configurações; usando padrão.", error);
         }
@@ -371,14 +398,22 @@
     function loadBackupSettings() {
         try {
             if (typeof GM_getValue === "function") {
-                const raw = GM_getValue(BACKUP_STORAGE_KEY, "");
+                let raw = GM_getValue(BACKUP_STORAGE_KEY, "");
+                if (!raw) raw = GM_getValue(LEGACY_BACKUP_STORAGE_KEY, "");
                 if (raw) {
                     localStorage.setItem(BACKUP_STORAGE_KEY, raw);
+                    try { if (typeof GM_deleteValue === "function") GM_deleteValue(LEGACY_BACKUP_STORAGE_KEY); } catch (_) {}
+                    localStorage.removeItem(LEGACY_BACKUP_STORAGE_KEY);
                     return normalizeBackupSettings(JSON.parse(raw));
                 }
             }
-            const raw = localStorage.getItem(BACKUP_STORAGE_KEY);
-            if (raw) return normalizeBackupSettings(JSON.parse(raw));
+            let raw = localStorage.getItem(BACKUP_STORAGE_KEY);
+            if (!raw) raw = localStorage.getItem(LEGACY_BACKUP_STORAGE_KEY);
+            if (raw) {
+                localStorage.setItem(BACKUP_STORAGE_KEY, raw);
+                localStorage.removeItem(LEGACY_BACKUP_STORAGE_KEY);
+                return normalizeBackupSettings(JSON.parse(raw));
+            }
         } catch (error) {
             logWarn("Falha ao carregar configuração de backup; usando padrão.", error);
         }
@@ -586,14 +621,14 @@
         const panel = document.createElement("div");
         panel.className = "pjc-panel";
         panel.style.cssText = `
-            width: min(1120px, calc(100vw - 24px)); background: #ffffff; color: #0f172a;
-            border-radius: 14px; box-shadow: 0 24px 70px rgba(2, 6, 23, .30);
+            width: min(1180px, calc(100vw - 28px)); height: min(88vh, 900px); background: #ffffff; color: #0f172a;
+            border-radius: 18px; box-shadow: 0 24px 70px rgba(2, 6, 23, .30);
             border: 1px solid #dbe3ef;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             font-size: 14px;
             line-height: 1.35;
             overflow: hidden;
-            max-height: min(90vh, 900px);
+            max-height: min(88vh, 900px);
             display: flex;
             flex-direction: column;
             transform: translateY(6px) scale(.985);
@@ -611,8 +646,10 @@
 
             #projudi-wide-panel-overlay .pjc-panel,
             #projudi-wide-panel-overlay .pjc-panel *:not(i):not([class^="fa"]):not([class*=" fa-"]) {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
             }
+
+            #projudi-wide-panel-overlay .svg-inline--fa { width: 1em; height: 1em; }
 
             #projudi-wide-panel-overlay #pj-reset,
             #projudi-wide-panel-overlay #pj-cancel,
@@ -624,7 +661,7 @@
                 font-weight: 500 !important;
                 text-transform: none !important;
                 line-height: 1.2 !important;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
                 white-space: nowrap !important;
             }
 
@@ -1089,6 +1126,30 @@
                 width: 100%;
             }
 
+            #projudi-wide-panel-overlay .pjc-storage-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 10px;
+            }
+
+            #projudi-wide-panel-overlay .pjc-storage-card {
+                display: grid;
+                grid-template-columns: 38px 1fr;
+                align-items: center;
+                gap: 12px;
+            }
+
+            #projudi-wide-panel-overlay .pjc-storage-icon {
+                width: 38px;
+                height: 38px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 11px;
+                background: #e8f1fa;
+                color: #175a9d;
+            }
+
             #projudi-wide-panel-overlay .pjc-backup-popover {
                 position: fixed;
                 inset: 0;
@@ -1239,6 +1300,7 @@
                     flex-direction: column;
                 }
                 #projudi-wide-panel-overlay .pjc-stack--two,
+                #projudi-wide-panel-overlay .pjc-storage-grid,
                 #projudi-wide-panel-overlay .pjc-grid,
                 #projudi-wide-panel-overlay .pjc-backup-grid,
                 #projudi-wide-panel-overlay .pjc-backup-actions {
@@ -1535,6 +1597,22 @@
                             <span class="pjc-pane-icon"><i class="fa-solid fa-database" aria-hidden="true"></i></span>
                             <div><p class="pjc-pane-title">Dados e backup</p><p class="pjc-pane-desc">As preferências já ficam salvas neste navegador; o Gist cria uma cópia remota opcional.</p></div>
                         </div>
+                        <div class="pjc-storage-grid">
+                            <div class="pjc-card pjc-storage-card">
+                                <span class="pjc-storage-icon"><i class="fa-solid fa-hard-drive" aria-hidden="true"></i></span>
+                                <div class="pjc-card-body">
+                                    <p class="pjc-card-title">Preferências locais</p>
+                                    <p class="pjc-card-desc">Aparência, navegação e Movimentações ficam reunidas em um único documento versionado.</p>
+                                </div>
+                            </div>
+                            <div class="pjc-card pjc-storage-card">
+                                <span class="pjc-storage-icon"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i></span>
+                                <div class="pjc-card-body">
+                                    <p class="pjc-card-title">Credenciais isoladas</p>
+                                    <p class="pjc-card-desc">Token e Gist ID ficam separados e nunca entram no conteúdo enviado ou restaurado.</p>
+                                </div>
+                            </div>
+                        </div>
                         <div class="pjc-card pjc-card--soft">
                             <div class="pjc-card-body">
                                 <p class="pjc-card-title">Cópia no GitHub Gist</p>
@@ -1551,7 +1629,7 @@
                         <div class="pjc-backup-head">
                             <div>
                                 <div class="pjc-section-title">BACKUP REMOTO</div>
-                                <p class="pjc-card-desc">Use um único Gist no GitHub e um arquivo separado para este script.</p>
+                                <p class="pjc-card-desc">Credenciais ficam somente neste navegador e nunca entram no arquivo de backup.</p>
                             </div>
                             <button type="button" class="pjc-backup-close" data-pj-backup-close title="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
                         </div>
@@ -1583,7 +1661,7 @@
                             <div class="pjc-backup-actions">
                                 <button id="pj-backup-send" type="button" class="pjc-btn-secondary pjc-backup-primary"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Enviar backup</span></button>
                                 <button id="pj-backup-restore" type="button" class="pjc-btn-secondary pjc-backup-success"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span>Restaurar backup</span></button>
-                                <button id="pj-backup-clear" type="button" class="pjc-btn-danger"><i class="fa-solid fa-eraser" aria-hidden="true"></i><span>Limpar backup</span></button>
+                                <button id="pj-backup-clear" type="button" class="pjc-btn-danger"><i class="fa-solid fa-key" aria-hidden="true"></i><span>Remover configuração</span></button>
                                 <button type="button" class="pjc-btn-secondary" data-pj-backup-close>Fechar</button>
                             </div>
                             <div id="pj-backup-status" class="pjc-note"></div>
@@ -3188,7 +3266,7 @@
             body {
                 background: var(--pj-ui-canvas) !important;
                 color: var(--pj-ui-text) !important;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
                 font-size: ${settings.fontScaleEnabled ? scaledFontPx : 13.5}px !important;
                 line-height: 1.48 !important;
             }
@@ -4268,6 +4346,7 @@
             window.alert("Ative o módulo de movimentações antes de configurar as opções.");
             return;
         }
+        ensureFontAwesome(document);
         const module = ensureMovimentacoesModule();
         if (module) module.openPanel();
     }
@@ -4437,9 +4516,17 @@
           function readCfg() {
             try {
               const raw = localStorage.getItem(STORAGE_KEY);
-              if (!raw) return deepClone(DEFAULTS);
-              const parsed = JSON.parse(raw);
+              const parsed = settings.movimentacoesConfig && typeof settings.movimentacoesConfig === 'object'
+                ? settings.movimentacoesConfig
+                : (raw ? JSON.parse(raw) : null);
+              if (!parsed) return deepClone(DEFAULTS);
               const cfg = deepMerge(deepClone(DEFAULTS), parsed);
+
+              if (!settings.movimentacoesConfig && raw) {
+                settings = normalizeSettings({ ...settings, movimentacoesConfig: cfg });
+                saveSettings(settings);
+                localStorage.removeItem(STORAGE_KEY);
+              }
 
               if (!cfg.targets || typeof cfg.targets !== 'object') cfg.targets = { mov: {}, user: {} };
               if (!cfg.targets.mov) cfg.targets.mov = {};
@@ -4459,7 +4546,9 @@
 
           function saveCfg(cfg) {
             safeRun('Falha ao salvar configuração.', () => {
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+              settings = normalizeSettings({ ...settings, movimentacoesConfig: cfg });
+              saveSettings(settings);
+              localStorage.removeItem(STORAGE_KEY);
             });
           }
 
@@ -4522,7 +4611,7 @@
               text-indent: 0 !important;
               letter-spacing: normal !important;
               text-transform: none !important;
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif !important;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
             }
 
             #${PANEL_OVERLAY_ID} .phm-head {

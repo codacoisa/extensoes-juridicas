@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      5.18
+// @version      2026.07.19-0237
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       louencosv (GPT)
@@ -127,8 +127,10 @@
   };
 
   const STORAGE_KEYS = {
-    store: 'pj-intimacoes-marcadas::store',
-    backup: 'pj-intimacoes-marcadas::backup'
+    store: 'projudi-suite::intimacoes::data',
+    backup: 'projudi-suite::intimacoes::gist',
+    legacyStore: 'pj-intimacoes-marcadas::store',
+    legacyBackup: 'pj-intimacoes-marcadas::backup'
   };
 
   const DEADLINE = {
@@ -169,7 +171,7 @@
     jspdf: 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js',
     autoTable: 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js'
   };
-  const FA_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css';
+  const FA_CDN = 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/js/all.min.js';
 
   /** @type {{
    * frame: HTMLIFrameElement | null,
@@ -913,7 +915,12 @@
    */
   function loadStore() {
     const fallback = {
+      schema: 'projudi-suite/intimacoes-data',
+      version: 2,
+      revision: 1,
+      updatedAt: new Date().toISOString(),
       items: Object.create(null),
+      deadline: Object.create(null),
       ui: {
         panelOpen: false,
         hideDone: true,
@@ -926,22 +933,56 @@
     };
 
     try {
-      const raw = localStorage.getItem(STORAGE_KEYS.store);
-      if (!raw) return fallback;
+      let raw = localStorage.getItem(STORAGE_KEYS.store);
+      let migrated = false;
+      if (!raw) {
+        raw = localStorage.getItem(STORAGE_KEYS.legacyStore);
+        migrated = true;
+      }
+      if (!raw && !migrated) return fallback;
       const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== 'object') return fallback;
-      return {
-        items: parsed.items && typeof parsed.items === 'object' ? parsed.items : Object.create(null),
+      const source = parsed && typeof parsed === 'object' ? parsed : fallback;
+      const deadline = source.deadline && typeof source.deadline === 'object' ? source.deadline : Object.create(null);
+      if (migrated) {
+        Object.values(DEADLINE).filter(value => typeof value === 'string' && value.startsWith('projudi_highlight_')).forEach(key => {
+          try {
+            const gmValue = typeof GM_getValue === 'function' ? GM_getValue(key, undefined) : undefined;
+            const localValue = localStorage.getItem(key);
+            if (gmValue !== undefined) deadline[key] = gmValue;
+            else if (localValue !== null) {
+              try { deadline[key] = JSON.parse(localValue); } catch (_) { deadline[key] = localValue; }
+            }
+          } catch (_) {}
+        });
+      }
+      const normalized = {
+        schema: 'projudi-suite/intimacoes-data',
+        version: 2,
+        revision: Number.isFinite(Number(source.revision)) ? Number(source.revision) : 1,
+        updatedAt: String(source.updatedAt || new Date().toISOString()),
+        items: source.items && typeof source.items === 'object' ? source.items : Object.create(null),
+        deadline,
         ui: {
-          panelOpen: Boolean(parsed.ui?.panelOpen),
-          hideDone: parsed.ui?.hideDone !== false,
-          onlyMarkedOnPage: Boolean(parsed.ui?.onlyMarkedOnPage),
-          query: typeof parsed.ui?.query === 'string' ? parsed.ui.query : '',
-          statusFilter: typeof parsed.ui?.statusFilter === 'string' ? parsed.ui.statusFilter : 'active',
-          sortBy: typeof parsed.ui?.sortBy === 'string' ? parsed.ui.sortBy : 'deadline-asc',
-          backupExpanded: Boolean(parsed.ui?.backupExpanded)
+          panelOpen: Boolean(source.ui?.panelOpen),
+          hideDone: source.ui?.hideDone !== false,
+          onlyMarkedOnPage: Boolean(source.ui?.onlyMarkedOnPage),
+          query: typeof source.ui?.query === 'string' ? source.ui.query : '',
+          statusFilter: typeof source.ui?.statusFilter === 'string' ? source.ui.statusFilter : 'active',
+          sortBy: typeof source.ui?.sortBy === 'string' ? source.ui.sortBy : 'deadline-asc',
+          backupExpanded: Boolean(source.ui?.backupExpanded)
         }
       };
+      if (migrated) {
+        localStorage.setItem(STORAGE_KEYS.store, JSON.stringify(normalized));
+        if (localStorage.getItem(STORAGE_KEYS.store)) {
+          localStorage.removeItem(STORAGE_KEYS.legacyStore);
+          Object.keys(deadline).forEach(key => {
+            try { if (typeof GM_deleteValue === 'function') GM_deleteValue(key); } catch (_) {}
+            localStorage.removeItem(key);
+          });
+        }
+      }
+      return normalized;
     } catch (error) {
       logWarn('Falha ao carregar dados locais. O armazenamento sera reiniciado.', error);
       return fallback;
@@ -953,6 +994,10 @@
    */
   function persistStore() {
     try {
+      state.store.schema = 'projudi-suite/intimacoes-data';
+      state.store.version = 2;
+      state.store.revision = Number(state.store.revision || 0) + 1;
+      state.store.updatedAt = new Date().toISOString();
       localStorage.setItem(STORAGE_KEYS.store, JSON.stringify(state.store));
     } catch (error) {
       logError('Falha ao salvar dados locais.', error);
@@ -983,7 +1028,14 @@
    */
   function loadBackupSettings() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEYS.backup);
+      let raw = localStorage.getItem(STORAGE_KEYS.backup);
+      if (!raw) {
+        raw = localStorage.getItem(STORAGE_KEYS.legacyBackup);
+        if (raw) {
+          localStorage.setItem(STORAGE_KEYS.backup, raw);
+          localStorage.removeItem(STORAGE_KEYS.legacyBackup);
+        }
+      }
       return raw ? normalizeBackupSettings(JSON.parse(raw)) : normalizeBackupSettings(BACKUP_DEFAULTS);
     } catch (error) {
       logWarn('Falha ao carregar configuracoes de backup.', error);
@@ -1214,7 +1266,7 @@
         width: 40px;
         height: 40px;
         pointer-events: none;
-        font-family: Arial, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
       #${IDS.hostRoot} > * {
         pointer-events: auto;
@@ -1329,7 +1381,7 @@
         border: 1px solid #2b69aa;
         background: #2b69aa;
         color: #fff;
-        font: 600 12px Arial, sans-serif;
+        font: 600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         box-shadow: 0 4px 12px rgba(0,0,0,.18);
         opacity: 0;
         transition: opacity .2s ease;
@@ -1345,7 +1397,7 @@
         background: rgba(8, 28, 52, .28);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
-        font-family: Arial, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
       #${IDS.modalOverlay}[data-open="true"] {
         display: flex;
@@ -1362,6 +1414,14 @@
         box-shadow: 0 24px 54px rgba(8, 32, 61, .22);
         overflow: hidden;
       }
+      #${IDS.modalPanel} :where(button, input, select, textarea):focus-visible,
+      #${IDS.hostRoot} :where(button, input, select):focus-visible {
+        outline: 3px solid rgba(37, 118, 189, .28);
+        outline-offset: 2px;
+        border-color: #2476bd;
+      }
+      #${IDS.modalPanel} .svg-inline--fa,
+      #${IDS.hostRoot} .svg-inline--fa { width: 1em; height: 1em; }
       .pjip-modal-head {
         display: flex;
         align-items: center;
@@ -1753,6 +1813,11 @@
       .pjip-modal-btn--ghost {
         background: #f8fbff;
       }
+      .pjip-modal-btn--danger {
+        border-color: #fecaca;
+        background: #fff7f7;
+        color: #b42318;
+      }
       .pjip-backup {
         display: grid;
         gap: 14px;
@@ -1984,12 +2049,13 @@
    * Carrega a fonte de icones usada nos botoes do painel.
    */
   function ensureFontAwesome() {
-    if (document.querySelector('link[data-pjip-fa="1"]')) return;
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = FA_CDN;
-    link.dataset.pjipFa = '1';
-    document.head.appendChild(link);
+    if (document.querySelector('script[data-pj-fa-svg="1"]')) return;
+    const script = document.createElement('script');
+    script.src = FA_CDN;
+    script.defer = true;
+    script.dataset.pjFaSvg = '1';
+    script.dataset.autoReplaceSvg = 'nest';
+    document.head.appendChild(script);
   }
 
   /**
@@ -2534,7 +2600,7 @@
     const generatedAt = new Date().toLocaleString('pt-BR');
     printWindow.document.open();
     printWindow.document.write(
-      `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Intimações</title><style>body{font-family:Arial,sans-serif;margin:20px;color:#111}h1{font-size:18px;margin:0 0 8px}.meta{font-size:12px;margin-bottom:12px;color:#444}table{border-collapse:collapse;width:100%;font-size:11px}th,td{border:1px solid #bbb;padding:6px;vertical-align:top}th{background:#f3f3f3}@media print{body{margin:10mm}}</style></head><body><h1>Intimações</h1><div class="meta">Gerado em: ${generatedAt}</div>${table.outerHTML}</body></html>`
+      `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Intimações</title><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:20px;color:#111}h1{font-size:18px;margin:0 0 8px}.meta{font-size:12px;margin-bottom:12px;color:#444}table{border-collapse:collapse;width:100%;font-size:11px}th,td{border:1px solid #bbb;padding:6px;vertical-align:top}th{background:#f3f3f3}@media print{body{margin:10mm}}</style></head><body><h1>Intimações</h1><div class="meta">Gerado em: ${generatedAt}</div>${table.outerHTML}</body></html>`
     );
     printWindow.document.close();
     printWindow.focus();
@@ -2820,7 +2886,7 @@
           <div class="pjip-backup-head">
             <div>
               <div class="pjip-section-title"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Backup remoto</span></div>
-              <div class="pjip-backup-meta">Use um único Gist no GitHub e um arquivo separado para este script.</div>
+              <div class="pjip-backup-meta">Credenciais ficam somente neste navegador e nunca entram no arquivo de backup.</div>
             </div>
             <button type="button" class="pjip-backup-close" data-role="backup-close" title="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
           </div>
@@ -2845,7 +2911,7 @@
           <div class="pjip-backup-actions">
             <button type="button" class="pjip-modal-btn pjip-backup-primary" data-role="backup-send"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Enviar backup</span></button>
             <button type="button" class="pjip-modal-btn pjip-backup-success" data-role="backup-restore"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span>Restaurar backup</span></button>
-            <button type="button" class="pjip-modal-btn pjip-backup-danger" data-role="backup-clear"><i class="fa-solid fa-eraser" aria-hidden="true"></i><span>Limpar backup</span></button>
+            <button type="button" class="pjip-modal-btn pjip-backup-danger" data-role="backup-clear"><i class="fa-solid fa-key" aria-hidden="true"></i><span>Remover configuração</span></button>
             <button type="button" class="pjip-modal-btn" data-role="backup-close"><i class="fa-solid fa-xmark" aria-hidden="true"></i><span>Fechar</span></button>
           </div>
           <div class="pjip-backup-meta" data-role="backup-status"></div>
@@ -3150,7 +3216,7 @@
     const doneButton = document.createElement('button');
     doneButton.type = 'button';
     doneButton.className = 'pjip-modal-btn pjip-modal-btn--primary';
-    doneButton.textContent = item.done ? 'Reabrir' : 'Concluir';
+    doneButton.innerHTML = `<i class="fa-solid ${item.done ? 'fa-rotate-left' : 'fa-check'}" aria-hidden="true"></i><span>${item.done ? 'Reabrir' : 'Concluir'}</span>`;
     doneButton.addEventListener('click', () => {
       toggleDone(String(item.id));
       renderModal();
@@ -3159,7 +3225,7 @@
     const openProcessButton = document.createElement('button');
     openProcessButton.type = 'button';
     openProcessButton.className = 'pjip-modal-btn';
-    openProcessButton.textContent = 'Abrir processo';
+    openProcessButton.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i><span>Abrir processo</span>';
     openProcessButton.disabled = !item.processLink;
     openProcessButton.addEventListener('click', () => {
       openProcess(item);
@@ -3167,9 +3233,10 @@
 
     const removeButton = document.createElement('button');
     removeButton.type = 'button';
-    removeButton.className = 'pjip-modal-btn';
-    removeButton.textContent = 'Remover';
+    removeButton.className = 'pjip-modal-btn pjip-modal-btn--danger';
+    removeButton.innerHTML = '<i class="fa-solid fa-trash-can" aria-hidden="true"></i><span>Remover</span>';
     removeButton.addEventListener('click', () => {
+      if (!window.confirm('Remover esta intimação do painel local?')) return;
       delete state.store.items[item.id];
       persistStore();
       refreshFrameContext('modal-remove');
@@ -3607,16 +3674,8 @@
    */
   function getDeadlineStored(key, fallback = '') {
     try {
-      if (typeof GM_getValue === 'function') {
-        const value = GM_getValue(key, undefined);
-        if (value !== undefined) {
-          localStorage.setItem(key, JSON.stringify(value));
-          return value;
-        }
-      }
-      const value = localStorage.getItem(key);
-      if (value === null) return fallback;
-      try { return JSON.parse(value); } catch (_) { return value; }
+      const deadline = state.store?.deadline;
+      return deadline && Object.prototype.hasOwnProperty.call(deadline, key) ? deadline[key] : fallback;
     } catch (error) {
       logWarn(`Falha ao ler configuracao de prazo "${key}".`, error);
       return fallback;
@@ -3630,8 +3689,9 @@
    */
   function setDeadlineStored(key, value) {
     try {
-      if (typeof GM_setValue === 'function') GM_setValue(key, value);
-      localStorage.setItem(key, JSON.stringify(value));
+      if (!state.store.deadline || typeof state.store.deadline !== 'object') state.store.deadline = Object.create(null);
+      state.store.deadline[key] = value;
+      persistStore();
     } catch (error) {
       logWarn(`Falha ao salvar configuracao de prazo "${key}".`, error);
     }
@@ -3643,8 +3703,8 @@
    */
   function clearDeadlineStored(key) {
     try {
-      if (typeof GM_deleteValue === 'function') GM_deleteValue(key);
-      localStorage.removeItem(key);
+      if (state.store.deadline && typeof state.store.deadline === 'object') delete state.store.deadline[key];
+      persistStore();
     } catch (error) {
       logWarn(`Falha ao limpar configuracao de prazo "${key}".`, error);
     }
