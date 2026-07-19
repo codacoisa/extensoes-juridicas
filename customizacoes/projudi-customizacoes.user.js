@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      2026.07.19-0237
+// @version      2026.07.19-0323
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -18,6 +18,7 @@
 // @grant        GM_xmlhttpRequest
 // @grant        GM.xmlHttpRequest
 // @connect      api.github.com
+// @connect      gist.githubusercontent.com
 // ==/UserScript==
 
 (function () {
@@ -117,6 +118,47 @@
     const OPEN_SETTINGS_MESSAGE = "projudi-customizacoes-open-settings";
     const LOG_PREFIX = "[Customizações]";
     const FA_CDN = "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/js/all.min.js";
+    const SUITE_UI_CSS = String.raw`
+    [data-pj-suite-ui] { --pj-suite-font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; --pj-suite-focus: rgba(31, 105, 213, .25); --pj-suite-text: #0f2742; font-family: var(--pj-suite-font) !important; color: var(--pj-suite-text); }
+    [data-pj-suite-ui], [data-pj-suite-ui] *, [data-pj-suite-ui] *::before, [data-pj-suite-ui] *::after { box-sizing: border-box; }
+    [data-pj-suite-ui] :where(button, input, select, textarea) { font-family: inherit !important; }
+    [data-pj-suite-ui] :where(button, input, select, textarea):focus-visible { outline: 3px solid var(--pj-suite-focus) !important; outline-offset: 2px !important; }
+    [data-pj-suite-ui] :where(button, input, select, textarea):disabled { cursor: not-allowed !important; opacity: .58 !important; }
+    [data-pj-suite-ui] .svg-inline--fa { width: 1em; height: 1em; flex: 0 0 auto; vertical-align: -.125em; }
+    @media (prefers-reduced-motion: reduce) { [data-pj-suite-ui], [data-pj-suite-ui] * { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
+  `;
+    const BACKUP_UI_CSS = String.raw`
+    .pj-backup-ui__popover { position: fixed !important; inset: 0 !important; z-index: 2147483647 !important; display: none !important; align-items: center !important; justify-content: center !important; padding: 20px !important; background: rgba(15, 23, 42, .42) !important; backdrop-filter: blur(2px); }
+    .pj-backup-ui__popover[data-open="true"] { display: flex !important; }
+    .pj-backup-ui__dialog { display: block !important; width: min(760px, calc(100vw - 40px)) !important; max-height: min(86vh, 780px) !important; padding: 20px !important; overflow: auto !important; box-sizing: border-box !important; border: 1px solid #d7e1ee !important; border-radius: 16px !important; background: #fff !important; box-shadow: 0 28px 80px rgba(2, 6, 23, .34) !important; color: #0f2742 !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important; font-size: 14px !important; line-height: 1.4 !important; }
+    .pj-backup-ui__dialog, .pj-backup-ui__dialog * { box-sizing: border-box; }
+    .pj-backup-ui__dialog > .pjc-card-body { width: 100% !important; padding: 0 !important; }
+    .pj-backup-ui__dialog .pjc-stack { gap: 0 !important; }
+    .pj-backup-ui__header { display: flex !important; align-items: flex-start !important; justify-content: space-between !important; gap: 16px !important; margin: 0 0 18px !important; }
+    .pj-backup-ui__title { display: flex !important; align-items: center !important; gap: 7px !important; margin: 0 0 4px !important; color: #173a61 !important; font-size: 13px !important; font-weight: 800 !important; letter-spacing: .045em !important; line-height: 1.25 !important; text-transform: uppercase !important; }
+    .pj-backup-ui__description { margin: 0 !important; color: #5d7189 !important; font-size: 13px !important; line-height: 1.4 !important; }
+    .pj-backup-ui__close { display: inline-flex !important; align-items: center !important; justify-content: center !important; flex: 0 0 auto !important; width: 36px !important; min-width: 36px !important; height: 36px !important; padding: 0 !important; border: 1px solid #c8d6e6 !important; border-radius: 999px !important; background: #f7faff !important; color: #173a61 !important; cursor: pointer !important; font-size: 16px !important; }
+    .pj-backup-ui__grid { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 12px !important; margin: 0 !important; }
+    .pj-backup-ui__field { display: grid !important; gap: 6px !important; min-width: 0 !important; }
+    .pj-backup-ui__field--full { grid-column: 1 / -1 !important; }
+    .pj-backup-ui__field label { color: #294766 !important; font-size: 12px !important; font-weight: 700 !important; }
+    .pj-backup-ui__input { width: 100% !important; min-width: 0 !important; height: 44px !important; padding: 9px 12px !important; border: 1px solid #c7d6e6 !important; border-radius: 10px !important; background: #fff !important; color: #102a46 !important; font-family: inherit !important; font-size: 14px !important; line-height: 1.2 !important; }
+    .pj-backup-ui__input:focus-visible, .pj-backup-ui__button:focus-visible, .pj-backup-ui__close:focus-visible, .pj-backup-ui__toggle:focus-within { outline: 3px solid rgba(31, 105, 213, .25) !important; outline-offset: 2px !important; }
+    .pj-backup-ui__toggles { display: flex !important; align-items: center !important; flex-wrap: wrap !important; gap: 10px !important; margin: 14px 0 0 !important; }
+    .pj-backup-ui__toggle { display: inline-flex !important; align-items: center !important; justify-content: flex-start !important; gap: 7px !important; min-height: 38px !important; padding: 8px 11px !important; border: 1px solid #d7e1ee !important; border-radius: 999px !important; background: #f8fbff !important; color: #294766 !important; font-size: 12px !important; font-weight: 650 !important; }
+    .pj-backup-ui__toggle input { margin: 0 !important; accent-color: #1f69d5; }
+    .pj-backup-ui__actions { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 10px !important; margin: 18px 0 0 !important; }
+    .pj-backup-ui__button { display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 7px !important; min-width: 0 !important; min-height: 44px !important; padding: 9px 11px !important; border: 1px solid #c8d6e6 !important; border-radius: 10px !important; background: #fff !important; color: #173a61 !important; cursor: pointer !important; font-family: inherit !important; font-size: 13px !important; font-weight: 700 !important; line-height: 1.2 !important; text-align: center !important; }
+    .pj-backup-ui__button--primary { border-color: #1f69d5 !important; background: #1f69d5 !important; color: #fff !important; }
+    .pj-backup-ui__button--success { border-color: #16833a !important; background: #18883f !important; color: #fff !important; }
+    .pj-backup-ui__button--danger { border-color: #f2b8b5 !important; background: #fff7f7 !important; color: #b42318 !important; }
+    .pj-backup-ui__status { min-height: 20px !important; margin: 14px 0 0 !important; color: #47627f !important; font-size: 12px !important; font-weight: 600 !important; }
+    .pj-backup-ui__status[data-state="error"] { color: #b42318 !important; }
+    .pj-backup-ui__status[data-state="success"] { color: #087a3e !important; }
+    .pj-backup-ui__last { margin: 4px 0 0 !important; color: #8191a5 !important; font-size: 11px !important; }
+    .pj-backup-ui__dialog .svg-inline--fa { width: 1em; height: 1em; }
+    @media (max-width: 720px) { .pj-backup-ui__popover { padding: 10px !important; } .pj-backup-ui__dialog { width: calc(100vw - 20px) !important; padding: 16px !important; } .pj-backup-ui__grid, .pj-backup-ui__actions { grid-template-columns: 1fr !important; } .pj-backup-ui__field--full { grid-column: auto !important; } .pj-backup-ui__toggles { align-items: stretch !important; flex-direction: column !important; } }
+  `;
     const DEFAULT_SETTINGS = {
         enabled: true,
         autoHideHeader: false,
@@ -259,15 +301,51 @@
         return `Último backup: ${date.toLocaleString("pt-BR")}.`;
     }
 
+    const fontAwesomeRoots = new WeakSet();
+
     function ensureFontAwesome(doc = document) {
-        if (!doc || !doc.head) return;
-        if (doc.querySelector('script[data-pj-fa-svg="1"]')) return;
-        const script = doc.createElement("script");
-        script.src = FA_CDN;
-        script.defer = true;
-        script.dataset.pjFaSvg = "1";
-        script.dataset.autoReplaceSvg = "nest";
-        doc.head.appendChild(script);
+        if (!doc || !doc.head) return null;
+        if (!doc.getElementById("pj-suite-core-style")) {
+            const coreStyle = doc.createElement("style");
+            coreStyle.id = "pj-suite-core-style";
+            coreStyle.textContent = SUITE_UI_CSS;
+            doc.head.appendChild(coreStyle);
+        }
+        let script = doc.querySelector('script[data-pj-fa-svg="1"]');
+        if (!script) {
+            script = doc.createElement("script");
+            script.src = FA_CDN;
+            script.defer = true;
+            script.dataset.pjFaSvg = "1";
+            script.dataset.autoReplaceSvg = "false";
+            script.dataset.observeMutations = "false";
+            script.dataset.keepOriginalSource = "false";
+            doc.head.appendChild(script);
+        }
+        return script;
+    }
+
+    function renderFontAwesome(root) {
+        if (!root || root.nodeType !== 1) return;
+        const doc = root.ownerDocument || document;
+        root.setAttribute("data-pj-suite-ui", "customizacoes");
+        const script = ensureFontAwesome(doc);
+        const render = () => {
+            const api = doc.defaultView && doc.defaultView.FontAwesome;
+            if (!api || !api.dom) return false;
+            try {
+                if (!fontAwesomeRoots.has(root)) {
+                    api.dom.watch({ autoReplaceSvgRoot: root, observeMutationsRoot: root });
+                    fontAwesomeRoots.add(root);
+                } else {
+                    api.dom.i2svg({ node: root });
+                }
+                return true;
+            } catch (_) {
+                return false;
+            }
+        };
+        if (!render() && script) script.addEventListener("load", render, { once: true });
     }
 
     function shouldManageIframeFeatures() {
@@ -505,7 +583,7 @@
         return JSON.parse(response.responseText || "{}");
     }
 
-    async function readBackupFromGist(backupSettings) {
+    async function readBackupFromGist(backupSettings, options = {}) {
         if (!backupSettings.gistId) throw new Error("Informe o Gist ID.");
         if (!backupSettings.token) throw new Error("Informe o token do GitHub.");
         const response = await githubRequest({
@@ -521,8 +599,35 @@
         }
         const gist = JSON.parse(response.responseText || "{}");
         const file = gist && gist.files ? gist.files[backupSettings.fileName] : null;
-        if (!file || !file.content) throw new Error("Arquivo de backup não encontrado no Gist.");
-        return JSON.parse(file.content);
+        if (!file) {
+            if (options.missingOk) return null;
+            throw new Error("Arquivo de backup não encontrado no Gist.");
+        }
+        let content = typeof file.content === "string" ? file.content : "";
+        if ((file.truncated || !content) && file.raw_url) {
+            const rawResponse = await githubRequest({
+                method: "GET",
+                url: file.raw_url,
+                headers: {
+                    "Accept": "application/json",
+                    "Authorization": `Bearer ${backupSettings.token}`
+                }
+            });
+            if (rawResponse.status < 200 || rawResponse.status >= 300) {
+                throw new Error(`Não foi possível baixar o conteúdo completo do backup: ${parseGithubError(rawResponse)}`);
+            }
+            content = rawResponse.responseText || "";
+        }
+        if (!content) {
+            if (options.invalidOk) return null;
+            throw new Error("O arquivo de backup no Gist está vazio. Envie um novo backup para substituí-lo.");
+        }
+        try {
+            return JSON.parse(content);
+        } catch (_) {
+            if (options.invalidOk) return null;
+            throw new Error("O arquivo de backup no Gist está incompleto ou contém JSON inválido. Envie um novo backup para substituí-lo.");
+        }
     }
 
     function normalizeSettings(value) {
@@ -1317,6 +1422,7 @@
                     display: none;
                 }
             }
+            ${BACKUP_UI_CSS}
         `;
 
         panel.innerHTML = `
@@ -1623,49 +1729,49 @@
                     </section>
                 </div>
             </div>
-            <div class="pjc-backup-popover" id="pj-backup-popover">
-                <section class="pjc-card pjc-backup-dialog">
+            <div class="pjc-backup-popover pj-backup-ui__popover" id="pj-backup-popover">
+                <section class="pjc-card pjc-backup-dialog pj-backup-ui__dialog" role="dialog" aria-modal="true" aria-labelledby="pj-backup-title">
                     <div class="pjc-card-body">
-                        <div class="pjc-backup-head">
+                        <div class="pjc-backup-head pj-backup-ui__header">
                             <div>
-                                <div class="pjc-section-title">BACKUP REMOTO</div>
-                                <p class="pjc-card-desc">Credenciais ficam somente neste navegador e nunca entram no arquivo de backup.</p>
+                                <div id="pj-backup-title" class="pjc-section-title pj-backup-ui__title"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Backup remoto</span></div>
+                                <p class="pjc-card-desc pj-backup-ui__description">Credenciais ficam somente neste navegador e nunca entram no arquivo de backup.</p>
                             </div>
-                            <button type="button" class="pjc-backup-close" data-pj-backup-close title="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                            <button type="button" class="pjc-backup-close pj-backup-ui__close" data-pj-backup-close title="Fechar" aria-label="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
                         </div>
                         <div class="pjc-stack">
-                            <div class="pjc-backup-grid">
-                                <div class="pjc-backup-field">
+                            <div class="pjc-backup-grid pj-backup-ui__grid">
+                                <div class="pjc-backup-field pj-backup-ui__field">
                                     <label for="pj-backup-gist-id">Gist ID</label>
-                                    <input type="text" id="pj-backup-gist-id" placeholder="Cole o Gist ID" class="pjc-input">
+                                    <input type="text" id="pj-backup-gist-id" placeholder="Cole o Gist ID" class="pjc-input pj-backup-ui__input">
                                 </div>
-                                <div class="pjc-backup-field">
+                                <div class="pjc-backup-field pj-backup-ui__field">
                                     <label for="pj-backup-file-name">Arquivo</label>
-                                    <input type="text" id="pj-backup-file-name" placeholder="projudi-customizacoes.json" class="pjc-input">
+                                    <input type="text" id="pj-backup-file-name" placeholder="projudi-customizacoes.json" class="pjc-input pj-backup-ui__input">
                                 </div>
-                                <div class="pjc-backup-field pjc-backup-span">
+                                <div class="pjc-backup-field pjc-backup-span pj-backup-ui__field pj-backup-ui__field--full">
                                     <label for="pj-backup-token">Token do GitHub</label>
-                                    <input type="password" id="pj-backup-token" placeholder="ghp_..." class="pjc-input">
+                                    <input type="password" id="pj-backup-token" placeholder="ghp_..." class="pjc-input pj-backup-ui__input">
                                 </div>
                             </div>
-                            <div class="pjc-backup-toggles">
-                                <label class="pjc-checkline">
+                            <div class="pjc-backup-toggles pj-backup-ui__toggles">
+                                <label class="pjc-checkline pj-backup-ui__toggle">
                                     <input type="checkbox" id="pj-backup-enabled">
                                     <span>Ativar backup por Gist no GitHub</span>
                                 </label>
-                                <label class="pjc-checkline">
+                                <label class="pjc-checkline pj-backup-ui__toggle">
                                     <input type="checkbox" id="pj-backup-auto">
                                     <span>Backup automático</span>
                                 </label>
                             </div>
-                            <div class="pjc-backup-actions">
-                                <button id="pj-backup-send" type="button" class="pjc-btn-secondary pjc-backup-primary"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Enviar backup</span></button>
-                                <button id="pj-backup-restore" type="button" class="pjc-btn-secondary pjc-backup-success"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span>Restaurar backup</span></button>
-                                <button id="pj-backup-clear" type="button" class="pjc-btn-danger"><i class="fa-solid fa-key" aria-hidden="true"></i><span>Remover configuração</span></button>
-                                <button type="button" class="pjc-btn-secondary" data-pj-backup-close>Fechar</button>
+                            <div class="pjc-backup-actions pj-backup-ui__actions">
+                                <button id="pj-backup-send" type="button" class="pjc-btn-secondary pjc-backup-primary pj-backup-ui__button pj-backup-ui__button--primary"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Enviar backup</span></button>
+                                <button id="pj-backup-restore" type="button" class="pjc-btn-secondary pjc-backup-success pj-backup-ui__button pj-backup-ui__button--success"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span>Restaurar backup</span></button>
+                                <button id="pj-backup-clear" type="button" class="pjc-btn-danger pj-backup-ui__button pj-backup-ui__button--danger"><i class="fa-solid fa-key" aria-hidden="true"></i><span>Remover configuração</span></button>
+                                <button type="button" class="pjc-btn-secondary pj-backup-ui__button" data-pj-backup-close><i class="fa-solid fa-xmark" aria-hidden="true"></i><span>Fechar</span></button>
                             </div>
-                            <div id="pj-backup-status" class="pjc-note"></div>
-                            <div id="pj-backup-last" class="pjc-meta">${formatLastBackupLabel(backupSettings.lastBackupAt)}</div>
+                            <div id="pj-backup-status" class="pjc-note pj-backup-ui__status" role="status" aria-live="polite"></div>
+                            <div id="pj-backup-last" class="pjc-meta pj-backup-ui__last">${formatLastBackupLabel(backupSettings.lastBackupAt)}</div>
                         </div>
                     </div>
                 </section>
@@ -1681,6 +1787,7 @@
         overlay.appendChild(scopedStyle);
         overlay.appendChild(panel);
         document.body.appendChild(overlay);
+        renderFontAwesome(overlay);
         requestAnimationFrame(() => {
             panel.style.transform = "translateY(0) scale(1)";
             panel.style.opacity = "1";
@@ -1796,7 +1903,7 @@
         const setBackupStatus = (message, tone) => {
             if (!hasBackupUi) return;
             backupStatus.textContent = message || "";
-            backupStatus.style.color = tone === "error" ? "#b42318" : tone === "ok" ? "#067647" : "#64748b";
+            backupStatus.dataset.state = !message ? "idle" : tone === "error" ? "error" : tone === "ok" ? "success" : "progress";
         };
         const updateBackupLast = () => {
             if (!hasBackupUi) return;
@@ -2158,7 +2265,7 @@
         const topFontCss = settings.googleFontEnabled && settings.googleFontFamily
             ? `
                 body,
-                body *:not(i):not([class^="fa"]):not([class*=" fa-"]):not([class*="icon"]):not([data-icon]):not([aria-hidden="true"]) {
+                body *:not(i):not([class^="fa"]):not([class*=" fa-"]):not([class*="icon"]):not([data-icon]):not([aria-hidden="true"]):not([data-pj-suite-ui] *) {
                     font-family: "${settings.googleFontFamily}", sans-serif !important;
                 }
             `
@@ -2580,6 +2687,7 @@
         dock.appendChild(toggle);
         dock.appendChild(menu);
         (doc.body || doc.documentElement).appendChild(dock);
+        renderFontAwesome(dock);
         popupDock = dock;
         popupDockToggle = toggle;
         popupDockMenu = menu;
@@ -2918,6 +3026,7 @@
         panel.appendChild(head);
         panel.appendChild(body);
         (doc.body || doc.documentElement).appendChild(panel);
+        renderFontAwesome(panel);
 
         ensurePopupDock(doc);
         ensurePopupPrintHandler(doc);
@@ -3212,7 +3321,8 @@
         const scaledFontPx = Math.round(13.5 * sanitizeFontScale(settings.fontScalePercent) / 100 * 10) / 10;
         const fontScaleCss = settings.fontScaleEnabled
             ? `
-                body, table, td, th, label, input, select, textarea, button {
+                body,
+                :where(table, td, th, label, input, select, textarea, button):not([data-pj-suite-ui] *) {
                     font-size: ${scaledFontPx}px !important;
                 }
             `
@@ -3220,16 +3330,16 @@
         const googleFontCss = settings.googleFontEnabled && settings.googleFontFamily
             ? `
                 body,
-                body *:not(i):not([class^="fa"]):not([class*=" fa-"]):not([class*="icon"]):not([data-icon]):not([aria-hidden="true"]) {
+                body *:not(i):not([class^="fa"]):not([class*=" fa-"]):not([class*="icon"]):not([data-icon]):not([aria-hidden="true"]):not([data-pj-suite-ui] *) {
                     font-family: "${settings.googleFontFamily}", sans-serif !important;
                 }
             `
             : "";
         const compactCss = settings.compactMode
             ? `
-                table { border-spacing: 0 !important; }
-                table:not(.pjip-table) td,
-                table:not(.pjip-table) th {
+                table:not([data-pj-suite-ui] *) { border-spacing: 0 !important; }
+                table:not(.pjip-table):not([data-pj-suite-ui] *) td,
+                table:not(.pjip-table):not([data-pj-suite-ui] *) th {
                     padding-top: 2px !important;
                     padding-bottom: 2px !important;
                     line-height: 1.15 !important;
@@ -3242,12 +3352,12 @@
                     padding-bottom: 2px !important;
                     line-height: 1.15 !important;
                 }
-                table:not(.pjip-table) tr { line-height: 1.15 !important; }
+                table:not(.pjip-table):not([data-pj-suite-ui] *) tr { line-height: 1.15 !important; }
                 #divCorpo, .divCorpo, #Corpo, #conteudo, #conteudoPrincipal, #pgn_corpo, #Formulario, .Tela, .Corpo, .conteudo {
                     padding-top: 4px !important;
                 }
-                h1, h2, h3, h4, h5, h6 { margin-top: 4px !important; margin-bottom: 4px !important; }
-                p { margin-top: 4px !important; margin-bottom: 4px !important; }
+                :where(h1, h2, h3, h4, h5, h6):not([data-pj-suite-ui] *) { margin-top: 4px !important; margin-bottom: 4px !important; }
+                p:not([data-pj-suite-ui] *) { margin-top: 4px !important; margin-bottom: 4px !important; }
             `
             : "";
 
@@ -3270,17 +3380,8 @@
                 font-size: ${settings.fontScaleEnabled ? scaledFontPx : 13.5}px !important;
                 line-height: 1.48 !important;
             }
-            table, td, th, label, input, select, textarea, button {
+            :where(table, td, th, label, input, select, textarea, button):not([data-pj-suite-ui] *) {
                 font-size: ${settings.fontScaleEnabled ? scaledFontPx : 13.5}px !important;
-            }
-            :where(i.fa, i.fas, i.far, i.fal, i.fab, i.fa-solid, i.fa-regular, i.fa-brands,
-              [class^="fa-"], [class*=" fa-"]) {
-                width: auto !important;
-                height: auto !important;
-                font-size: 1em !important;
-                line-height: 1 !important;
-                text-indent: 0 !important;
-                letter-spacing: normal !important;
             }
             #divCorpo, .divCorpo, #Corpo, #conteudo, #conteudoPrincipal,
             #pgn_corpo, #Formulario, .Tela, .Corpo, .conteudo, #content,
@@ -3430,8 +3531,8 @@
         ` : "";
 
         const modernFormsCss = settings.modernFormsEnabled ? `
-            input:not([type="image"]):not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
-            select, textarea {
+            input:not([type="image"]):not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([data-pj-suite-ui] *),
+            select:not([data-pj-suite-ui] *), textarea:not([data-pj-suite-ui] *) {
                 min-height: 32px !important;
                 padding: 5px 8px !important;
                 border: 1px solid #b9c8d8 !important;
@@ -3441,15 +3542,16 @@
                 box-shadow: inset 0 1px 2px rgba(15, 45, 78, .05) !important;
                 box-sizing: border-box !important;
             }
-            textarea { min-height: 72px !important; }
-            input:not([type="image"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):focus,
-            select:focus, textarea:focus, button:focus-visible, a:focus-visible {
+            textarea:not([data-pj-suite-ui] *) { min-height: 72px !important; }
+            input:not([type="image"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([data-pj-suite-ui] *):focus,
+            select:not([data-pj-suite-ui] *):focus, textarea:not([data-pj-suite-ui] *):focus,
+            button:not([data-pj-suite-ui] *):focus-visible, a:not([data-pj-suite-ui] *):focus-visible {
                 outline: 3px solid rgba(30, 103, 173, .22) !important;
                 outline-offset: 1px !important;
                 border-color: #1e67ad !important;
             }
-            input:disabled:not([type="button"]):not([type="submit"]):not([type="reset"]),
-            select:disabled, textarea:disabled {
+            input:disabled:not([type="button"]):not([type="submit"]):not([type="reset"]):not([data-pj-suite-ui] *),
+            select:not([data-pj-suite-ui] *):disabled, textarea:not([data-pj-suite-ui] *):disabled {
                 cursor: not-allowed !important;
                 opacity: .62 !important;
             }
@@ -4255,6 +4357,7 @@
         });
 
         originalPdfButton.insertAdjacentElement("afterend", button);
+        renderFontAwesome(button);
         return true;
     }
 
@@ -5610,6 +5713,7 @@
             });
 
             document.body.appendChild(overlay);
+            renderFontAwesome(overlay);
             refreshPanelPreviews(overlay);
           }
 

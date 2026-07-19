@@ -32,6 +32,26 @@ test('Font Awesome é SVG+JS 7.2.0 e não usa webfont', () => {
   }
 });
 
+test('Font Awesome fica isolado nas raízes da suíte', () => {
+  const coreContracts = [];
+  for (const [id, source] of Object.entries(sources)) {
+    assert.match(source, /autoReplaceSvg\s*=\s*['"]false['"]/, `${id}: substituição global não foi desativada`);
+    assert.match(source, /observeMutations\s*=\s*['"]false['"]/, `${id}: observação global não foi desativada`);
+    assert.doesNotMatch(source, /autoReplaceSvg\s*=\s*['"]nest['"]/, `${id}: substituição global ainda usa nest`);
+    assert.match(source, /autoReplaceSvgRoot:\s*root/, `${id}: raiz de conversão não está isolada`);
+    assert.match(source, /observeMutationsRoot:\s*root/, `${id}: observer não está isolado`);
+    assert.match(source, /data-pj-suite-ui/, `${id}: marcador de isolamento ausente`);
+    assert.match(source, /pj-suite-core-style/, `${id}: núcleo visual comum não é injetado`);
+    assert.doesNotMatch(source, /autoReplaceSvgRoot:\s*document|observeMutationsRoot:\s*document/, `${id}: documento inteiro ainda é observado`);
+    const coreMatch = source.match(/const SUITE_UI_CSS = String\.raw`([\s\S]*?)`;\n/);
+    assert.ok(coreMatch, `${id}: contrato visual comum ausente`);
+    coreContracts.push(coreMatch[1].replace(/\s+/g, ' ').trim());
+  }
+  assert.equal(new Set(coreContracts).size, 1, 'os contratos visuais básicos divergiram');
+  assert.doesNotMatch(sources.customizacoes, /:where\(i\.fa, i\.fas/, 'customizações ainda redimensiona ícones globais do Projudi');
+  assert.match(sources.customizacoes, /:not\(\[data-pj-suite-ui\] \*\)/, 'customizações não exclui os painéis da suíte');
+});
+
 test('versões seguem data e hora crescentes', () => {
   for (const [id, source] of Object.entries(sources)) {
     const match = source.match(/^\/\/ @version\s+(\d{4}\.\d{2}\.\d{2}-\d{4})$/m);
@@ -56,4 +76,44 @@ test('payloads de backup não serializam a configuração privada', () => {
 
 test('a pasta histórica não faz parte da suíte ativa', () => {
   for (const path of Object.values(scripts)) assert.doesNotMatch(path, /^arquivo\//);
+});
+
+test('o pop-up de backup usa o mesmo contrato visual nas cinco extensões', () => {
+  const requiredClasses = [
+    'pj-backup-ui__popover',
+    'pj-backup-ui__dialog',
+    'pj-backup-ui__header',
+    'pj-backup-ui__title',
+    'pj-backup-ui__description',
+    'pj-backup-ui__close',
+    'pj-backup-ui__grid',
+    'pj-backup-ui__field',
+    'pj-backup-ui__input',
+    'pj-backup-ui__toggles',
+    'pj-backup-ui__toggle',
+    'pj-backup-ui__actions',
+    'pj-backup-ui__button--primary',
+    'pj-backup-ui__button--success',
+    'pj-backup-ui__button--danger',
+    'pj-backup-ui__status',
+    'pj-backup-ui__last'
+  ];
+  const cssContracts = [];
+  for (const [id, source] of Object.entries(sources)) {
+    for (const className of requiredClasses) assert.match(source, new RegExp(className), `${id}: classe ${className} ausente`);
+    const match = source.match(/const BACKUP_UI_CSS = String\.raw`([\s\S]*?)`;\n/);
+    assert.ok(match, `${id}: contrato CSS de backup ausente`);
+    cssContracts.push(match[1].replace(/\s+/g, ' ').trim());
+  }
+  assert.equal(new Set(cssContracts).size, 1, 'os contratos CSS de backup divergiram');
+});
+
+test('backups grandes ou remotos inválidos não bloqueiam novo envio', () => {
+  for (const [id, source] of Object.entries(sources)) {
+    assert.match(source, /file\.truncated\s*\|\|\s*!content/, `${id}: fallback de Gist truncado ausente`);
+    assert.match(source, /file\.raw_url/, `${id}: leitura do raw_url ausente`);
+    assert.match(source, /^\/\/ @connect\s+gist\.githubusercontent\.com$/m, `${id}: permissão para raw_url ausente`);
+    if (id !== 'customizacoes') assert.match(source, /invalidOk:\s*true/, `${id}: envio não tolera JSON remoto inválido`);
+    assert.match(source, /incompleto ou contém JSON inválido/, `${id}: erro amigável de restauração ausente`);
+  }
 });

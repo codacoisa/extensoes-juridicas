@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2026.07.19-0237
+// @version      2026.07.19-0323
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -137,6 +137,47 @@
   const AUTO_BACKUP_IDLE_DELAY_MS = 30000;
   const AUTO_BACKUP_MIN_INTERVAL_MS = 15 * 60 * 1000;
   const FA_CDN = 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/js/all.min.js';
+  const SUITE_UI_CSS = String.raw`
+    [data-pj-suite-ui] { --pj-suite-font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; --pj-suite-focus: rgba(31, 105, 213, .25); --pj-suite-text: #0f2742; font-family: var(--pj-suite-font) !important; color: var(--pj-suite-text); }
+    [data-pj-suite-ui], [data-pj-suite-ui] *, [data-pj-suite-ui] *::before, [data-pj-suite-ui] *::after { box-sizing: border-box; }
+    [data-pj-suite-ui] :where(button, input, select, textarea) { font-family: inherit !important; }
+    [data-pj-suite-ui] :where(button, input, select, textarea):focus-visible { outline: 3px solid var(--pj-suite-focus) !important; outline-offset: 2px !important; }
+    [data-pj-suite-ui] :where(button, input, select, textarea):disabled { cursor: not-allowed !important; opacity: .58 !important; }
+    [data-pj-suite-ui] .svg-inline--fa { width: 1em; height: 1em; flex: 0 0 auto; vertical-align: -.125em; }
+    @media (prefers-reduced-motion: reduce) { [data-pj-suite-ui], [data-pj-suite-ui] * { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
+  `;
+  const BACKUP_UI_CSS = String.raw`
+    .pj-backup-ui__popover { position: fixed !important; inset: 0 !important; z-index: 2147483647 !important; display: none !important; align-items: center !important; justify-content: center !important; padding: 20px !important; background: rgba(15, 23, 42, .42) !important; backdrop-filter: blur(2px); }
+    .pj-backup-ui__popover[data-open="true"] { display: flex !important; }
+    .pj-backup-ui__dialog { display: block !important; width: min(760px, calc(100vw - 40px)) !important; max-height: min(86vh, 780px) !important; padding: 20px !important; overflow: auto !important; box-sizing: border-box !important; border: 1px solid #d7e1ee !important; border-radius: 16px !important; background: #fff !important; box-shadow: 0 28px 80px rgba(2, 6, 23, .34) !important; color: #0f2742 !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important; font-size: 14px !important; line-height: 1.4 !important; }
+    .pj-backup-ui__dialog, .pj-backup-ui__dialog * { box-sizing: border-box; }
+    .pj-backup-ui__dialog > .pjc-card-body { width: 100% !important; padding: 0 !important; }
+    .pj-backup-ui__dialog .pjc-stack { gap: 0 !important; }
+    .pj-backup-ui__header { display: flex !important; align-items: flex-start !important; justify-content: space-between !important; gap: 16px !important; margin: 0 0 18px !important; }
+    .pj-backup-ui__title { display: flex !important; align-items: center !important; gap: 7px !important; margin: 0 0 4px !important; color: #173a61 !important; font-size: 13px !important; font-weight: 800 !important; letter-spacing: .045em !important; line-height: 1.25 !important; text-transform: uppercase !important; }
+    .pj-backup-ui__description { margin: 0 !important; color: #5d7189 !important; font-size: 13px !important; line-height: 1.4 !important; }
+    .pj-backup-ui__close { display: inline-flex !important; align-items: center !important; justify-content: center !important; flex: 0 0 auto !important; width: 36px !important; min-width: 36px !important; height: 36px !important; padding: 0 !important; border: 1px solid #c8d6e6 !important; border-radius: 999px !important; background: #f7faff !important; color: #173a61 !important; cursor: pointer !important; font-size: 16px !important; }
+    .pj-backup-ui__grid { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 12px !important; margin: 0 !important; }
+    .pj-backup-ui__field { display: grid !important; gap: 6px !important; min-width: 0 !important; }
+    .pj-backup-ui__field--full { grid-column: 1 / -1 !important; }
+    .pj-backup-ui__field label { color: #294766 !important; font-size: 12px !important; font-weight: 700 !important; }
+    .pj-backup-ui__input { width: 100% !important; min-width: 0 !important; height: 44px !important; padding: 9px 12px !important; border: 1px solid #c7d6e6 !important; border-radius: 10px !important; background: #fff !important; color: #102a46 !important; font-family: inherit !important; font-size: 14px !important; line-height: 1.2 !important; }
+    .pj-backup-ui__input:focus-visible, .pj-backup-ui__button:focus-visible, .pj-backup-ui__close:focus-visible, .pj-backup-ui__toggle:focus-within { outline: 3px solid rgba(31, 105, 213, .25) !important; outline-offset: 2px !important; }
+    .pj-backup-ui__toggles { display: flex !important; align-items: center !important; flex-wrap: wrap !important; gap: 10px !important; margin: 14px 0 0 !important; }
+    .pj-backup-ui__toggle { display: inline-flex !important; align-items: center !important; justify-content: flex-start !important; gap: 7px !important; min-height: 38px !important; padding: 8px 11px !important; border: 1px solid #d7e1ee !important; border-radius: 999px !important; background: #f8fbff !important; color: #294766 !important; font-size: 12px !important; font-weight: 650 !important; }
+    .pj-backup-ui__toggle input { margin: 0 !important; accent-color: #1f69d5; }
+    .pj-backup-ui__actions { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 10px !important; margin: 18px 0 0 !important; }
+    .pj-backup-ui__button { display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 7px !important; min-width: 0 !important; min-height: 44px !important; padding: 9px 11px !important; border: 1px solid #c8d6e6 !important; border-radius: 10px !important; background: #fff !important; color: #173a61 !important; cursor: pointer !important; font-family: inherit !important; font-size: 13px !important; font-weight: 700 !important; line-height: 1.2 !important; text-align: center !important; }
+    .pj-backup-ui__button--primary { border-color: #1f69d5 !important; background: #1f69d5 !important; color: #fff !important; }
+    .pj-backup-ui__button--success { border-color: #16833a !important; background: #18883f !important; color: #fff !important; }
+    .pj-backup-ui__button--danger { border-color: #f2b8b5 !important; background: #fff7f7 !important; color: #b42318 !important; }
+    .pj-backup-ui__status { min-height: 20px !important; margin: 14px 0 0 !important; color: #47627f !important; font-size: 12px !important; font-weight: 600 !important; }
+    .pj-backup-ui__status[data-state="error"] { color: #b42318 !important; }
+    .pj-backup-ui__status[data-state="success"] { color: #087a3e !important; }
+    .pj-backup-ui__last { margin: 4px 0 0 !important; color: #8191a5 !important; font-size: 11px !important; }
+    .pj-backup-ui__dialog .svg-inline--fa { width: 1em; height: 1em; }
+    @media (max-width: 720px) { .pj-backup-ui__popover { padding: 10px !important; } .pj-backup-ui__dialog { width: calc(100vw - 20px) !important; padding: 16px !important; } .pj-backup-ui__grid, .pj-backup-ui__actions { grid-template-columns: 1fr !important; } .pj-backup-ui__field--full { grid-column: auto !important; } .pj-backup-ui__toggles { align-items: stretch !important; flex-direction: column !important; } }
+  `;
   const FAB_UI = {
     right: 16,
     bottom: 16,
@@ -481,7 +522,7 @@
     if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
     if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
     const nextSignature = getPayloadBackupSignature(payload);
-    const remotePayload = await readBackupFromGist(backupSettings, { missingOk: true });
+    const remotePayload = await readBackupFromGist(backupSettings, { missingOk: true, invalidOk: true });
     if (remotePayload && getPayloadBackupSignature(remotePayload) === nextSignature) {
       return { skipped: true };
     }
@@ -553,11 +594,15 @@
       content = rawResponse.responseText || '';
     }
 
-    if (!content) throw new Error('O arquivo de backup no Gist está vazio.');
+    if (!content) {
+      if (options.invalidOk) return null;
+      throw new Error('O arquivo de backup no Gist está vazio. Envie um novo backup para substituí-lo.');
+    }
     try {
       return JSON.parse(content);
     } catch (_) {
-      throw new Error('O arquivo de backup no Gist não contém um JSON válido.');
+      if (options.invalidOk) return null;
+      throw new Error('O arquivo de backup no Gist está incompleto ou contém JSON inválido. Envie um novo backup para substituí-lo.');
     }
   }
 
@@ -1186,12 +1231,51 @@
     return node;
   }
 
-  function ensureFontAwesome() {
-    if (document.querySelector('script[data-pj-fa-svg="1"]')) return;
-    const script = el('script', { src: FA_CDN, defer: true });
-    script.setAttribute('data-pj-fa-svg', '1');
-    script.setAttribute('data-auto-replace-svg', 'nest');
-    document.head.appendChild(script);
+  const fontAwesomeRoots = new WeakSet();
+
+  function ensureFontAwesome(doc = document) {
+    if (!doc || !doc.head) return null;
+    if (!doc.getElementById('pj-suite-core-style')) {
+      const coreStyle = doc.createElement('style');
+      coreStyle.id = 'pj-suite-core-style';
+      coreStyle.textContent = SUITE_UI_CSS;
+      doc.head.appendChild(coreStyle);
+    }
+    let script = doc.querySelector('script[data-pj-fa-svg="1"]');
+    if (!script) {
+      script = doc.createElement('script');
+      script.src = FA_CDN;
+      script.defer = true;
+      script.dataset.pjFaSvg = '1';
+      script.dataset.autoReplaceSvg = 'false';
+      script.dataset.observeMutations = 'false';
+      script.dataset.keepOriginalSource = 'false';
+      doc.head.appendChild(script);
+    }
+    return script;
+  }
+
+  function renderFontAwesome(root) {
+    if (!root || root.nodeType !== 1) return;
+    const doc = root.ownerDocument || document;
+    root.setAttribute('data-pj-suite-ui', 'tarefas');
+    const script = ensureFontAwesome(doc);
+    const render = () => {
+      const api = doc.defaultView && doc.defaultView.FontAwesome;
+      if (!api || !api.dom) return false;
+      try {
+        if (!fontAwesomeRoots.has(root)) {
+          api.dom.watch({ autoReplaceSvgRoot: root, observeMutationsRoot: root });
+          fontAwesomeRoots.add(root);
+        } else {
+          api.dom.i2svg({ node: root });
+        }
+        return true;
+      } catch (_) {
+        return false;
+      }
+    };
+    if (!render() && script) script.addEventListener('load', render, { once: true });
   }
 
   function faIcon(className) {
@@ -2178,6 +2262,7 @@
           width: 100%;
         }
       }
+      ${BACKUP_UI_CSS}
     `;
     document.head.appendChild(style);
   }
@@ -2379,6 +2464,7 @@
       });
     });
     document.body.appendChild(btn);
+    renderFontAwesome(btn);
   }
 
   function mountProcessInlineButton({ onOpen }) {
@@ -2442,6 +2528,7 @@
     } else {
       anchor.insertAdjacentElement('afterend', btn);
     }
+    renderFontAwesome(btn);
     return true;
   }
 
@@ -2504,6 +2591,7 @@
     btn.style.setProperty('margin-left', `${PROC_BTN_GAP.directHeaderLeft}px`, 'important');
 
     anchor.insertAdjacentElement('afterend', btn);
+    renderFontAwesome(btn);
     return true;
   }
 
@@ -2595,47 +2683,48 @@
             <div id="pjm-list" class="pjm-list"></div>
           </section>
         </main>
-        <div class="pjm-backup-popover" id="pjm-backup-popover">
-          <section class="pjm-card pjm-backup-dialog">
-            <div class="pjm-list-head">
+        <div class="pjm-backup-popover pj-backup-ui__popover" id="pjm-backup-popover">
+          <section class="pjm-card pjm-backup-dialog pj-backup-ui__dialog" role="dialog" aria-modal="true" aria-labelledby="pjm-backup-title">
+            <div class="pjm-list-head pj-backup-ui__header">
               <div>
-                <div class="pjm-section-title"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Backup remoto</span></div>
-                <div class="pjm-item-meta">Credenciais ficam somente neste navegador e nunca entram no arquivo de backup.</div>
+                <div id="pjm-backup-title" class="pjm-section-title pj-backup-ui__title"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Backup remoto</span></div>
+                <div class="pjm-item-meta pj-backup-ui__description">Credenciais ficam somente neste navegador e nunca entram no arquivo de backup.</div>
               </div>
-              <button type="button" class="pjm-close" data-pjm-backup-close title="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+              <button type="button" class="pjm-close pj-backup-ui__close" data-pjm-backup-close title="Fechar" aria-label="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
-            <div class="pjm-backup-grid">
-              <div class="pjm-field">
+            <div class="pjm-backup-grid pj-backup-ui__grid">
+              <div class="pjm-field pj-backup-ui__field">
                 <label for="pjm-backup-gist-id">Gist ID</label>
-                <input class="pjm-input" id="pjm-backup-gist-id" placeholder="Cole o Gist ID">
+                <input class="pjm-input pj-backup-ui__input" id="pjm-backup-gist-id" placeholder="Cole o Gist ID">
               </div>
-              <div class="pjm-field">
+              <div class="pjm-field pj-backup-ui__field">
                 <label for="pjm-backup-file-name">Arquivo</label>
-                <input class="pjm-input" id="pjm-backup-file-name" placeholder="projudi-tarefas-locais.json">
+                <input class="pjm-input pj-backup-ui__input" id="pjm-backup-file-name" placeholder="projudi-tarefas-locais.json">
               </div>
-              <div class="pjm-field pjm-backup-span">
+              <div class="pjm-field pjm-backup-span pj-backup-ui__field pj-backup-ui__field--full">
                 <label for="pjm-backup-token">Token do GitHub</label>
-                <input class="pjm-input" id="pjm-backup-token" type="password" placeholder="ghp_...">
+                <input class="pjm-input pj-backup-ui__input" id="pjm-backup-token" type="password" placeholder="ghp_...">
               </div>
             </div>
-            <div class="pjm-backup-toggles">
-              <label class="pjm-check-row"><input type="checkbox" id="pjm-backup-enabled"><span>Ativar backup por Gist no GitHub</span></label>
-              <label class="pjm-check-row"><input type="checkbox" id="pjm-backup-auto"><span>Backup automático</span></label>
+            <div class="pjm-backup-toggles pj-backup-ui__toggles">
+              <label class="pjm-check-row pj-backup-ui__toggle"><input type="checkbox" id="pjm-backup-enabled"><span>Ativar backup por Gist no GitHub</span></label>
+              <label class="pjm-check-row pj-backup-ui__toggle"><input type="checkbox" id="pjm-backup-auto"><span>Backup automático</span></label>
             </div>
-            <div class="pjm-backup-actions">
-              <button class="pjm-btn pjm-backup-primary" id="pjm-backup-send"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Enviar backup</span></button>
-              <button class="pjm-btn pjm-backup-success" id="pjm-backup-restore"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span>Restaurar backup</span></button>
-              <button class="pjm-btn pjm-backup-danger" id="pjm-backup-clear"><i class="fa-solid fa-key" aria-hidden="true"></i><span>Remover configuração</span></button>
-              <button class="pjm-btn" type="button" data-pjm-backup-close><i class="fa-solid fa-xmark" aria-hidden="true"></i><span>Fechar</span></button>
+            <div class="pjm-backup-actions pj-backup-ui__actions">
+              <button class="pjm-btn pjm-backup-primary pj-backup-ui__button pj-backup-ui__button--primary" id="pjm-backup-send"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Enviar backup</span></button>
+              <button class="pjm-btn pjm-backup-success pj-backup-ui__button pj-backup-ui__button--success" id="pjm-backup-restore"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span>Restaurar backup</span></button>
+              <button class="pjm-btn pjm-backup-danger pj-backup-ui__button pj-backup-ui__button--danger" id="pjm-backup-clear"><i class="fa-solid fa-key" aria-hidden="true"></i><span>Remover configuração</span></button>
+              <button class="pjm-btn pj-backup-ui__button" type="button" data-pjm-backup-close><i class="fa-solid fa-xmark" aria-hidden="true"></i><span>Fechar</span></button>
             </div>
-            <div class="pjm-item-meta" id="pjm-backup-status"></div>
-            <div class="pjm-item-meta" id="pjm-backup-last">${formatLastBackupLabel(backupSettings.lastBackupAt)}</div>
+            <div class="pjm-item-meta pj-backup-ui__status" id="pjm-backup-status" role="status" aria-live="polite"></div>
+            <div class="pjm-item-meta pj-backup-ui__last" id="pjm-backup-last">${formatLastBackupLabel(backupSettings.lastBackupAt)}</div>
           </section>
         </div>
       </div>
     `;
     overlay.appendChild(panel);
     document.body.appendChild(overlay);
+    renderFontAwesome(overlay);
 
     const listEl = panel.querySelector('#pjm-list');
     const statsEl = panel.querySelector('#pjm-stats');
@@ -2680,7 +2769,7 @@
     function showBackupStatus(message, tone) {
       if (!hasBackupUi) return;
       backupStatus.textContent = message || '';
-      backupStatus.style.color = tone === 'err' ? '#b42318' : tone === 'ok' ? '#067647' : '';
+      backupStatus.dataset.state = !message ? 'idle' : tone === 'err' ? 'error' : tone === 'ok' ? 'success' : 'progress';
     }
     function updateBackupLast() {
       if (!hasBackupUi) return;
@@ -2893,7 +2982,7 @@
           const total = importTodoPayloadObject(payload);
           backupSettings = saveBackupSettings({ ...backupSettings, lastBackupSignature: buildTodoBackupSignature() });
           renderManagerRows();
-          showBackupStatus(`Backup restaurado: ${total} chave(s).`, 'ok');
+          showBackupStatus('Backup restaurado com sucesso.', 'ok');
         } catch (error) {
           showBackupStatus(error && error.message ? error.message : 'Falha ao restaurar backup.', 'err');
         }
@@ -3074,6 +3163,7 @@
     setPanelCleanup(composeCleanups(cleanupDrag, cleanupScroll));
 
     document.body.appendChild(panel);
+    renderFontAwesome(panel);
     ensureIndexHas(ctx);
     rerender();
   }
@@ -3341,6 +3431,7 @@
     setPanelCleanup(composeCleanups(cleanupDrag, cleanupScroll));
 
     document.body.appendChild(panel);
+    renderFontAwesome(panel);
     renderGlobal();
     renderProcessesPending();
   }

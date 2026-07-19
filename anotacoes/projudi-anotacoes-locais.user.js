@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Anotações
 // @namespace    projudi-anotacoes-locais.user.js
-// @version      2026.07.19-0237
+// @version      2026.07.19-0323
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Adiciona Post-it local ao Projudi, com painel de notas, importação e exportação.
 // @author       lourencosv (GPT)
@@ -18,6 +18,7 @@
 // @grant        GM_xmlhttpRequest
 // @grant        GM.xmlHttpRequest
 // @connect      api.github.com
+// @connect      gist.githubusercontent.com
 // ==/UserScript==
 
 (function () {
@@ -130,6 +131,47 @@
     const BACKUP_SETTINGS_KEY = 'projudi-suite::anotacoes::gist';
     const LEGACY_BACKUP_SETTINGS_KEY = 'projudi_notes_backup_settings_v1';
     const BACKUP_SCHEMA = 'projudi-anotacoes-locais-backup-v1';
+    const SUITE_UI_CSS = String.raw`
+    [data-pj-suite-ui] { --pj-suite-font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; --pj-suite-focus: rgba(31, 105, 213, .25); --pj-suite-text: #0f2742; font-family: var(--pj-suite-font) !important; color: var(--pj-suite-text); }
+    [data-pj-suite-ui], [data-pj-suite-ui] *, [data-pj-suite-ui] *::before, [data-pj-suite-ui] *::after { box-sizing: border-box; }
+    [data-pj-suite-ui] :where(button, input, select, textarea) { font-family: inherit !important; }
+    [data-pj-suite-ui] :where(button, input, select, textarea):focus-visible { outline: 3px solid var(--pj-suite-focus) !important; outline-offset: 2px !important; }
+    [data-pj-suite-ui] :where(button, input, select, textarea):disabled { cursor: not-allowed !important; opacity: .58 !important; }
+    [data-pj-suite-ui] .svg-inline--fa { width: 1em; height: 1em; flex: 0 0 auto; vertical-align: -.125em; }
+    @media (prefers-reduced-motion: reduce) { [data-pj-suite-ui], [data-pj-suite-ui] * { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
+  `;
+    const BACKUP_UI_CSS = String.raw`
+    .pj-backup-ui__popover { position: fixed !important; inset: 0 !important; z-index: 2147483647 !important; display: none !important; align-items: center !important; justify-content: center !important; padding: 20px !important; background: rgba(15, 23, 42, .42) !important; backdrop-filter: blur(2px); }
+    .pj-backup-ui__popover[data-open="true"] { display: flex !important; }
+    .pj-backup-ui__dialog { display: block !important; width: min(760px, calc(100vw - 40px)) !important; max-height: min(86vh, 780px) !important; padding: 20px !important; overflow: auto !important; box-sizing: border-box !important; border: 1px solid #d7e1ee !important; border-radius: 16px !important; background: #fff !important; box-shadow: 0 28px 80px rgba(2, 6, 23, .34) !important; color: #0f2742 !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important; font-size: 14px !important; line-height: 1.4 !important; }
+    .pj-backup-ui__dialog, .pj-backup-ui__dialog * { box-sizing: border-box; }
+    .pj-backup-ui__dialog > .pjc-card-body { width: 100% !important; padding: 0 !important; }
+    .pj-backup-ui__dialog .pjc-stack { gap: 0 !important; }
+    .pj-backup-ui__header { display: flex !important; align-items: flex-start !important; justify-content: space-between !important; gap: 16px !important; margin: 0 0 18px !important; }
+    .pj-backup-ui__title { display: flex !important; align-items: center !important; gap: 7px !important; margin: 0 0 4px !important; color: #173a61 !important; font-size: 13px !important; font-weight: 800 !important; letter-spacing: .045em !important; line-height: 1.25 !important; text-transform: uppercase !important; }
+    .pj-backup-ui__description { margin: 0 !important; color: #5d7189 !important; font-size: 13px !important; line-height: 1.4 !important; }
+    .pj-backup-ui__close { display: inline-flex !important; align-items: center !important; justify-content: center !important; flex: 0 0 auto !important; width: 36px !important; min-width: 36px !important; height: 36px !important; padding: 0 !important; border: 1px solid #c8d6e6 !important; border-radius: 999px !important; background: #f7faff !important; color: #173a61 !important; cursor: pointer !important; font-size: 16px !important; }
+    .pj-backup-ui__grid { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 12px !important; margin: 0 !important; }
+    .pj-backup-ui__field { display: grid !important; gap: 6px !important; min-width: 0 !important; }
+    .pj-backup-ui__field--full { grid-column: 1 / -1 !important; }
+    .pj-backup-ui__field label { color: #294766 !important; font-size: 12px !important; font-weight: 700 !important; }
+    .pj-backup-ui__input { width: 100% !important; min-width: 0 !important; height: 44px !important; padding: 9px 12px !important; border: 1px solid #c7d6e6 !important; border-radius: 10px !important; background: #fff !important; color: #102a46 !important; font-family: inherit !important; font-size: 14px !important; line-height: 1.2 !important; }
+    .pj-backup-ui__input:focus-visible, .pj-backup-ui__button:focus-visible, .pj-backup-ui__close:focus-visible, .pj-backup-ui__toggle:focus-within { outline: 3px solid rgba(31, 105, 213, .25) !important; outline-offset: 2px !important; }
+    .pj-backup-ui__toggles { display: flex !important; align-items: center !important; flex-wrap: wrap !important; gap: 10px !important; margin: 14px 0 0 !important; }
+    .pj-backup-ui__toggle { display: inline-flex !important; align-items: center !important; justify-content: flex-start !important; gap: 7px !important; min-height: 38px !important; padding: 8px 11px !important; border: 1px solid #d7e1ee !important; border-radius: 999px !important; background: #f8fbff !important; color: #294766 !important; font-size: 12px !important; font-weight: 650 !important; }
+    .pj-backup-ui__toggle input { margin: 0 !important; accent-color: #1f69d5; }
+    .pj-backup-ui__actions { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 10px !important; margin: 18px 0 0 !important; }
+    .pj-backup-ui__button { display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 7px !important; min-width: 0 !important; min-height: 44px !important; padding: 9px 11px !important; border: 1px solid #c8d6e6 !important; border-radius: 10px !important; background: #fff !important; color: #173a61 !important; cursor: pointer !important; font-family: inherit !important; font-size: 13px !important; font-weight: 700 !important; line-height: 1.2 !important; text-align: center !important; }
+    .pj-backup-ui__button--primary { border-color: #1f69d5 !important; background: #1f69d5 !important; color: #fff !important; }
+    .pj-backup-ui__button--success { border-color: #16833a !important; background: #18883f !important; color: #fff !important; }
+    .pj-backup-ui__button--danger { border-color: #f2b8b5 !important; background: #fff7f7 !important; color: #b42318 !important; }
+    .pj-backup-ui__status { min-height: 20px !important; margin: 14px 0 0 !important; color: #47627f !important; font-size: 12px !important; font-weight: 600 !important; }
+    .pj-backup-ui__status[data-state="error"] { color: #b42318 !important; }
+    .pj-backup-ui__status[data-state="success"] { color: #087a3e !important; }
+    .pj-backup-ui__last { margin: 4px 0 0 !important; color: #8191a5 !important; font-size: 11px !important; }
+    .pj-backup-ui__dialog .svg-inline--fa { width: 1em; height: 1em; }
+    @media (max-width: 720px) { .pj-backup-ui__popover { padding: 10px !important; } .pj-backup-ui__dialog { width: calc(100vw - 20px) !important; padding: 16px !important; } .pj-backup-ui__grid, .pj-backup-ui__actions { grid-template-columns: 1fr !important; } .pj-backup-ui__field--full { grid-column: auto !important; } .pj-backup-ui__toggles { align-items: stretch !important; flex-direction: column !important; } }
+  `;
     function rawPersistentGet(key, fallback) {
         try {
             const value = typeof GM_getValue === 'function' ? GM_getValue(key, undefined) : undefined;
@@ -504,7 +546,7 @@ persistentSet(item.key, String(item.html || ''));
         if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
         if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
         const nextSignature = getPayloadBackupSignature(payload);
-        const remotePayload = await readBackupFromGist(backupSettings, { missingOk: true });
+        const remotePayload = await readBackupFromGist(backupSettings, { missingOk: true, invalidOk: true });
         if (remotePayload && getPayloadBackupSignature(remotePayload) === nextSignature) {
             return { skipped: true };
         }
@@ -551,11 +593,35 @@ persistentSet(item.key, String(item.html || ''));
         if (response.status < 200 || response.status >= 300) throw new Error(parseGithubError(response));
         const gist = JSON.parse(response.responseText || '{}');
         const file = gist && gist.files ? gist.files[backupSettings.fileName] : null;
-        if (!file || !file.content) {
+        if (!file) {
             if (options.missingOk) return null;
             throw new Error('Arquivo de backup não encontrado no Gist.');
         }
-        return JSON.parse(file.content);
+        let content = typeof file.content === 'string' ? file.content : '';
+        if ((file.truncated || !content) && file.raw_url) {
+            const rawResponse = await githubRequest({
+                method: 'GET',
+                url: file.raw_url,
+                headers: {
+                    Accept: 'application/json',
+                    Authorization: `Bearer ${backupSettings.token}`
+                }
+            });
+            if (rawResponse.status < 200 || rawResponse.status >= 300) {
+                throw new Error(`Não foi possível baixar o conteúdo completo do backup: ${parseGithubError(rawResponse)}`);
+            }
+            content = rawResponse.responseText || '';
+        }
+        if (!content) {
+            if (options.invalidOk) return null;
+            throw new Error('O arquivo de backup no Gist está vazio. Envie um novo backup para substituí-lo.');
+        }
+        try {
+            return JSON.parse(content);
+        } catch (_) {
+            if (options.invalidOk) return null;
+            throw new Error('O arquivo de backup no Gist está incompleto ou contém JSON inválido. Envie um novo backup para substituí-lo.');
+        }
     }
 
     function scheduleAutoBackup() {
@@ -773,15 +839,55 @@ html = persistentGet(key, '');
 
     scheduleEvaluate(80, { reset: true });
 
-    function ensureUiAssetsLoaded(targetDoc = document) {
-        if (!targetDoc.querySelector('script[data-pj-fa-svg="1"]')) {
-            const script = targetDoc.createElement('script');
+    const fontAwesomeRoots = new WeakSet();
+
+    function ensureFontAwesome(targetDoc = document) {
+        if (!targetDoc || !targetDoc.head) return null;
+        if (!targetDoc.getElementById('pj-suite-core-style')) {
+            const coreStyle = targetDoc.createElement('style');
+            coreStyle.id = 'pj-suite-core-style';
+            coreStyle.textContent = SUITE_UI_CSS;
+            targetDoc.head.appendChild(coreStyle);
+        }
+        let script = targetDoc.querySelector('script[data-pj-fa-svg="1"]');
+        if (!script) {
+            script = targetDoc.createElement('script');
             script.src = 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/js/all.min.js';
             script.defer = true;
             script.dataset.pjFaSvg = '1';
-            script.dataset.autoReplaceSvg = 'nest';
+            script.dataset.autoReplaceSvg = 'false';
+            script.dataset.observeMutations = 'false';
+            script.dataset.keepOriginalSource = 'false';
             targetDoc.head.appendChild(script);
         }
+        return script;
+    }
+
+    function renderFontAwesome(root) {
+        if (!root || root.nodeType !== 1) return;
+        const targetDoc = root.ownerDocument || document;
+        root.setAttribute('data-pj-suite-ui', 'anotacoes');
+        const script = ensureFontAwesome(targetDoc);
+        const render = () => {
+            const api = targetDoc.defaultView && targetDoc.defaultView.FontAwesome;
+            if (!api || !api.dom) return false;
+            try {
+                if (!fontAwesomeRoots.has(root)) {
+                    api.dom.watch({ autoReplaceSvgRoot: root, observeMutationsRoot: root });
+                    fontAwesomeRoots.add(root);
+                } else {
+                    api.dom.i2svg({ node: root });
+                }
+                return true;
+            } catch (_) {
+                return false;
+            }
+        };
+        if (!render() && script) script.addEventListener('load', render, { once: true });
+    }
+
+    function ensureUiAssetsLoaded(targetDoc = document) {
+        ensureFontAwesome(targetDoc);
 
         if (targetDoc.getElementById('pj-ui-style')) return;
 
@@ -1525,6 +1631,7 @@ html = persistentGet(key, '');
                     grid-column: auto;
                 }
             }
+            ${BACKUP_UI_CSS}
         `;
 
         targetDoc.head.appendChild(style);
@@ -1698,6 +1805,7 @@ html = persistentGet(key, '');
         const insertBefore = nativeFloat === 'right' || visualOrderReversed;
 
         nativeNoteButton.insertAdjacentElement(insertBefore ? 'beforebegin' : 'afterend', btn);
+        renderFontAwesome(btn);
 
         state.mounted = true;
         updateNoteIndicator(true);
@@ -1895,6 +2003,7 @@ persistentDelete(key);
 
         note.append(header, toolbar, editor);
         document.body.appendChild(note);
+        renderFontAwesome(note);
     }
 
     function getAllNotes() {
@@ -2225,45 +2334,48 @@ persistentDelete(n.key);
         toolsCard.append(toolsTitle, info, textarea, fileInput, buttonsRow, btnBackup);
 
         const backupBox = rootDoc.createElement('div');
-        backupBox.className = 'pj-card pj-backup-dialog';
+        backupBox.className = 'pj-card pj-backup-dialog pj-backup-ui__dialog';
+        backupBox.setAttribute('role', 'dialog');
+        backupBox.setAttribute('aria-modal', 'true');
+        backupBox.setAttribute('aria-labelledby', 'pj-notes-backup-title');
         backupBox.innerHTML = `
-            <div class="pj-backup-head">
+            <div class="pj-backup-head pj-backup-ui__header">
                 <div>
-                    <div class="pj-section-title"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Backup remoto</span></div>
-                    <div class="pj-summary-sub">Credenciais ficam somente neste navegador e nunca entram no arquivo de backup.</div>
+                    <div id="pj-notes-backup-title" class="pj-section-title pj-backup-ui__title"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Backup remoto</span></div>
+                    <div class="pj-summary-sub pj-backup-ui__description">Credenciais ficam somente neste navegador e nunca entram no arquivo de backup.</div>
                 </div>
-                <button class="pj-backup-close" type="button" data-pj-backup-close title="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                <button class="pj-backup-close pj-backup-ui__close" type="button" data-pj-backup-close title="Fechar" aria-label="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
-            <div class="pj-backup-grid">
-                <div class="pj-backup-field">
+            <div class="pj-backup-grid pj-backup-ui__grid">
+                <div class="pj-backup-field pj-backup-ui__field">
                     <label for="pj-notes-backup-gist">Gist ID</label>
-                    <input id="pj-notes-backup-gist" type="text" placeholder="Cole o Gist ID" value="${backupSettings.gistId}">
+                    <input id="pj-notes-backup-gist" class="pj-backup-ui__input" type="text" placeholder="Cole o Gist ID" value="${backupSettings.gistId}">
                 </div>
-                <div class="pj-backup-field">
+                <div class="pj-backup-field pj-backup-ui__field">
                     <label for="pj-notes-backup-file">Arquivo</label>
-                    <input id="pj-notes-backup-file" type="text" placeholder="projudi-anotacoes-locais.json" value="${backupSettings.fileName}">
+                    <input id="pj-notes-backup-file" class="pj-backup-ui__input" type="text" placeholder="projudi-anotacoes-locais.json" value="${backupSettings.fileName}">
                 </div>
-                <div class="pj-backup-field pj-backup-span">
+                <div class="pj-backup-field pj-backup-span pj-backup-ui__field pj-backup-ui__field--full">
                     <label for="pj-notes-backup-token">Token do GitHub</label>
-                    <input id="pj-notes-backup-token" type="password" placeholder="ghp_..." value="${backupSettings.token}">
+                    <input id="pj-notes-backup-token" class="pj-backup-ui__input" type="password" placeholder="ghp_..." value="${backupSettings.token}">
                 </div>
             </div>
-            <div class="pj-backup-toggles">
-                <label><input id="pj-notes-backup-enabled" type="checkbox" ${backupSettings.enabled ? 'checked' : ''}> Ativar backup por Gist no GitHub</label>
-                <label><input id="pj-notes-backup-auto" type="checkbox" ${backupSettings.autoBackupOnSave ? 'checked' : ''}> Backup automático</label>
+            <div class="pj-backup-toggles pj-backup-ui__toggles">
+                <label class="pj-backup-ui__toggle"><input id="pj-notes-backup-enabled" type="checkbox" ${backupSettings.enabled ? 'checked' : ''}><span>Ativar backup por Gist no GitHub</span></label>
+                <label class="pj-backup-ui__toggle"><input id="pj-notes-backup-auto" type="checkbox" ${backupSettings.autoBackupOnSave ? 'checked' : ''}><span>Backup automático</span></label>
             </div>
-            <div class="pj-backup-actions">
-                <button id="pj-notes-backup-send" class="pj-btn" type="button" data-variant="primary"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Enviar backup</span></button>
-                <button id="pj-notes-backup-restore" class="pj-btn" type="button" data-variant="success"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span>Restaurar backup</span></button>
-                <button id="pj-notes-backup-clear" class="pj-btn pj-backup-danger" type="button" data-variant="secondary"><i class="fa-solid fa-key" aria-hidden="true"></i><span>Remover configuração</span></button>
-                <button class="pj-btn" type="button" data-variant="secondary" data-pj-backup-close><i class="fa-solid fa-xmark" aria-hidden="true"></i><span>Fechar</span></button>
+            <div class="pj-backup-actions pj-backup-ui__actions">
+                <button id="pj-notes-backup-send" class="pj-btn pj-backup-ui__button pj-backup-ui__button--primary" type="button" data-variant="primary"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Enviar backup</span></button>
+                <button id="pj-notes-backup-restore" class="pj-btn pj-backup-ui__button pj-backup-ui__button--success" type="button" data-variant="success"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span>Restaurar backup</span></button>
+                <button id="pj-notes-backup-clear" class="pj-btn pj-backup-danger pj-backup-ui__button pj-backup-ui__button--danger" type="button" data-variant="secondary"><i class="fa-solid fa-key" aria-hidden="true"></i><span>Remover configuração</span></button>
+                <button class="pj-btn pj-backup-ui__button" type="button" data-variant="secondary" data-pj-backup-close><i class="fa-solid fa-xmark" aria-hidden="true"></i><span>Fechar</span></button>
             </div>
-            <div id="pj-notes-backup-status" class="pj-backup-status"></div>
-            <div id="pj-notes-backup-last" class="pj-backup-status">${formatLastBackupLabel(backupSettings.lastBackupAt)}</div>
+            <div id="pj-notes-backup-status" class="pj-backup-status pj-backup-ui__status" role="status" aria-live="polite"></div>
+            <div id="pj-notes-backup-last" class="pj-backup-status pj-backup-ui__last">${formatLastBackupLabel(backupSettings.lastBackupAt)}</div>
         `;
 
         const backupPopover = rootDoc.createElement('div');
-        backupPopover.className = 'pj-backup-popover';
+        backupPopover.className = 'pj-backup-popover pj-backup-ui__popover';
         backupPopover.appendChild(backupBox);
 
         rightBody.append(listCard);
@@ -2274,6 +2386,7 @@ persistentDelete(n.key);
         panel.appendChild(backupPopover);
         overlay.appendChild(panel);
         rootDoc.body.appendChild(overlay);
+        renderFontAwesome(overlay);
 
         rootWin.requestAnimationFrame(() => {
             panel.style.transform = 'translateY(0) scale(1)';
@@ -2321,7 +2434,7 @@ persistentDelete(n.key);
             const status = backupStatusEl;
             if (!hasBackupUi || !status) return;
             status.textContent = message || '';
-            status.style.color = isError ? '#b42318' : '#475569';
+            status.dataset.state = !message ? 'idle' : isError ? 'error' : /^(Enviando|Restaurando)/.test(message) ? 'progress' : 'success';
         }
 
         function updateBackupLast(nextSettings) {
@@ -2366,7 +2479,7 @@ persistentDelete(n.key);
                     updateBackupLast(nextSettings);
                     setBackupStatus(result && result.skipped
                         ? 'Backup remoto já estava atualizado; nenhum commit novo foi criado.'
-                        : 'Backup enviado.');
+                        : 'Backup enviado com sucesso.');
                 } catch (error) {
                     setBackupStatus(error && error.message ? error.message : 'Falha ao enviar backup.', true);
                 }
@@ -2380,7 +2493,7 @@ persistentDelete(n.key);
                     const count = applyBackupPayload(payload);
                     nextSettings = saveBackupSettings({ ...nextSettings, lastBackupSignature: buildBackupSignature() });
                     backupSettings = nextSettings;
-                    setBackupStatus(`Backup restaurado: ${count} nota(s).`);
+                    setBackupStatus('Backup restaurado com sucesso.');
                 } catch (error) {
                     setBackupStatus(error && error.message ? error.message : 'Falha ao restaurar backup.', true);
                 }
