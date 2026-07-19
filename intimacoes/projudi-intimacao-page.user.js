@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.07.19-0323
+// @version      2026.07.19-0345
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       louencosv (GPT)
@@ -12,9 +12,6 @@
 // @match        *://projudi-teste.tjgo.jus.br/*
 // @run-at       document-idle
 // @grant        GM_registerMenuCommand
-// @grant        GM_getValue
-// @grant        GM_setValue
-// @grant        GM_deleteValue
 // @grant        GM_xmlhttpRequest
 // @grant        GM.xmlHttpRequest
 // @connect      api.github.com
@@ -98,6 +95,7 @@
   }
 
   const SCRIPT_NAME = 'Intimações';
+  const SCRIPT_ID = 'projudi-intimacao-page';
   const SCRIPT_VERSION =
     typeof GM_info !== 'undefined' && GM_info?.script?.version
       ? String(GM_info.script.version)
@@ -129,9 +127,7 @@
 
   const STORAGE_KEYS = {
     store: 'projudi-suite::intimacoes::data',
-    backup: 'projudi-suite::intimacoes::gist',
-    legacyStore: 'pj-intimacoes-marcadas::store',
-    legacyBackup: 'pj-intimacoes-marcadas::backup'
+    backup: 'projudi-suite::intimacoes::gist'
   };
 
   const DEADLINE = {
@@ -157,6 +153,7 @@
     lastBackupAt: '',
     lastBackupSignature: ''
   };
+  const BACKUP_SCHEMA = 'backup-v1';
   const AUTO_BACKUP_IDLE_DELAY_MS = 30000;
   const AUTO_BACKUP_MIN_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -976,28 +973,11 @@
     };
 
     try {
-      let raw = localStorage.getItem(STORAGE_KEYS.store);
-      let migrated = false;
-      if (!raw) {
-        raw = localStorage.getItem(STORAGE_KEYS.legacyStore);
-        migrated = true;
-      }
-      if (!raw && !migrated) return fallback;
+      const raw = localStorage.getItem(STORAGE_KEYS.store);
+      if (!raw) return fallback;
       const parsed = JSON.parse(raw);
       const source = parsed && typeof parsed === 'object' ? parsed : fallback;
       const deadline = source.deadline && typeof source.deadline === 'object' ? source.deadline : Object.create(null);
-      if (migrated) {
-        Object.values(DEADLINE).filter(value => typeof value === 'string' && value.startsWith('projudi_highlight_')).forEach(key => {
-          try {
-            const gmValue = typeof GM_getValue === 'function' ? GM_getValue(key, undefined) : undefined;
-            const localValue = localStorage.getItem(key);
-            if (gmValue !== undefined) deadline[key] = gmValue;
-            else if (localValue !== null) {
-              try { deadline[key] = JSON.parse(localValue); } catch (_) { deadline[key] = localValue; }
-            }
-          } catch (_) {}
-        });
-      }
       const normalized = {
         schema: 'projudi-suite/intimacoes-data',
         version: 2,
@@ -1015,16 +995,6 @@
           backupExpanded: Boolean(source.ui?.backupExpanded)
         }
       };
-      if (migrated) {
-        localStorage.setItem(STORAGE_KEYS.store, JSON.stringify(normalized));
-        if (localStorage.getItem(STORAGE_KEYS.store)) {
-          localStorage.removeItem(STORAGE_KEYS.legacyStore);
-          Object.keys(deadline).forEach(key => {
-            try { if (typeof GM_deleteValue === 'function') GM_deleteValue(key); } catch (_) {}
-            localStorage.removeItem(key);
-          });
-        }
-      }
       return normalized;
     } catch (error) {
       logWarn('Falha ao carregar dados locais. O armazenamento sera reiniciado.', error);
@@ -1071,14 +1041,7 @@
    */
   function loadBackupSettings() {
     try {
-      let raw = localStorage.getItem(STORAGE_KEYS.backup);
-      if (!raw) {
-        raw = localStorage.getItem(STORAGE_KEYS.legacyBackup);
-        if (raw) {
-          localStorage.setItem(STORAGE_KEYS.backup, raw);
-          localStorage.removeItem(STORAGE_KEYS.legacyBackup);
-        }
-      }
+      const raw = localStorage.getItem(STORAGE_KEYS.backup);
       return raw ? normalizeBackupSettings(JSON.parse(raw)) : normalizeBackupSettings(BACKUP_DEFAULTS);
     } catch (error) {
       logWarn('Falha ao carregar configuracoes de backup.', error);
@@ -1140,8 +1103,8 @@
    */
   function buildBackupPayload() {
     return {
-      schema: 'backup-v1',
-      scriptId: 'projudi-intimacao-page',
+      schema: BACKUP_SCHEMA,
+      scriptId: SCRIPT_ID,
       scriptName: SCRIPT_NAME,
       version: SCRIPT_VERSION,
       exportedAt: new Date().toISOString(),
@@ -1157,7 +1120,7 @@
       .forEach(key => {
         orderedItems[key] = state.store.items[key];
       });
-    return JSON.stringify({ schema: 'backup-v1', items: orderedItems });
+    return JSON.stringify({ schema: BACKUP_SCHEMA, items: orderedItems });
   }
 
   /**
@@ -1237,16 +1200,15 @@
   }
 
   function getPayloadBackupSignature(payload) {
-    if (!payload) return '';
+    if (!payload || payload.schema !== BACKUP_SCHEMA || payload.scriptId !== SCRIPT_ID || !payload.items || typeof payload.items !== 'object' || Array.isArray(payload.items)) return '';
     if (payload.backupSignature) return String(payload.backupSignature);
-    const items = payload?.items && typeof payload.items === 'object' ? payload.items : Object.create(null);
     const orderedItems = Object.create(null);
-    Object.keys(items)
+    Object.keys(payload.items)
       .sort((a, b) => a.localeCompare(b, 'pt-BR'))
       .forEach(key => {
-        orderedItems[key] = items[key];
+        orderedItems[key] = payload.items[key];
       });
-    return JSON.stringify({ schema: 'backup-v1', items: orderedItems });
+    return JSON.stringify({ schema: BACKUP_SCHEMA, items: orderedItems });
   }
 
   /**
@@ -3131,7 +3093,10 @@
         setNodeText(statusNode, 'Restaurando backup...');
         if (statusNode instanceof HTMLElement) statusNode.dataset.state = 'progress';
         const payload = await readBackupFromGist(settings);
-        state.store.items = payload?.items && typeof payload.items === 'object' ? payload.items : Object.create(null);
+        if (!payload || typeof payload !== 'object' || payload.schema !== BACKUP_SCHEMA || payload.scriptId !== SCRIPT_ID || !payload.items || typeof payload.items !== 'object' || Array.isArray(payload.items)) {
+          throw new Error('Backup incompatível com Intimações.');
+        }
+        state.store.items = payload.items;
         persistStore();
         saveBackupSettings({
           ...settings,

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      2026.07.19-0323
+// @version      2026.07.19-0345
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -13,7 +13,6 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_getValue
 // @grant        GM_setValue
-// @grant        GM_deleteValue
 // @grant        GM_info
 // @grant        GM_xmlhttpRequest
 // @grant        GM.xmlHttpRequest
@@ -90,7 +89,6 @@
     })();
 
     const STORAGE_KEY = "projudi-suite::customizacoes::data";
-    const LEGACY_STORAGE_KEY = "projudi-wide-settings-v1";
     const SCRIPT_META = (() => {
         const fallbackName = "Customizacoes";
         const fallbackId = "projudi-customizacoes";
@@ -113,7 +111,6 @@
         }
     })();
     const BACKUP_STORAGE_KEY = "projudi-suite::customizacoes::gist";
-    const LEGACY_BACKUP_STORAGE_KEY = "projudi-wide-settings-v1::gist-backup";
     const BACKUP_SCHEMA = "projudi-customizacoes-backup-v1";
     const OPEN_SETTINGS_MESSAGE = "projudi-customizacoes-open-settings";
     const LOG_PREFIX = "[Customizações]";
@@ -413,36 +410,16 @@
 
     function loadSettings() {
         try {
-            let migrated = false;
             if (typeof GM_getValue === "function") {
-                let raw = GM_getValue(STORAGE_KEY, "");
-                if (!raw) {
-                    raw = GM_getValue(LEGACY_STORAGE_KEY, "");
-                    migrated = !!raw;
-                }
+                const raw = GM_getValue(STORAGE_KEY, "");
                 if (raw) {
                     localStorage.setItem(STORAGE_KEY, raw);
-                    const normalized = normalizeSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) });
-                    if (migrated) {
-                        GM_setValue(STORAGE_KEY, JSON.stringify(normalized));
-                        try { if (typeof GM_deleteValue === "function") GM_deleteValue(LEGACY_STORAGE_KEY); } catch (_) {}
-                        localStorage.removeItem(LEGACY_STORAGE_KEY);
-                    }
-                    return normalized;
+                    return normalizeSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) });
                 }
             }
-            let raw = localStorage.getItem(STORAGE_KEY);
-            if (!raw) {
-                raw = localStorage.getItem(LEGACY_STORAGE_KEY);
-                migrated = !!raw;
-            }
+            const raw = localStorage.getItem(STORAGE_KEY);
             if (raw) {
-                const normalized = normalizeSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) });
-                if (migrated) {
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
-                    localStorage.removeItem(LEGACY_STORAGE_KEY);
-                }
-                return normalized;
+                return normalizeSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) });
             }
         } catch (error) {
             logWarn("Falha ao carregar configurações; usando padrão.", error);
@@ -476,20 +453,14 @@
     function loadBackupSettings() {
         try {
             if (typeof GM_getValue === "function") {
-                let raw = GM_getValue(BACKUP_STORAGE_KEY, "");
-                if (!raw) raw = GM_getValue(LEGACY_BACKUP_STORAGE_KEY, "");
+                const raw = GM_getValue(BACKUP_STORAGE_KEY, "");
                 if (raw) {
                     localStorage.setItem(BACKUP_STORAGE_KEY, raw);
-                    try { if (typeof GM_deleteValue === "function") GM_deleteValue(LEGACY_BACKUP_STORAGE_KEY); } catch (_) {}
-                    localStorage.removeItem(LEGACY_BACKUP_STORAGE_KEY);
                     return normalizeBackupSettings(JSON.parse(raw));
                 }
             }
-            let raw = localStorage.getItem(BACKUP_STORAGE_KEY);
-            if (!raw) raw = localStorage.getItem(LEGACY_BACKUP_STORAGE_KEY);
+            const raw = localStorage.getItem(BACKUP_STORAGE_KEY);
             if (raw) {
-                localStorage.setItem(BACKUP_STORAGE_KEY, raw);
-                localStorage.removeItem(LEGACY_BACKUP_STORAGE_KEY);
                 return normalizeBackupSettings(JSON.parse(raw));
             }
         } catch (error) {
@@ -524,9 +495,10 @@
     }
 
     function applyBackupPayload(payload) {
-        if (!payload || typeof payload !== "object") throw new Error("Backup inválido.");
-        const nextSettings = payload.settings && typeof payload.settings === "object" ? payload.settings : payload;
-        saveSettings(nextSettings);
+        if (!payload || typeof payload !== "object" || payload.schema !== BACKUP_SCHEMA || payload.scriptId !== SCRIPT_META.id || !payload.settings || typeof payload.settings !== "object") {
+            throw new Error("Backup incompatível com Customizações.");
+        }
+        saveSettings(payload.settings);
         settings = loadSettings();
         applySettingsNow();
         return settings;
@@ -4546,7 +4518,6 @@
             movTextMode: 'first-line'
           };
 
-          const STORAGE_KEY = 'projudi_highlight_movs_cfg_v28';
           const DOC_STYLE_ID = 'phm-doc-style-v28';
           const PANEL_OVERLAY_ID = 'phm-overlay-root';
           const MOV_TABLE_ROWS_SELECTOR = '#TabelaArquivos tbody tr, #tabListaProcesso tr';
@@ -4618,18 +4589,11 @@
 
           function readCfg() {
             try {
-              const raw = localStorage.getItem(STORAGE_KEY);
               const parsed = settings.movimentacoesConfig && typeof settings.movimentacoesConfig === 'object'
                 ? settings.movimentacoesConfig
-                : (raw ? JSON.parse(raw) : null);
+                : null;
               if (!parsed) return deepClone(DEFAULTS);
               const cfg = deepMerge(deepClone(DEFAULTS), parsed);
-
-              if (!settings.movimentacoesConfig && raw) {
-                settings = normalizeSettings({ ...settings, movimentacoesConfig: cfg });
-                saveSettings(settings);
-                localStorage.removeItem(STORAGE_KEY);
-              }
 
               if (!cfg.targets || typeof cfg.targets !== 'object') cfg.targets = { mov: {}, user: {} };
               if (!cfg.targets.mov) cfg.targets.mov = {};
@@ -4651,7 +4615,6 @@
             safeRun('Falha ao salvar configuração.', () => {
               settings = normalizeSettings({ ...settings, movimentacoesConfig: cfg });
               saveSettings(settings);
-              localStorage.removeItem(STORAGE_KEY);
             });
           }
 

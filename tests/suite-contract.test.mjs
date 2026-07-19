@@ -24,6 +24,32 @@ test('cada extensão usa um documento de dados e outro de Gist', () => {
   }
 });
 
+test('a suíte não mantém migrações ou chaves de armazenamento legadas', () => {
+  for (const [id, source] of Object.entries(sources)) {
+    assert.doesNotMatch(source, /\b(?:LEGACY|legacy|migrat(?:e|ed|ion)?|migra(?:ção|ções)?|deprecated|obsolete)\b/i, `${id}: compatibilidade legada encontrada`);
+  }
+  assert.doesNotMatch(sources.customizacoes, /projudi_highlight_movs_cfg_v28/, 'customizações ainda consulta o armazenamento antigo de Movimentações');
+  assert.doesNotMatch(sources.anotacoes, /^\/\/ @grant\s+GM_listValues$/m, 'Anotações ainda solicita GM_listValues sem uso');
+  assert.doesNotMatch(sources.tarefas, /^\/\/ @grant\s+GM_listValues$/m, 'Tarefas ainda solicita GM_listValues sem uso');
+  for (const id of ['central-guias', 'customizacoes', 'intimacoes']) {
+    assert.doesNotMatch(sources[id], /^\/\/ @grant\s+GM_deleteValue$/m, `${id}: GM_deleteValue sem uso`);
+  }
+});
+
+test('restaurações exigem schema e identidade da extensão', () => {
+  for (const id of ['anotacoes', 'central-guias', 'customizacoes']) {
+    assert.match(sources[id], /payload\.schema !== BACKUP_SCHEMA/, `${id}: schema do backup não é validado`);
+    assert.match(sources[id], /payload\.scriptId !== SCRIPT_META\.id/, `${id}: identidade do backup não é validada`);
+  }
+  assert.match(sources.intimacoes, /payload\.schema !== BACKUP_SCHEMA/, 'intimacoes: schema do backup não é validado');
+  assert.match(sources.intimacoes, /payload\.scriptId !== SCRIPT_ID/, 'intimacoes: identidade do backup não é validada');
+  assert.match(sources.tarefas, /parsed\.schema !== expectedSchema/, 'tarefas: schema do backup não é validado');
+  assert.match(sources.tarefas, /parsed\.scriptId !== SCRIPT_META\.id/, 'tarefas: identidade do backup não é validada');
+  const taskBackupBuilder = sources.tarefas.match(/function buildTodoBackupPayload\(\) \{([\s\S]*?)\n  \}/)?.[1] || '';
+  assert.match(taskBackupBuilder, /schema:\s*EXPORT_SCHEMA/, 'tarefas: payload remoto não preserva o schema atual');
+  assert.doesNotMatch(taskBackupBuilder, /\.\.\.exportTodoPayload\(\)/, 'tarefas: exportação local sobrescreve o schema remoto');
+});
+
 test('Font Awesome é SVG+JS 7.2.0 e não usa webfont', () => {
   for (const [id, source] of Object.entries(sources)) {
     assert.match(source, /fontawesome-free@7\.2\.0\/js\/all\.min\.js/, `${id}: runtime SVG incorreto`);

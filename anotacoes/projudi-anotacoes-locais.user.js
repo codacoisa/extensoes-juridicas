@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Anotações
 // @namespace    projudi-anotacoes-locais.user.js
-// @version      2026.07.19-0323
+// @version      2026.07.19-0345
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Adiciona Post-it local ao Projudi, com painel de notas, importação e exportação.
 // @author       lourencosv (GPT)
@@ -12,7 +12,6 @@
 // @run-at       document-end
 // @grant        GM_getValue
 // @grant        GM_setValue
-// @grant        GM_listValues
 // @grant        GM_deleteValue
 // @grant        GM_registerMenuCommand
 // @grant        GM_xmlhttpRequest
@@ -129,7 +128,6 @@
         }
     })();
     const BACKUP_SETTINGS_KEY = 'projudi-suite::anotacoes::gist';
-    const LEGACY_BACKUP_SETTINGS_KEY = 'projudi_notes_backup_settings_v1';
     const BACKUP_SCHEMA = 'projudi-anotacoes-locais-backup-v1';
     const SUITE_UI_CSS = String.raw`
     [data-pj-suite-ui] { --pj-suite-font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; --pj-suite-focus: rgba(31, 105, 213, .25); --pj-suite-text: #0f2742; font-family: var(--pj-suite-font) !important; color: var(--pj-suite-text); }
@@ -191,12 +189,6 @@
         try { if (typeof GM_deleteValue === 'function') GM_deleteValue(key); } catch (_) {}
         try { localStorage.removeItem(key); } catch (_) {}
     }
-    function rawPersistentList() {
-        const keys = new Set();
-        try { if (typeof GM_listValues === 'function') GM_listValues().forEach(key => keys.add(key)); } catch (_) {}
-        try { for (let i = 0; i < localStorage.length; i += 1) keys.add(localStorage.key(i)); } catch (_) {}
-        return [...keys].filter(Boolean);
-    }
     let notesDataCache = null;
     function normalizeNotesDataEnvelope(value) {
         const source = value && typeof value === 'object' ? value : {};
@@ -210,21 +202,7 @@
     }
     function loadNotesDataEnvelope() {
         if (notesDataCache) return notesDataCache;
-        const current = rawPersistentGet(DATA_KEY, null);
-        if (current && typeof current === 'object') {
-            notesDataCache = normalizeNotesDataEnvelope(current);
-        } else {
-            const values = {};
-            const legacyKeys = rawPersistentList().filter(key => key.startsWith(NOTE_PREFIX) || key.startsWith(NOTE_META_PREFIX));
-            legacyKeys.forEach(key => { values[key] = rawPersistentGet(key, null); });
-            notesDataCache = normalizeNotesDataEnvelope({ values });
-            rawPersistentSet(DATA_KEY, notesDataCache);
-            const verified = rawPersistentGet(DATA_KEY, null);
-            if (verified && verified.values && typeof verified.values === 'object') legacyKeys.forEach(rawPersistentDelete);
-        }
-        const legacyGist = rawPersistentGet(LEGACY_BACKUP_SETTINGS_KEY, null);
-        if (rawPersistentGet(BACKUP_SETTINGS_KEY, null) == null && legacyGist != null) rawPersistentSet(BACKUP_SETTINGS_KEY, legacyGist);
-        if (legacyGist != null && rawPersistentGet(BACKUP_SETTINGS_KEY, null) != null) rawPersistentDelete(LEGACY_BACKUP_SETTINGS_KEY);
+        notesDataCache = normalizeNotesDataEnvelope(rawPersistentGet(DATA_KEY, null));
         return notesDataCache;
     }
     function saveNotesDataEnvelope() {
@@ -501,8 +479,7 @@ safeRun('Falha ao salvar configuração de backup.', () => persistentSet(BACKUP_
         return JSON.stringify({ schema: BACKUP_SCHEMA, notes });
     }
 
-    function applyBackupPayload(payload) {
-        const notes = payload && Array.isArray(payload.notes) ? payload.notes : (Array.isArray(payload) ? payload : []);
+    function applyNoteItems(notes) {
         let count = 0;
         notes.forEach(item => {
             if (!item || typeof item !== 'object') return;
@@ -514,6 +491,13 @@ persistentSet(item.key, String(item.html || ''));
         invalidateNotesCaches();
         updateNoteIndicator(true);
         return count;
+    }
+
+    function applyBackupPayload(payload) {
+        if (!payload || typeof payload !== 'object' || payload.schema !== BACKUP_SCHEMA || payload.scriptId !== SCRIPT_META.id || !Array.isArray(payload.notes)) {
+            throw new Error('Backup incompatível com Anotações.');
+        }
+        return applyNoteItems(payload.notes);
     }
 
     function githubRequest(options) {
@@ -565,9 +549,9 @@ persistentSet(item.key, String(item.html || ''));
     }
 
     function getPayloadBackupSignature(payload) {
-        if (!payload) return '';
+        if (!payload || payload.schema !== BACKUP_SCHEMA || payload.scriptId !== SCRIPT_META.id || !Array.isArray(payload.notes)) return '';
         if (payload.backupSignature) return String(payload.backupSignature);
-        const notes = (payload && Array.isArray(payload.notes) ? payload.notes : (Array.isArray(payload) ? payload : []))
+        const notes = payload.notes
             .map(note => ({
                 key: String(note && note.key || ''),
                 cnj: String(note && note.cnj || ''),
@@ -1827,8 +1811,6 @@ html = persistentGet(key, '');
             state.indicatorCache.hasNote = hasNote;
         }
 
-        const legacyBadge = document.getElementById('pj-note-badge');
-        if (legacyBadge) legacyBadge.remove();
 
         if (hasNote) {
             btn.dataset.hasNote = '1';
@@ -2315,7 +2297,7 @@ persistentDelete(n.key);
                 return;
             }
 
-            const count = applyBackupPayload(parsed);
+            const count = applyNoteItems(parsed);
 
             updateNoteIndicator(true);
             scheduleAutoBackup();

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2026.07.19-0323
+// @version      2026.07.19-0345
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -12,7 +12,6 @@
 // @run-at       document-end
 // @grant        GM_getValue
 // @grant        GM_setValue
-// @grant        GM_listValues
 // @grant        GM_deleteValue
 // @grant        GM_registerMenuCommand
 // @grant        GM_xmlhttpRequest
@@ -117,14 +116,12 @@
   const KEY_PREFIX = 'projudi_todo::';
   const DATA_KEY = 'projudi-suite::tarefas::data';
   const KEY_BACKUP = 'projudi-suite::tarefas::gist';
-  const LEGACY_BACKUP_KEY = `${KEY_PREFIX}gist-backup`;
   const KEY_INDEX = `${KEY_PREFIX}index`;
   const KEY_GLOBAL_ITEMS = `${KEY_PREFIX}global::items`;
   const KEY_GLOBAL_UI = `${KEY_PREFIX}global::ui`;
   const EXPORT_EXCLUDED_KEYS = new Set([KEY_BACKUP]);
   const DEFAULT_UI = { minimized: true, right: 12, top: 12 };
   const EXPORT_SCHEMA = 'projudi-tarefas-export-v1';
-  const BACKUP_SCHEMA = 'projudi-tarefas-gist-backup-v1';
   const DEFAULT_BACKUP_SETTINGS = {
     enabled: false,
     gistId: '',
@@ -390,20 +387,6 @@
 
   let taskDataCache = null;
 
-  function listLegacyTaskKeys() {
-    const keys = new Set();
-    try {
-      if (typeof GM_listValues === 'function') {
-        const listed = GM_listValues();
-        if (Array.isArray(listed)) listed.forEach(key => keys.add(String(key)));
-      }
-    } catch (_) {}
-    try {
-      for (let i = 0; i < localStorage.length; i += 1) keys.add(String(localStorage.key(i) || ''));
-    } catch (_) {}
-    return [...keys].filter(key => key.startsWith(KEY_PREFIX) && key !== LEGACY_BACKUP_KEY);
-  }
-
   function normalizeTaskDataEnvelope(value) {
     const source = value && typeof value === 'object' ? value : {};
     return {
@@ -417,22 +400,7 @@
 
   function loadTaskDataEnvelope() {
     if (taskDataCache) return taskDataCache;
-    const current = rawStorageGet(DATA_KEY, null);
-    if (current && typeof current === 'object') {
-      taskDataCache = normalizeTaskDataEnvelope(current);
-    } else {
-      const values = {};
-      listLegacyTaskKeys().forEach(key => { values[key] = rawStorageGet(key, null); });
-      taskDataCache = normalizeTaskDataEnvelope({ values });
-      rawStorageSet(DATA_KEY, taskDataCache);
-      const verified = rawStorageGet(DATA_KEY, null);
-      if (verified && verified.values && typeof verified.values === 'object') {
-        listLegacyTaskKeys().forEach(rawStorageDelete);
-      }
-    }
-    const legacyGist = rawStorageGet(LEGACY_BACKUP_KEY, null);
-    if (rawStorageGet(KEY_BACKUP, null) == null && legacyGist != null) rawStorageSet(KEY_BACKUP, legacyGist);
-    if (legacyGist != null && rawStorageGet(KEY_BACKUP, null) != null) rawStorageDelete(LEGACY_BACKUP_KEY);
+    taskDataCache = normalizeTaskDataEnvelope(rawStorageGet(DATA_KEY, null));
     return taskDataCache;
   }
 
@@ -547,14 +515,11 @@
   }
 
   function getPayloadBackupSignature(payload) {
-    if (!payload) return '';
+    if (!payload || payload.schema !== EXPORT_SCHEMA || payload.scriptId !== SCRIPT_META.id || !payload.data || typeof payload.data !== 'object') return '';
     if (payload.backupSignature) return String(payload.backupSignature);
-    const data = payload && typeof payload === 'object' && payload.data && typeof payload.data === 'object'
-      ? payload.data
-      : {};
     const ordered = {};
-    Object.keys(data).sort((a, b) => a.localeCompare(b, 'pt-BR')).forEach(key => {
-      ordered[key] = data[key];
+    Object.keys(payload.data).sort((a, b) => a.localeCompare(b, 'pt-BR')).forEach(key => {
+      ordered[key] = payload.data[key];
     });
     return JSON.stringify({ schema: EXPORT_SCHEMA, data: ordered });
   }
@@ -957,19 +922,22 @@
 
     return {
       schema: EXPORT_SCHEMA,
+      scriptId: SCRIPT_META.id,
       exportedAt: new Date().toISOString(),
       data
     };
   }
 
   function buildTodoBackupPayload() {
+    const exported = exportTodoPayload();
     return {
-      schema: BACKUP_SCHEMA,
+      schema: EXPORT_SCHEMA,
       scriptId: SCRIPT_META.id,
       scriptName: SCRIPT_META.name,
       version: SCRIPT_META.version,
       host: location.host,
-      ...exportTodoPayload(),
+      exportedAt: exported.exportedAt,
+      data: exported.data,
       backupSignature: buildTodoBackupSignature()
     };
   }
@@ -980,7 +948,7 @@
     Object.keys(payload.data || {}).sort((a, b) => a.localeCompare(b, 'pt-BR')).forEach(key => {
       ordered[key] = payload.data[key];
     });
-    return JSON.stringify({ schema: payload.schema, data: ordered });
+    return JSON.stringify({ schema: EXPORT_SCHEMA, data: ordered });
   }
 
   function exportTodoData() {
@@ -1011,12 +979,11 @@
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
-      const data = parsed && typeof parsed === 'object' && parsed.data && typeof parsed.data === 'object' ? parsed.data : parsed;
-
-      if (!data || typeof data !== 'object') {
+      if (!parsed || typeof parsed !== 'object' || parsed.schema !== EXPORT_SCHEMA || parsed.scriptId !== SCRIPT_META.id || !parsed.data || typeof parsed.data !== 'object') {
         alert('JSON inválido para importação.');
         return;
       }
+      const data = parsed.data;
 
       const importedKeys = Object.keys(data).filter(k => k.startsWith(KEY_PREFIX) && !EXPORT_EXCLUDED_KEYS.has(k));
       if (!importedKeys.length) {
@@ -1041,12 +1008,11 @@
     }
   }
 
-  function importTodoPayloadObject(parsed) {
-    const data = parsed && typeof parsed === 'object' && parsed.data && typeof parsed.data === 'object' ? parsed.data : parsed;
-
-    if (!data || typeof data !== 'object') {
-      throw new Error('JSON inválido para importação.');
+  function importTodoPayloadObject(parsed, expectedSchema) {
+    if (!parsed || typeof parsed !== 'object' || parsed.schema !== expectedSchema || parsed.scriptId !== SCRIPT_META.id || !parsed.data || typeof parsed.data !== 'object') {
+      throw new Error('Backup incompatível com Tarefas.');
     }
+    const data = parsed.data;
 
     const importedKeys = Object.keys(data).filter(k => k.startsWith(KEY_PREFIX) && !EXPORT_EXCLUDED_KEYS.has(k));
     if (!importedKeys.length) {
@@ -2979,7 +2945,7 @@
           backupSettings = saveBackupSettings(readBackupSettingsFromPanel());
           showBackupStatus('Lendo backup...', 'muted');
           const payload = await readBackupFromGist(backupSettings);
-          const total = importTodoPayloadObject(payload);
+          const total = importTodoPayloadObject(payload, EXPORT_SCHEMA);
           backupSettings = saveBackupSettings({ ...backupSettings, lastBackupSignature: buildTodoBackupSignature() });
           renderManagerRows();
           showBackupStatus('Backup restaurado com sucesso.', 'ok');

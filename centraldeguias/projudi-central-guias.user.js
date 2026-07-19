@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Central de Guias
 // @namespace    projudi-central-guias.user.js
-// @version      2026.07.19-0323
+// @version      2026.07.19-0345
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Central local para sincronizar, acompanhar e alertar sobre guias de pagamento no Projudi.
 // @author       lourencosv (GPT)
@@ -12,7 +12,6 @@
 // @run-at       document-end
 // @grant        GM_getValue
 // @grant        GM_setValue
-// @grant        GM_deleteValue
 // @grant        GM_registerMenuCommand
 // @grant        GM_xmlhttpRequest
 // @grant        GM.xmlHttpRequest
@@ -94,7 +93,6 @@
   }
 
   const STORAGE_KEY = 'projudi-suite::central-guias::data';
-  const LEGACY_STORAGE_KEY = 'projudi_guides_central::db';
   const SCRIPT_META = (() => {
     const fallbackName = 'Central de Guias';
     const fallbackId = 'projudi-central-guias';
@@ -117,7 +115,6 @@
     }
   })();
   const BACKUP_KEY = 'projudi-suite::central-guias::gist';
-  const LEGACY_BACKUP_KEY = 'projudi_guides_central::backup';
   const MENU_LABEL = 'Gerenciar Central de Guias';
   const BACKUP_SCHEMA = 'projudi-central-guias-backup-v1';
   const FA_CDN = 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/js/all.min.js';
@@ -239,10 +236,6 @@
       } catch (_) {}
       localStorage.setItem(key, JSON.stringify(value));
     },
-    del(key) {
-      try { if (typeof GM_deleteValue === 'function') GM_deleteValue(key); } catch (_) {}
-      try { localStorage.removeItem(key); } catch (_) {}
-    }
   };
 
   function normalizeBackupSettings(value) {
@@ -312,13 +305,7 @@
   }
 
   function loadBackupSettings() {
-    let value = storage.get(BACKUP_KEY, null);
-    if (value == null) {
-      value = storage.get(LEGACY_BACKUP_KEY, DEFAULT_BACKUP_SETTINGS);
-      storage.set(BACKUP_KEY, value);
-      storage.del(LEGACY_BACKUP_KEY);
-    }
-    return normalizeBackupSettings(value);
+    return normalizeBackupSettings(storage.get(BACKUP_KEY, DEFAULT_BACKUP_SETTINGS));
   }
 
   function saveBackupSettings(next) {
@@ -391,8 +378,10 @@
   }
 
   function applyBackupPayload(payload) {
-    const db = payload && typeof payload === 'object' && payload.db && typeof payload.db === 'object' ? payload.db : payload;
-    saveDb(normalizeDb(db));
+    if (!payload || typeof payload !== 'object' || payload.schema !== BACKUP_SCHEMA || payload.scriptId !== SCRIPT_META.id || !payload.db || typeof payload.db !== 'object') {
+      throw new Error('Backup incompatível com a Central de Guias.');
+    }
+    saveDb(normalizeDb(payload.db));
   }
 
   function githubRequest(options) {
@@ -444,10 +433,9 @@
   }
 
   function getPayloadBackupSignature(payload) {
-    if (!payload) return '';
+    if (!payload || payload.schema !== BACKUP_SCHEMA || payload.scriptId !== SCRIPT_META.id || !payload.db || typeof payload.db !== 'object') return '';
     if (payload.backupSignature) return String(payload.backupSignature);
-    const db = payload && typeof payload === 'object' && payload.db && typeof payload.db === 'object' ? payload.db : payload;
-    return buildBackupSignature(db);
+    return buildBackupSignature(payload.db);
   }
 
   async function readBackupFromGist(backupSettings, options = {}) {
@@ -591,15 +579,7 @@
   }
 
   function loadDb() {
-    let raw = storage.get(STORAGE_KEY, null);
-    if (raw == null) {
-      raw = storage.get(LEGACY_STORAGE_KEY, null);
-      if (raw != null) {
-        storage.set(STORAGE_KEY, raw);
-        if (storage.get(STORAGE_KEY, null) != null) storage.del(LEGACY_STORAGE_KEY);
-      }
-    }
-    return normalizeDb(raw);
+    return normalizeDb(storage.get(STORAGE_KEY, null));
   }
 
   function normalizeDb(value) {
