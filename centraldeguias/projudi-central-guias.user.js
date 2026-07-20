@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Central de Guias
 // @namespace    projudi-central-guias.user.js
-// @version      2026.07.20-1354
+// @version      2026.07.20-1416
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Central local para sincronizar, acompanhar e alertar sobre guias de pagamento no Projudi.
 // @author       lourencosv (GPT)
@@ -121,6 +121,18 @@
     [data-pj-suite-ui] :where(button, input, select, textarea):focus-visible { outline: 3px solid var(--pj-suite-focus) !important; outline-offset: 2px !important; }
     [data-pj-suite-ui] :where(button, input, select, textarea):disabled { cursor: not-allowed !important; opacity: .58 !important; }
     [data-pj-suite-ui] .pj-suite-fa { display: inline-block; width: 1em; height: 1em; flex: 0 0 auto; overflow: visible; vertical-align: -.125em; fill: currentColor; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-2xs { font-size: .625em; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-xs { font-size: .75em; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-sm { font-size: .875em; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-lg { font-size: 1.25em; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-xl { font-size: 1.5em; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-2xl { font-size: 2em; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-2x { font-size: 2em; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-3x { font-size: 3em; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-fw { width: 1.25em; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-spin { animation: pj-suite-fa-spin 2s linear infinite; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-pulse { animation: pj-suite-fa-spin 1s steps(8) infinite; }
+    @keyframes pj-suite-fa-spin { to { transform: rotate(360deg); } }
     @media (prefers-reduced-motion: reduce) { [data-pj-suite-ui], [data-pj-suite-ui] * { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
   `;
   const BACKUP_UI_CSS = String.raw`
@@ -320,8 +332,12 @@
       const symbolId = `pj-suite-fa-${nameClass.slice(3)}`;
       if (!doc.getElementById(symbolId)) return;
       const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svg.setAttribute('class', [...icon.classList, 'pj-suite-fa'].filter(name => name !== 'fa-solid' && !/^fa-\d+x$/i.test(name)).join(' '));
-      svg.setAttribute('aria-hidden', 'true');
+      svg.setAttribute('class', [...new Set([...icon.classList, 'pj-suite-fa'])].join(' '));
+      [...icon.attributes].forEach(attribute => {
+        if (attribute.name === 'class') return;
+        svg.setAttribute(attribute.name, attribute.value);
+      });
+      if (!svg.hasAttribute('aria-hidden')) svg.setAttribute('aria-hidden', 'true');
       svg.setAttribute('focusable', 'false');
       const use = doc.createElementNS('http://www.w3.org/2000/svg', 'use');
       use.setAttribute('href', `#${symbolId}`);
@@ -1320,7 +1336,7 @@
         font-size: 22px;
         line-height: 1;
       }
-      .pj-guides-btn--tool > i {
+      .pj-guides-btn--tool > :is(i, .pj-suite-fa) {
         display: block;
         font-size: 1em;
         line-height: 1;
@@ -1506,7 +1522,7 @@
         text-transform: uppercase;
         letter-spacing: .03em;
       }
-      .pj-guides-manager__section-title i { color: #2467a8; font-size: 12px; }
+      .pj-guides-manager__section-title :is(i, .pj-suite-fa) { color: #2467a8; font-size: 12px; }
       .pj-guides-manager__toolbar {
         display: grid;
         gap: 10px;

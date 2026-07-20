@@ -83,6 +83,18 @@ test('Font Awesome fica isolado nas raízes da suíte', () => {
   assert.doesNotMatch(sources.customizacoes, /#cssmenu a\s*\{[^}]*font-family/s, 'fonte personalizada ainda alcança os atalhos de ícone do cabeçalho');
 });
 
+test('ícones SVG preservam os contratos usados pelas extensões', () => {
+  for (const [id, source] of Object.entries(sources)) {
+    assert.match(source, /new Set\(\[\.\.\.icon\.classList, ['"]pj-suite-fa['"]\]\)/, `${id}: classes originais do ícone não são preservadas`);
+    assert.match(source, /\[\.\.\.icon\.attributes\]\.forEach/, `${id}: atributos originais do ícone não são preservados`);
+    assert.match(source, /\.pj-suite-fa\.fa-2x\s*\{\s*font-size:\s*2em/, `${id}: escala fa-2x não é suportada`);
+    assert.match(source, /\.pj-suite-fa\.fa-spin\s*\{\s*animation:/, `${id}: animação fa-spin não é suportada`);
+  }
+  assert.match(sources.anotacoes, /#pj-add-btn :is\(i, \.pj-suite-fa\)/, 'anotações não dimensiona o SVG convertido');
+  assert.match(sources.tarefas, /#\$\{ID_PROC_BTN\} :is\(i, \.pj-suite-fa\)/, 'tarefas não dimensiona o SVG convertido');
+  assert.doesNotMatch(sources.tarefas, /script\[data-pj-fa-svg/, 'tarefas ainda contém referência ao runtime removido');
+});
+
 test('APIs auxiliares e mensagens ficam isoladas do contexto global da página', () => {
   for (const [id, source] of Object.entries(sources)) {
     assert.match(source, /const gmRegisterMenuCommand =/, `${id}: wrapper local do menu ausente`);

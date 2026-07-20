@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Anotações
 // @namespace    projudi-anotacoes-locais.user.js
-// @version      2026.07.20-1354
+// @version      2026.07.20-1416
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Adiciona Post-it local ao Projudi, com painel de notas, importação e exportação.
 // @author       lourencosv (GPT)
@@ -133,6 +133,18 @@
     [data-pj-suite-ui] :where(button, input, select, textarea):focus-visible { outline: 3px solid var(--pj-suite-focus) !important; outline-offset: 2px !important; }
     [data-pj-suite-ui] :where(button, input, select, textarea):disabled { cursor: not-allowed !important; opacity: .58 !important; }
     [data-pj-suite-ui] .pj-suite-fa { display: inline-block; width: 1em; height: 1em; flex: 0 0 auto; overflow: visible; vertical-align: -.125em; fill: currentColor; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-2xs { font-size: .625em; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-xs { font-size: .75em; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-sm { font-size: .875em; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-lg { font-size: 1.25em; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-xl { font-size: 1.5em; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-2xl { font-size: 2em; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-2x { font-size: 2em; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-3x { font-size: 3em; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-fw { width: 1.25em; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-spin { animation: pj-suite-fa-spin 2s linear infinite; }
+    [data-pj-suite-ui] .pj-suite-fa.fa-pulse { animation: pj-suite-fa-spin 1s steps(8) infinite; }
+    @keyframes pj-suite-fa-spin { to { transform: rotate(360deg); } }
     @media (prefers-reduced-motion: reduce) { [data-pj-suite-ui], [data-pj-suite-ui] * { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
   `;
     const BACKUP_UI_CSS = String.raw`
@@ -887,8 +899,12 @@ html = persistentGet(key, '');
             const symbolId = `pj-suite-fa-${nameClass.slice(3)}`;
             if (!targetDoc.getElementById(symbolId)) return;
             const svg = targetDoc.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            svg.setAttribute('class', [...icon.classList, 'pj-suite-fa'].filter(name => name !== 'fa-solid' && !/^fa-\d+x$/i.test(name)).join(' '));
-            svg.setAttribute('aria-hidden', 'true');
+            svg.setAttribute('class', [...new Set([...icon.classList, 'pj-suite-fa'])].join(' '));
+            [...icon.attributes].forEach(attribute => {
+                if (attribute.name === 'class') return;
+                svg.setAttribute(attribute.name, attribute.value);
+            });
+            if (!svg.hasAttribute('aria-hidden')) svg.setAttribute('aria-hidden', 'true');
             svg.setAttribute('focusable', 'false');
             const use = targetDoc.createElementNS('http://www.w3.org/2000/svg', 'use');
             use.setAttribute('href', `#${symbolId}`);
@@ -921,16 +937,21 @@ html = persistentGet(key, '');
         style.textContent = `
             #pj-add-btn {
                 position: relative !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
                 color: #d4a017 !important;
                 z-index: ${Z_UI} !important;
             }
 
-            #pj-add-btn i {
+            #pj-add-btn :is(i, .pj-suite-fa) {
                 color: #d4a017 !important;
                 display: inline-block !important;
+                width: 20px !important;
+                height: 20px !important;
+                font-size: 20px !important;
                 line-height: 1 !important;
                 vertical-align: middle !important;
-                transform: scale(0.92) !important;
                 transform-origin: center center !important;
             }
 
@@ -1310,7 +1331,7 @@ html = persistentGet(key, '');
                 gap: 7px;
             }
 
-            #pj-notes-panel .pj-section-title i {
+            #pj-notes-panel .pj-section-title :is(i, .pj-suite-fa) {
                 color: #2467a8;
                 font-size: 12px;
             }
@@ -1720,6 +1741,7 @@ html = persistentGet(key, '');
         const widthPx = parseFloat(cs.width) || 0;
         const heightPx = parseFloat(cs.height) || 0;
         const hasUsableSize = widthPx > 0 && heightPx > 0;
+        const normalizedSize = 36;
 
         btn.style.setProperty('float', cs.float || 'none', 'important');
         btn.style.setProperty('margin-top', cs.marginTop, 'important');
@@ -1762,10 +1784,10 @@ html = persistentGet(key, '');
         btn.style.setProperty('line-height', cs.lineHeight, 'important');
         btn.style.setProperty('text-align', cs.textAlign, 'important');
         if (hasUsableSize) {
-            btn.style.setProperty('width', cs.width, 'important');
-            btn.style.setProperty('height', cs.height, 'important');
-            btn.style.setProperty('min-width', cs.width, 'important');
-            btn.style.setProperty('min-height', cs.height, 'important');
+            btn.style.setProperty('width', `${normalizedSize}px`, 'important');
+            btn.style.setProperty('height', `${normalizedSize}px`, 'important');
+            btn.style.setProperty('min-width', `${normalizedSize}px`, 'important');
+            btn.style.setProperty('min-height', `${normalizedSize}px`, 'important');
         } else {
             btn.style.removeProperty('width');
             btn.style.removeProperty('height');
@@ -1774,6 +1796,9 @@ html = persistentGet(key, '');
         }
         btn.style.setProperty('overflow', 'visible', 'important');
         btn.style.setProperty('opacity', '1', 'important');
+        btn.style.setProperty('display', 'inline-flex', 'important');
+        btn.style.setProperty('align-items', 'center', 'important');
+        btn.style.setProperty('justify-content', 'center', 'important');
 
         const ml = parseFloat(cs.marginLeft) || 0;
         const mr = parseFloat(cs.marginRight) || 0;
