@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.07.20-1459
+// @version      2026.07.20-1506
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       louencosv (GPT)
@@ -401,15 +401,31 @@
    */
   function onFrameLoaded(frame) {
     clearRefreshTimers();
-    state.frameDoc = safeRun('Falha ao acessar o documento do iframe principal.', () => frame.contentDocument, null) || null;
-    state.frameWin = safeRun('Falha ao acessar a janela do iframe principal.', () => frame.contentWindow, null) || null;
-    if (!state.frameDoc || !state.frameDoc.body) return;
+    if (syncFrameDocument(frame)) refreshFrameContext('frame-load');
+    scheduleRefreshBurst('frame-load');
+  }
 
-    state.pageContext = null;
-    state.pageSignature = '';
-    attachFrameHooks(state.frameDoc);
-    patchFrameFunctions(state.frameWin);
-    refreshFrameContext('frame-load');
+  /**
+   * Recaptura o documento atual porque o Projudi pode substituir o conteúdo
+   * do iframe depois que o elemento principal já está disponível.
+   * @param {HTMLIFrameElement} frame
+   * @returns {boolean}
+   */
+  function syncFrameDocument(frame) {
+    const currentDoc = safeRun('Falha ao acessar o documento do iframe principal.', () => frame.contentDocument, null) || null;
+    const currentWin = safeRun('Falha ao acessar a janela do iframe principal.', () => frame.contentWindow, null) || null;
+    if (!currentDoc || !currentDoc.body) return false;
+
+    const documentChanged = currentDoc !== state.frameDoc;
+    state.frameDoc = currentDoc;
+    state.frameWin = currentWin;
+    if (documentChanged) {
+      state.pageContext = null;
+      state.pageSignature = '';
+      attachFrameHooks(currentDoc);
+    }
+    patchFrameFunctions(currentWin);
+    return true;
   }
 
   /**
@@ -503,7 +519,8 @@
   function refreshFrameContext(reason) {
     bindMainFrame();
     ensureActionMenu();
-    if (!state.frame || !state.frameDoc) {
+    const hasCurrentDocument = state.frame ? syncFrameDocument(state.frame) : false;
+    if (!state.frame || !hasCurrentDocument || !state.frameDoc) {
       updateActionMenuVisibility({ isIntimationPage: false, showActionMenu: false });
       if (state.modalOpen) renderModal();
       return;
