@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.07.20-1506
+// @version      2026.07.20-1512
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       louencosv (GPT)
@@ -222,7 +222,6 @@
    * frameWin: Window | null,
    * frameLoadHandler: ((event: Event) => void) | null,
    * pageContext: ReturnType<typeof analyzeFrameContext> | null,
-   * pageSignature: string,
    * refreshTimers: number[],
    * refreshNonce: number,
    * menuRegistered: boolean,
@@ -245,7 +244,6 @@
     frameWin: null,
     frameLoadHandler: null,
     pageContext: null,
-    pageSignature: '',
     refreshTimers: [],
     refreshNonce: 0,
     menuRegistered: false,
@@ -401,8 +399,8 @@
    */
   function onFrameLoaded(frame) {
     clearRefreshTimers();
-    if (syncFrameDocument(frame)) refreshFrameContext('frame-load');
-    scheduleRefreshBurst('frame-load');
+    if (syncFrameDocument(frame)) refreshFrameContext();
+    scheduleRefreshBurst();
   }
 
   /**
@@ -421,7 +419,6 @@
     state.frameWin = currentWin;
     if (documentChanged) {
       state.pageContext = null;
-      state.pageSignature = '';
       attachFrameHooks(currentDoc);
     }
     patchFrameFunctions(currentWin);
@@ -462,7 +459,7 @@
 
       const wrapped = function (...args) {
         const result = current.apply(this, args);
-        scheduleRefreshBurst(`${functionName}-call`);
+        scheduleRefreshBurst();
         return result;
       };
 
@@ -481,16 +478,15 @@
 
     const pagerAction = target.closest(SELECTORS.pagerClickable);
     if (pagerAction) {
-      scheduleRefreshBurst('pager-click');
+      scheduleRefreshBurst();
     }
   }
 
   /**
    * Agenda um pequeno burst de refreshes para capturar atualizacoes AJAX
    * sem manter observers vivos durante toda a sessao.
-   * @param {string} reason
    */
-  function scheduleRefreshBurst(reason) {
+  function scheduleRefreshBurst() {
     clearRefreshTimers();
     const nonce = ++state.refreshNonce;
     const delays = [120, 450, 1200];
@@ -498,7 +494,7 @@
     for (const delay of delays) {
       const timer = window.setTimeout(() => {
         if (state.refreshNonce !== nonce) return;
-        refreshFrameContext(`${reason}:${delay}`);
+        refreshFrameContext();
       }, delay);
       state.refreshTimers.push(timer);
     }
@@ -514,9 +510,8 @@
 
   /**
    * Reconstrói o contexto da pagina atual.
-   * @param {string} reason
    */
-  function refreshFrameContext(reason) {
+  function refreshFrameContext() {
     bindMainFrame();
     ensureActionMenu();
     const hasCurrentDocument = state.frame ? syncFrameDocument(state.frame) : false;
@@ -533,23 +528,13 @@
     processDeadlineRoot(nextContext.doc);
 
     if (!nextContext.isIntimationPage) {
-      state.pageSignature = '';
       if (state.modalOpen) renderModal();
       return;
     }
 
     injectFrameStyles(nextContext.doc);
-    const nextSignature = buildPageSignature(nextContext);
-    const shouldSyncRows =
-      nextSignature !== state.pageSignature ||
-      reason === 'inline-action' ||
-      reason === 'frame-load';
-    state.pageSignature = nextSignature;
-
-    if (shouldSyncRows) {
-      syncPageRows(nextContext);
-      processDeadlineRoot(nextContext.doc);
-    }
+    syncPageRows(nextContext);
+    processDeadlineRoot(nextContext.doc);
 
     if (state.modalOpen) {
       renderModal();
@@ -639,35 +624,6 @@
       headingText.includes('pendencia');
 
     return isPendenciaModule && mentionsIntimationFlow;
-  }
-
-  /**
-   * Gera uma assinatura pequena da pagina para evitar trabalho repetido.
-   * @param {ReturnType<typeof analyzeFrameContext>} context
-   * @returns {string}
-   */
-  function buildPageSignature(context) {
-    const parts = [context.url, context.title, String(context.markTables.length)];
-    for (const entry of context.markTables) {
-      parts.push(String(entry.table.tBodies[0]?.rows.length || 0));
-      const firstDataRow = findFirstDataRow(entry.table);
-      parts.push(firstDataRow ? normalizeSpaces(firstDataRow.textContent || '').slice(0, 80) : '');
-    }
-    return parts.join('|');
-  }
-
-  /**
-   * Detecta primeiro tr com td.
-   * @param {HTMLTableElement} table
-   * @returns {HTMLTableRowElement | null}
-   */
-  function findFirstDataRow(table) {
-    for (const body of Array.from(table.tBodies)) {
-      for (const row of Array.from(body.rows)) {
-        if (row.querySelector('td')) return row;
-      }
-    }
-    return null;
   }
 
   /**
@@ -970,7 +926,7 @@
     }
 
     persistStore();
-    refreshFrameContext('inline-action');
+    refreshFrameContext();
   }
 
   /**
@@ -983,7 +939,7 @@
     item.done = !item.done;
     item.updatedAt = new Date().toISOString();
     persistStore();
-    refreshFrameContext('inline-action');
+    refreshFrameContext();
   }
 
   /**
@@ -2505,7 +2461,7 @@
         }
 
         showToast('Páginas reunidas com sucesso');
-        refreshFrameContext('unify-pages');
+        refreshFrameContext();
       } finally {
         loader.remove();
       }
@@ -3162,7 +3118,7 @@
       const input = /** @type {HTMLInputElement} */ (event.currentTarget);
       state.store.ui.onlyMarkedOnPage = input.checked;
       persistStore();
-      refreshFrameContext('modal-filter');
+      refreshFrameContext();
       renderModal();
     });
 
@@ -3225,7 +3181,7 @@
           ...settings,
           lastBackupSignature: buildBackupSignature()
         });
-        refreshFrameContext('backup-restore');
+        refreshFrameContext();
         setNodeText(statusNode, 'Backup restaurado com sucesso.');
         if (statusNode instanceof HTMLElement) statusNode.dataset.state = 'success';
         renderModal();
@@ -3440,7 +3396,7 @@
       if (!window.confirm('Remover esta intimação do painel local?')) return;
       delete state.store.items[item.id];
       persistStore();
-      refreshFrameContext('modal-remove');
+      refreshFrameContext();
       renderModal();
     });
 
