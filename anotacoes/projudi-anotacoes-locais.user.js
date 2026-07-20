@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Anotações
 // @namespace    projudi-anotacoes-locais.user.js
-// @version      2026.07.19-0345
+// @version      2026.07.20-1354
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Adiciona Post-it local ao Projudi, com painel de notas, importação e exportação.
 // @author       lourencosv (GPT)
@@ -18,40 +18,35 @@
 // @grant        GM.xmlHttpRequest
 // @connect      api.github.com
 // @connect      gist.githubusercontent.com
+// @connect      cdn.jsdelivr.net
 // ==/UserScript==
 
 (function () {
     'use strict';
 
-    // ---- Compatibilidade quoid/userscripts (Safari) e demais gestores ----
-    // Atalho cohesivo: Alt+Shift+A abre o painel de Anotacoes.
-    try {
-        if (typeof GM_registerMenuCommand !== 'function') {
-            window.GM_registerMenuCommand = function () { return null; };
-        }
-    } catch (_) {}
-    try {
-        if (typeof GM_xmlhttpRequest !== 'function') {
-            if (typeof GM !== 'undefined' && GM && typeof GM.xmlHttpRequest === 'function') {
-                window.GM_xmlhttpRequest = function (opts) { return GM.xmlHttpRequest(opts); };
-            } else {
-                window.GM_xmlhttpRequest = function (opts) {
-                    try {
-                        fetch(opts.url, { method: opts.method || 'GET', headers: opts.headers || {} })
-                            .then(function (r) { return r.text().then(function (t) { return { status: r.status, responseText: t, finalUrl: r.url }; }); })
-                            .then(function (res) { if (typeof opts.onload === 'function') opts.onload(res); })
-                            .catch(function (err) { if (typeof opts.onerror === 'function') opts.onerror(err); });
-                    } catch (e) { if (typeof opts.onerror === 'function') opts.onerror(e); }
-                    return null;
-                };
-            }
-        }
-    } catch (_) {}
+    // Compatibilidade local com gestores de userscript, sem publicar APIs no window do Projudi.
+    const gmRegisterMenuCommand = typeof GM_registerMenuCommand === 'function' ? GM_registerMenuCommand : () => null;
+    const gmXmlHttpRequest = typeof GM_xmlhttpRequest === 'function'
+        ? GM_xmlhttpRequest
+        : (typeof GM !== 'undefined' && GM && typeof GM.xmlHttpRequest === 'function'
+            ? opts => GM.xmlHttpRequest(opts)
+            : opts => {
+                try {
+                    fetch(opts.url, { method: opts.method || 'GET', headers: opts.headers || {} })
+                        .then(response => response.text().then(responseText => ({ status: response.status, responseText, finalUrl: response.url })))
+                        .then(result => { if (typeof opts.onload === 'function') opts.onload(result); })
+                        .catch(error => { if (typeof opts.onerror === 'function') opts.onerror(error); });
+                } catch (error) {
+                    if (typeof opts.onerror === 'function') opts.onerror(error);
+                }
+                return null;
+            });
     (function pjShortcut() {
         // Leader: Ctrl+; libera 1500ms para pressionar A (Anotacoes).
         var ID = 'anotacoes';
         var CODE = 'KeyA';
         var isTop = window.top === window.self;
+        var leaderUntil = 0;
         function inField(e) {
             var t = e && e.target;
             var tag = (t && t.tagName) || '';
@@ -59,7 +54,7 @@
         }
         function openHere() {
             if (isTop) { try { openNotesPanel(); } catch (_) {} }
-            else { try { window.top.postMessage({ type: 'pj-open-panel', script: ID }, '*'); } catch (_) {} }
+            else { try { window.top.postMessage({ type: 'pj-open-panel', script: ID }, window.location.origin); } catch (_) {} }
         }
         window.addEventListener('keydown', function (e) {
             if (!e || e.repeat) return;
@@ -68,12 +63,12 @@
             if (isLeader) {
                 e.preventDefault();
                 e.stopPropagation();
-                window.__pjLeaderUntil = Date.now() + 1500;
+                leaderUntil = Date.now() + 1500;
                 return;
             }
             if (e.code === CODE && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
-                if ((window.__pjLeaderUntil || 0) > Date.now()) {
-                    window.__pjLeaderUntil = 0;
+                if (leaderUntil > Date.now()) {
+                    leaderUntil = 0;
                     e.preventDefault();
                     e.stopPropagation();
                     openHere();
@@ -82,6 +77,7 @@
         }, true);
         if (isTop) {
             window.addEventListener('message', function (ev) {
+                if (ev.origin !== window.location.origin) return;
                 if (!ev || !ev.data || ev.data.type !== 'pj-open-panel' || ev.data.script !== ID) return;
                 try { openNotesPanel(); } catch (_) {}
             });
@@ -89,8 +85,8 @@
     })();
 
     const INSTANCE_KEY = '__projudi_postit_local_instance__';
-    if (window[INSTANCE_KEY] && typeof window[INSTANCE_KEY].destroy === 'function') {
-        try { window[INSTANCE_KEY].destroy(); } catch (_) {}
+    if (globalThis[INSTANCE_KEY] && typeof globalThis[INSTANCE_KEY].destroy === 'function') {
+        try { globalThis[INSTANCE_KEY].destroy(); } catch (_) {}
     }
 
     const Z_UI = 2147483000;
@@ -129,13 +125,14 @@
     })();
     const BACKUP_SETTINGS_KEY = 'projudi-suite::anotacoes::gist';
     const BACKUP_SCHEMA = 'projudi-anotacoes-locais-backup-v1';
+    const FA_SPRITE_URL = 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/sprites/solid.svg';
     const SUITE_UI_CSS = String.raw`
     [data-pj-suite-ui] { --pj-suite-font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; --pj-suite-focus: rgba(31, 105, 213, .25); --pj-suite-text: #0f2742; font-family: var(--pj-suite-font) !important; color: var(--pj-suite-text); }
     [data-pj-suite-ui], [data-pj-suite-ui] *, [data-pj-suite-ui] *::before, [data-pj-suite-ui] *::after { box-sizing: border-box; }
     [data-pj-suite-ui] :where(button, input, select, textarea) { font-family: inherit !important; }
     [data-pj-suite-ui] :where(button, input, select, textarea):focus-visible { outline: 3px solid var(--pj-suite-focus) !important; outline-offset: 2px !important; }
     [data-pj-suite-ui] :where(button, input, select, textarea):disabled { cursor: not-allowed !important; opacity: .58 !important; }
-    [data-pj-suite-ui] .svg-inline--fa { width: 1em; height: 1em; flex: 0 0 auto; vertical-align: -.125em; }
+    [data-pj-suite-ui] .pj-suite-fa { display: inline-block; width: 1em; height: 1em; flex: 0 0 auto; overflow: visible; vertical-align: -.125em; fill: currentColor; }
     @media (prefers-reduced-motion: reduce) { [data-pj-suite-ui], [data-pj-suite-ui] * { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
   `;
     const BACKUP_UI_CSS = String.raw`
@@ -167,7 +164,7 @@
     .pj-backup-ui__status[data-state="error"] { color: #b42318 !important; }
     .pj-backup-ui__status[data-state="success"] { color: #087a3e !important; }
     .pj-backup-ui__last { margin: 4px 0 0 !important; color: #8191a5 !important; font-size: 11px !important; }
-    .pj-backup-ui__dialog .svg-inline--fa { width: 1em; height: 1em; }
+    .pj-backup-ui__dialog .pj-suite-fa { width: 1em; height: 1em; }
     @media (max-width: 720px) { .pj-backup-ui__popover { padding: 10px !important; } .pj-backup-ui__dialog { width: calc(100vw - 20px) !important; padding: 16px !important; } .pj-backup-ui__grid, .pj-backup-ui__actions { grid-template-columns: 1fr !important; } .pj-backup-ui__field--full { grid-column: auto !important; } .pj-backup-ui__toggles { align-items: stretch !important; flex-direction: column !important; } }
   `;
     function rawPersistentGet(key, fallback) {
@@ -502,11 +499,11 @@ persistentSet(item.key, String(item.html || ''));
 
     function githubRequest(options) {
         return new Promise((resolve, reject) => {
-            if (typeof GM_xmlhttpRequest !== 'function') {
+            if (typeof gmXmlHttpRequest !== 'function') {
                 reject(new Error('GM_xmlhttpRequest indisponivel.'));
                 return;
             }
-            GM_xmlhttpRequest({
+            gmXmlHttpRequest({
                 method: options.method || 'GET',
                 url: options.url,
                 headers: options.headers || {},
@@ -823,7 +820,8 @@ html = persistentGet(key, '');
 
     scheduleEvaluate(80, { reset: true });
 
-    const fontAwesomeRoots = new WeakSet();
+    const fontAwesomeRoots = new WeakMap();
+    const fontAwesomeSprites = new WeakMap();
 
     function ensureFontAwesome(targetDoc = document) {
         if (!targetDoc || !targetDoc.head) return null;
@@ -833,41 +831,84 @@ html = persistentGet(key, '');
             coreStyle.textContent = SUITE_UI_CSS;
             targetDoc.head.appendChild(coreStyle);
         }
-        let script = targetDoc.querySelector('script[data-pj-fa-svg="1"]');
-        if (!script) {
-            script = targetDoc.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/js/all.min.js';
-            script.defer = true;
-            script.dataset.pjFaSvg = '1';
-            script.dataset.autoReplaceSvg = 'false';
-            script.dataset.observeMutations = 'false';
-            script.dataset.keepOriginalSource = 'false';
-            targetDoc.head.appendChild(script);
-        }
-        return script;
+        const mounted = targetDoc.getElementById('pj-suite-fa-sprite');
+        if (mounted) return Promise.resolve(mounted);
+        if (fontAwesomeSprites.has(targetDoc)) return fontAwesomeSprites.get(targetDoc);
+        const promise = new Promise((resolve, reject) => {
+            gmXmlHttpRequest({
+                method: 'GET',
+                url: FA_SPRITE_URL,
+                onload: response => {
+                    if (response.status < 200 || response.status >= 300) {
+                        reject(new Error(`Font Awesome respondeu com status ${response.status}.`));
+                        return;
+                    }
+                    const Parser = targetDoc.defaultView?.DOMParser || DOMParser;
+                    const source = new Parser().parseFromString(response.responseText || '', 'image/svg+xml');
+                    if (source.querySelector('parsererror')) {
+                        reject(new Error('Sprite SVG do Font Awesome inválido.'));
+                        return;
+                    }
+                    const existingSprite = targetDoc.getElementById('pj-suite-fa-sprite');
+                    if (existingSprite) {
+                        resolve(existingSprite);
+                        return;
+                    }
+                    const sprite = targetDoc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    sprite.id = 'pj-suite-fa-sprite';
+                    sprite.setAttribute('aria-hidden', 'true');
+                    sprite.style.display = 'none';
+                    source.querySelectorAll('symbol[id]').forEach(symbol => {
+                        const clone = targetDoc.importNode(symbol, true);
+                        clone.id = `pj-suite-fa-${symbol.id}`;
+                        sprite.appendChild(clone);
+                    });
+                    (targetDoc.body || targetDoc.documentElement).prepend(sprite);
+                    resolve(sprite);
+                },
+                onerror: () => reject(new Error('Falha ao carregar o sprite SVG do Font Awesome.')),
+                ontimeout: () => reject(new Error('Tempo esgotado ao carregar o sprite SVG do Font Awesome.'))
+            });
+        }).catch(error => {
+            logWarn('Falha ao preparar ícones SVG.', error);
+            return null;
+        });
+        fontAwesomeSprites.set(targetDoc, promise);
+        return promise;
+    }
+
+    function convertFontAwesomeIcons(root) {
+        const targetDoc = root.ownerDocument || document;
+        const icons = root.matches?.('i.fa-solid') ? [root] : [];
+        icons.push(...root.querySelectorAll('i.fa-solid'));
+        icons.forEach(icon => {
+            const nameClass = [...icon.classList].find(name => /^fa-[a-z0-9-]+$/i.test(name) && name !== 'fa-solid' && !/^fa-\d+x$/i.test(name));
+            if (!nameClass) return;
+            const symbolId = `pj-suite-fa-${nameClass.slice(3)}`;
+            if (!targetDoc.getElementById(symbolId)) return;
+            const svg = targetDoc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('class', [...icon.classList, 'pj-suite-fa'].filter(name => name !== 'fa-solid' && !/^fa-\d+x$/i.test(name)).join(' '));
+            svg.setAttribute('aria-hidden', 'true');
+            svg.setAttribute('focusable', 'false');
+            const use = targetDoc.createElementNS('http://www.w3.org/2000/svg', 'use');
+            use.setAttribute('href', `#${symbolId}`);
+            svg.appendChild(use);
+            icon.replaceWith(svg);
+        });
     }
 
     function renderFontAwesome(root) {
         if (!root || root.nodeType !== 1) return;
         const targetDoc = root.ownerDocument || document;
         root.setAttribute('data-pj-suite-ui', 'anotacoes');
-        const script = ensureFontAwesome(targetDoc);
-        const render = () => {
-            const api = targetDoc.defaultView && targetDoc.defaultView.FontAwesome;
-            if (!api || !api.dom) return false;
-            try {
-                if (!fontAwesomeRoots.has(root)) {
-                    api.dom.watch({ autoReplaceSvgRoot: root, observeMutationsRoot: root });
-                    fontAwesomeRoots.add(root);
-                } else {
-                    api.dom.i2svg({ node: root });
-                }
-                return true;
-            } catch (_) {
-                return false;
-            }
-        };
-        if (!render() && script) script.addEventListener('load', render, { once: true });
+        ensureFontAwesome(targetDoc).then(sprite => {
+            if (!sprite || !root.isConnected) return;
+            convertFontAwesomeIcons(root);
+            if (fontAwesomeRoots.has(root)) return;
+            const observer = new MutationObserver(() => convertFontAwesomeIcons(root));
+            observer.observe(root, { childList: true, subtree: true });
+            fontAwesomeRoots.set(root, observer);
+        });
     }
 
     function ensureUiAssetsLoaded(targetDoc = document) {
@@ -1125,7 +1166,7 @@ html = persistentGet(key, '');
                 border-color: #2476bd;
             }
 
-            #pj-notes-panel .svg-inline--fa { width: 1em; height: 1em; }
+            #pj-notes-panel .pj-suite-fa { width: 1em; height: 1em; }
 
             #pj-notes-panel .pj-panel {
                 position: relative;
@@ -1623,14 +1664,14 @@ html = persistentGet(key, '');
 
     function ensureMenuRegistered() {
         if (state.menuRegistered) return;
-        if (typeof GM_registerMenuCommand !== 'function') return;
+        if (typeof gmRegisterMenuCommand !== 'function') return;
         // Projudi serve o iframe interno na mesma origem do top, fazendo o
         // userscript rodar duas vezes. Registramos o menu apenas no top para
         // evitar duplicacao (alguns gestores mostram um item por frame).
         if (window.top !== window.self) return;
 
         try {
-            GM_registerMenuCommand('Gerenciar Anotações', () => {
+            gmRegisterMenuCommand('Gerenciar Anotações', () => {
                 openNotesPanel();
             });
             state.menuRegistered = true;
@@ -1760,7 +1801,7 @@ html = persistentGet(key, '');
         btn.id = 'pj-add-btn';
         btn.type = 'button';
         btn.title = 'Anotações locais desta página';
-        btn.innerHTML = '<i class="fa-solid fa-pen-to-square fa-3x" aria-hidden="true"></i>';
+        btn.innerHTML = '<i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>';
 
         btn.addEventListener('mousedown', e => {
             e.preventDefault();
@@ -2632,5 +2673,5 @@ persistentDelete(n.key);
         unmountAll();
     }
 
-    window[INSTANCE_KEY] = { destroy };
+    globalThis[INSTANCE_KEY] = { destroy };
 })();

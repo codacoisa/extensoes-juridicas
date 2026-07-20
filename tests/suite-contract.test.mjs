@@ -50,25 +50,27 @@ test('restaurações exigem schema e identidade da extensão', () => {
   assert.doesNotMatch(taskBackupBuilder, /\.\.\.exportTodoPayload\(\)/, 'tarefas: exportação local sobrescreve o schema remoto');
 });
 
-test('Font Awesome é SVG+JS 7.2.0 e não usa webfont', () => {
+test('Font Awesome usa sprite SVG 7.3.1 sem runtime ou webfont global', () => {
   for (const [id, source] of Object.entries(sources)) {
-    assert.match(source, /fontawesome-free@7\.2\.0\/js\/all\.min\.js/, `${id}: runtime SVG incorreto`);
+    assert.match(source, /fontawesome-free@7\.3\.1\/sprites\/solid\.svg/, `${id}: sprite SVG incorreto`);
+    assert.doesNotMatch(source, /fontawesome-free@[^/]+\/js\/all\.min\.js/, `${id}: runtime global do Font Awesome encontrado`);
+    assert.doesNotMatch(source, /defaultView\s*&&\s*[^\n]*FontAwesome|\.FontAwesome\b/, `${id}: API global do Font Awesome encontrada`);
     assert.doesNotMatch(source, /font-awesome\/.+\/css\//, `${id}: CSS de webfont encontrado`);
     assert.doesNotMatch(source, /\.(?:otf|woff2?)(?:["'?#]|$)/i, `${id}: arquivo de fonte encontrado`);
+    assert.match(source, /^\/\/ @connect\s+cdn\.jsdelivr\.net$/m, `${id}: permissão do sprite ausente`);
   }
 });
 
 test('Font Awesome fica isolado nas raízes da suíte', () => {
   const coreContracts = [];
   for (const [id, source] of Object.entries(sources)) {
-    assert.match(source, /autoReplaceSvg\s*=\s*['"]false['"]/, `${id}: substituição global não foi desativada`);
-    assert.match(source, /observeMutations\s*=\s*['"]false['"]/, `${id}: observação global não foi desativada`);
-    assert.doesNotMatch(source, /autoReplaceSvg\s*=\s*['"]nest['"]/, `${id}: substituição global ainda usa nest`);
-    assert.match(source, /autoReplaceSvgRoot:\s*root/, `${id}: raiz de conversão não está isolada`);
-    assert.match(source, /observeMutationsRoot:\s*root/, `${id}: observer não está isolado`);
+    assert.match(source, /root\.querySelectorAll\(['"]i\.fa-solid['"]\)/, `${id}: conversão não está limitada à raiz`);
+    assert.match(source, /observer\.observe\(root,\s*\{\s*childList:\s*true,\s*subtree:\s*true\s*\}\)/, `${id}: observer não está limitado à raiz`);
+    assert.match(source, /pj-suite-fa-sprite/, `${id}: sprite interno não é montado`);
+    assert.match(source, /const existingSprite = [^;]+getElementById\(['"]pj-suite-fa-sprite['"]\)/, `${id}: corrida entre extensões pode duplicar o sprite`);
+    assert.match(source, /pj-suite-fa-\$\{symbol\.id\}/, `${id}: símbolos não recebem namespace`);
     assert.match(source, /data-pj-suite-ui/, `${id}: marcador de isolamento ausente`);
     assert.match(source, /pj-suite-core-style/, `${id}: núcleo visual comum não é injetado`);
-    assert.doesNotMatch(source, /autoReplaceSvgRoot:\s*document|observeMutationsRoot:\s*document/, `${id}: documento inteiro ainda é observado`);
     const coreMatch = source.match(/const SUITE_UI_CSS = String\.raw`([\s\S]*?)`;\n/);
     assert.ok(coreMatch, `${id}: contrato visual comum ausente`);
     coreContracts.push(coreMatch[1].replace(/\s+/g, ' ').trim());
@@ -76,6 +78,22 @@ test('Font Awesome fica isolado nas raízes da suíte', () => {
   assert.equal(new Set(coreContracts).size, 1, 'os contratos visuais básicos divergiram');
   assert.doesNotMatch(sources.customizacoes, /:where\(i\.fa, i\.fas/, 'customizações ainda redimensiona ícones globais do Projudi');
   assert.match(sources.customizacoes, /:not\(\[data-pj-suite-ui\] \*\)/, 'customizações não exclui os painéis da suíte');
+  assert.doesNotMatch(sources['central-guias'], /renderFontAwesome\(ul\)/, 'Central de Guias ainda altera a fonte do menu nativo');
+  assert.doesNotMatch(sources.customizacoes, /body \*:not\(i\)/, 'fonte personalizada ainda alcança elementos globais do cabeçalho');
+  assert.doesNotMatch(sources.customizacoes, /#cssmenu a\s*\{[^}]*font-family/s, 'fonte personalizada ainda alcança os atalhos de ícone do cabeçalho');
+});
+
+test('APIs auxiliares e mensagens ficam isoladas do contexto global da página', () => {
+  for (const [id, source] of Object.entries(sources)) {
+    assert.match(source, /const gmRegisterMenuCommand =/, `${id}: wrapper local do menu ausente`);
+    assert.match(source, /const gmXmlHttpRequest =/, `${id}: wrapper local de requisição ausente`);
+    assert.doesNotMatch(source, /window\.(?:GM_registerMenuCommand|GM_xmlhttpRequest|__pjLeaderUntil|__pjTodoApi)/, `${id}: API auxiliar publicada no window`);
+    assert.doesNotMatch(source, /window\[INSTANCE_KEY\]/, `${id}: instância publicada diretamente no window`);
+    assert.doesNotMatch(source, /postMessage\([\s\S]{0,180}?,\s*['"]\*['"]\s*\)/, `${id}: mensagem enviada sem origem de destino`);
+    const messageListeners = [...source.matchAll(/addEventListener\(['"]message['"]/g)].length;
+    const originChecks = [...source.matchAll(/\.origin !== window\.location\.origin/g)].length;
+    assert.ok(originChecks >= messageListeners, `${id}: listener de mensagem sem validação de origem`);
+  }
 });
 
 test('versões seguem data e hora crescentes', () => {
