@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.07.19-0345
+// @version      2026.07.20-1115
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       louencosv (GPT)
@@ -872,7 +872,11 @@
       headerMap.mark >= 0
         ? findNavigationElement(cells[headerMap.mark], SELECTORS.nativeDoneAction)
         : row.querySelector(SELECTORS.nativeDoneAction);
-    const processLink = extractNavigableUrl(processElement, baseUrl);
+    // O link de uma pendência é contextual: em algumas listas o Projudi gera
+    // um código de validação que só vale enquanto a linha está carregada.
+    // Guarde a consulta estável pelo número do processo; quando a linha ainda
+    // existe, openProcess() continua usando o clique nativo abaixo.
+    const processLink = buildProcessLookupUrl(processNumber) || extractNavigableUrl(processElement, baseUrl);
     const nativeMarkHref = extractNavigableUrl(nativeDoneElement, baseUrl);
 
     return {
@@ -3304,7 +3308,7 @@
     openProcessButton.type = 'button';
     openProcessButton.className = 'pjip-modal-btn';
     openProcessButton.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i><span>Abrir processo</span>';
-    openProcessButton.disabled = !item.processLink;
+    openProcessButton.disabled = !getProcessOpenUrl(item);
     openProcessButton.addEventListener('click', () => {
       openProcess(item);
     });
@@ -3543,7 +3547,9 @@
   }
 
   /**
-   * Tenta abrir o processo a partir da linha atual. Se nao encontrar, navega pela URL.
+   * Abre o processo pelo controle nativo enquanto a linha estiver presente.
+   * Fora da lista, consulta pelo número: URLs de pendência podem conter um ID
+   * contextual que o Projudi rejeita posteriormente como "Código inválido".
    * @param {any} item
    */
   function openProcess(item) {
@@ -3566,7 +3572,32 @@
       }
     }
 
-    navigateFrameTo(item.processLink);
+    const processUrl = getProcessOpenUrl(item);
+    if (!processUrl) {
+      showToast('Não foi possível identificar o número do processo.');
+      return;
+    }
+    navigateFrameTo(processUrl);
+  }
+
+  /**
+   * Monta a consulta estável de processo usada pelo próprio Projudi.
+   * @param {string} processNumber
+   * @returns {string}
+   */
+  function buildProcessLookupUrl(processNumber) {
+    const normalized = normalizeSpaces(processNumber || '');
+    if (!normalized || normalized.length > 80 || !/\d/.test(normalized)) return '';
+    return `BuscaProcesso?PaginaAtual=2&TipoConsultaProcesso=24&ProcessoNumero=${encodeURIComponent(normalized)}`;
+  }
+
+  /**
+   * Prioriza a busca estável sobre links contextuais preservados em versões antigas.
+   * @param {any} item
+   * @returns {string}
+   */
+  function getProcessOpenUrl(item) {
+    return buildProcessLookupUrl(String(item?.processNumber || '')) || String(item?.processLink || '');
   }
 
   /**
