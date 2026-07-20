@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.07.20-1439
+// @version      2026.07.20-1446
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       louencosv (GPT)
@@ -126,7 +126,6 @@
   };
 
   const DEADLINE = {
-    windowDays: 7,
     targetHeaders: ['data limite', 'possivel data limite', 'possível data limite'],
     filterDateKey: 'projudi_highlight_filter_date_v1',
     filterEnabledKey: 'projudi_highlight_filter_enabled_v1',
@@ -134,19 +133,8 @@
     filterRangeStartKey: 'projudi_highlight_filter_range_start_v1',
     filterRangeEndKey: 'projudi_highlight_filter_range_end_v1',
     settingsSyncEvent: 'projudi:deadline-settings-changed',
-    classPrefix: 'tm-hl7d',
-    filterHiddenAttr: 'data-tm-filter-hidden',
-    cellAttr: 'data-tm-deadline-class'
+    filterHiddenAttr: 'data-tm-filter-hidden'
   };
-
-  const DEADLINE_WEEKDAY_PALETTE = [
-    { bg: 'rgba(255,205,210,1)', fg: 'rgba(183,28,28,1)' },
-    { bg: 'rgba(255,224,178,1)', fg: 'rgba(191,54,12,1)' },
-    { bg: 'rgba(255,249,196,1)', fg: 'rgba(245,127,23,1)' },
-    { bg: 'rgba(220,237,200,1)', fg: 'rgba(51,105,30,1)' },
-    { bg: 'rgba(200,230,201,1)', fg: 'rgba(27,94,32,1)' }
-  ];
-  const DEADLINE_WEEKEND_COLOR = { bg: 'rgba(227,242,253,1)', fg: 'rgba(13,71,161,1)' };
 
   const BACKUP_DEFAULTS = {
     enabled: false,
@@ -525,7 +513,6 @@
     state.pageContext = nextContext;
     updateActionMenuVisibility(nextContext);
     syncDeadlineState();
-    injectDeadlineStyles(nextContext.doc);
     processDeadlineRoot(nextContext.doc);
 
     if (!nextContext.isIntimationPage) {
@@ -3799,8 +3786,7 @@
     window.addEventListener(DEADLINE.settingsSyncEvent, () => {
       syncDeadlineState(true);
       if (state.frameDoc) {
-        clearDeadlineProcessedState(state.frameDoc);
-        injectDeadlineStyles(state.frameDoc);
+        resetDeadlineFilterRows(state.frameDoc);
         processDeadlineRoot(state.frameDoc);
       }
     });
@@ -3822,8 +3808,7 @@
     state.deadlineState = next;
     state.deadlineCellAnalysisCache = new WeakMap();
     if (!state.frameDoc) return;
-    clearDeadlineProcessedState(state.frameDoc);
-    injectDeadlineStyles(state.frameDoc);
+    resetDeadlineFilterRows(state.frameDoc);
     processDeadlineRoot(state.frameDoc);
   }
 
@@ -3916,41 +3901,13 @@
   }
 
   /**
-   * Monta o estado derivado dos destaques e filtros de prazo.
-   * @returns {{todayYmd: string, byYmd: Map<string, any>, entries: any[], highlightSnapshot: string, settingsSnapshot: string}}
+   * Monta o estado derivado dos filtros de prazo.
+   * @returns {{todayYmd: string, settingsSnapshot: string}}
    */
   function buildDeadlineState() {
     const today = cloneDay(new Date());
-    const windowDates = [];
-    for (let index = 0; index < DEADLINE.windowDays; index += 1) windowDates.push(addDays(today, index));
-    const weekdays = windowDates.map((date, index) => ({ date, index })).filter((entry) => !isWeekend(entry.date));
-    const entries = windowDates.map((date, offset) => {
-      if (isWeekend(date)) {
-        return {
-          ymd: toYmd(date),
-          className: `${DEADLINE.classPrefix}-weekend`,
-          tooltip: `Fim de semana (${weekdayShortPT(date)}) • ${formatDay(date)}`,
-          color: DEADLINE_WEEKEND_COLOR
-        };
-      }
-      const weekdayPosition = weekdays.findIndex((entry) => entry.index === offset);
-      return {
-        ymd: toYmd(date),
-        className: `${DEADLINE.classPrefix}-wd-${weekdayPosition}`,
-        tooltip: `Possível vencimento em ${offset === 0 ? 'HOJE' : `${offset} dia(s)`} • ${weekdayShortPT(date)} • ${formatDay(date)}`,
-        color: interpolateDeadlinePalette(
-          DEADLINE_WEEKDAY_PALETTE,
-          Math.max(0, weekdayPosition),
-          Math.max(1, weekdays.length)
-        )
-      };
-    });
-
     return {
       todayYmd: toYmd(today),
-      byYmd: new Map(entries.map((entry) => [entry.ymd, entry])),
-      entries,
-      highlightSnapshot: entries.map((entry) => entry.ymd).join('|'),
       settingsSnapshot: JSON.stringify({
         filterDate: getDeadlineFilterDate(),
         filterEnabled: getDeadlineFilterEnabled(),
@@ -3962,71 +3919,6 @@
   }
 
   /**
-   * Injeta estilos isolados para células das colunas semânticas de prazo.
-   * @param {Document} doc
-   */
-  function injectDeadlineStyles(doc) {
-    const baseId = `${DEADLINE.classPrefix}-style`;
-    if (!doc.getElementById(baseId)) {
-      const style = doc.createElement('style');
-      style.id = baseId;
-      style.textContent = `
-        td.${DEADLINE.classPrefix}-cell {
-          position: relative;
-          font-weight: 600 !important;
-          border-radius: 4px;
-          box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .08);
-        }
-        td.${DEADLINE.classPrefix}-cell[data-tooltip] { cursor: help; }
-        td.${DEADLINE.classPrefix}-cell[data-tooltip]::after {
-          content: attr(data-tooltip);
-          position: absolute;
-          left: 50%;
-          top: -6px;
-          transform: translateX(-50%) translateY(-100%);
-          z-index: 99999;
-          padding: 4px 8px;
-          border-radius: 4px;
-          background: #333;
-          color: #fff;
-          font-size: 11px;
-          font-weight: 500;
-          line-height: 1.3;
-          white-space: nowrap;
-          opacity: 0;
-          pointer-events: none;
-          transition: opacity .2s;
-        }
-        td.${DEADLINE.classPrefix}-cell[data-tooltip]::before {
-          content: "";
-          position: absolute;
-          left: 50%;
-          top: -6px;
-          transform: translateX(-50%);
-          z-index: 99998;
-          border: 5px solid transparent;
-          border-bottom-color: #333;
-          opacity: 0;
-          pointer-events: none;
-          transition: opacity .2s;
-        }
-        td.${DEADLINE.classPrefix}-cell:hover::after,
-        td.${DEADLINE.classPrefix}-cell:hover::before { opacity: 1; }
-      `;
-      (doc.head || doc.documentElement).appendChild(style);
-    }
-
-    const dynId = `${DEADLINE.classPrefix}-dyn`;
-    doc.getElementById(dynId)?.remove();
-    const dynamicStyle = doc.createElement('style');
-    dynamicStyle.id = dynId;
-    dynamicStyle.textContent = state.deadlineState.entries
-      .map((entry) => `td.${DEADLINE.classPrefix}-cell.${entry.className}{background-color:${entry.color.bg} !important;color:${entry.color.fg} !important;}`)
-      .join('\n');
-    (doc.head || doc.documentElement).appendChild(dynamicStyle);
-  }
-
-  /**
    * Processa tabelas de prazo dentro de um documento ou elemento.
    * @param {Document | Element} root
    */
@@ -4035,11 +3927,10 @@
   }
 
   /**
-   * Reverte o estado visual aplicado pelo filtro/destaque de prazo.
+   * Torna novamente visíveis as linhas ocultadas pelo filtro de prazo.
    * @param {Document | Element} root
    */
-  function clearDeadlineProcessedState(root) {
-    root.querySelectorAll?.(`td.${DEADLINE.classPrefix}-cell`).forEach(clearDeadlineCellHighlight);
+  function resetDeadlineFilterRows(root) {
     root.querySelectorAll?.(`tr[${DEADLINE.filterHiddenAttr}="1"]`).forEach(showDeadlineRow);
   }
 
@@ -4055,9 +3946,6 @@
 
     for (const row of rows) {
       const cells = getDeadlineRowCells(row);
-      for (let col = 0; col < cells.length; col += 1) {
-        if (targetCols.has(col)) applyDeadlineHighlightToCell(cells[col]);
-      }
 
       if (!filterSpec) showDeadlineRow(row);
       else if (rowMatchesDeadlineFilter(row, targetCols, filterSpec)) showDeadlineRow(row);
@@ -4123,47 +4011,18 @@
 
   /**
    * @param {HTMLTableCellElement} cell
-   */
-  function clearDeadlineCellHighlight(cell) {
-    const previousClass = cell.getAttribute(DEADLINE.cellAttr);
-    if (previousClass) cell.classList.remove(previousClass);
-    cell.classList.remove(`${DEADLINE.classPrefix}-cell`);
-    cell.removeAttribute(DEADLINE.cellAttr);
-    cell.removeAttribute('data-tooltip');
-  }
-
-  /**
-   * Aplica destaque apenas quando a célula contém uma data na janela configurada.
-   * @param {HTMLTableCellElement} cell
-   */
-  function applyDeadlineHighlightToCell(cell) {
-    clearDeadlineCellHighlight(cell);
-    const entry = analyzeDeadlineCell(cell).highlightEntry;
-    if (!entry) return;
-    cell.classList.add(`${DEADLINE.classPrefix}-cell`, entry.className);
-    cell.setAttribute(DEADLINE.cellAttr, entry.className);
-    cell.setAttribute('data-tooltip', entry.tooltip);
-  }
-
-  /**
-   * @param {HTMLTableCellElement} cell
-   * @returns {{text: string, missing: boolean, dates: Date[], highlightEntry: any, highlightSnapshot: string}}
+   * @returns {{text: string, missing: boolean, dates: Date[]}}
    */
   function analyzeDeadlineCell(cell) {
     const text = String(cell?.textContent || '').trim();
     const cached = state.deadlineCellAnalysisCache.get(cell);
-    if (cached && cached.text === text && cached.highlightSnapshot === state.deadlineState.highlightSnapshot) return cached;
+    if (cached && cached.text === text) return cached;
 
     const dates = extractDeadlineDatesFromText(text);
-    const highlightEntry = dates
-      .map((date) => state.deadlineState.byYmd.get(toYmd(date)))
-      .find(Boolean) || null;
     const analysis = {
       text,
       missing: isMissingDeadlineText(text),
-      dates,
-      highlightEntry,
-      highlightSnapshot: state.deadlineState.highlightSnapshot
+      dates
     };
     state.deadlineCellAnalysisCache.set(cell, analysis);
     return analysis;
@@ -4232,8 +4091,7 @@
   function applyDeadlineSettingsChange() {
     syncDeadlineState(true);
     if (state.frameDoc) {
-      clearDeadlineProcessedState(state.frameDoc);
-      injectDeadlineStyles(state.frameDoc);
+      resetDeadlineFilterRows(state.frameDoc);
       processDeadlineRoot(state.frameDoc);
     }
     broadcastDeadlineSettingsSync();
@@ -4253,7 +4111,7 @@
    * @returns {string}
    */
   function describeActiveDeadlineFilter() {
-    if (!getDeadlineFilterEnabled()) return `Filtro desativado. Destaque automático: hoje + próximos ${DEADLINE.windowDays - 1} dias.`;
+    if (!getDeadlineFilterEnabled()) return 'Filtro de data desativado.';
     const mode = getDeadlineFilterMode();
     if (mode === 'missing') return 'Filtro ativo: sem data limite.';
     if (mode === 'range') {
@@ -4270,13 +4128,6 @@
 
   function cloneDay(date) {
     const copy = new Date(date.getTime());
-    copy.setHours(0, 0, 0, 0);
-    return copy;
-  }
-
-  function addDays(date, amount) {
-    const copy = new Date(date.getTime());
-    copy.setDate(copy.getDate() + amount);
     copy.setHours(0, 0, 0, 0);
     return copy;
   }
@@ -4327,54 +4178,6 @@
 
   function formatDay(date) {
     return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
-  }
-
-  function weekdayShortPT(date) {
-    return ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'][date.getDay()];
-  }
-
-  function isWeekend(date) {
-    const day = date.getDay();
-    return day === 0 || day === 6;
-  }
-
-  function interpolateDeadlinePalette(palette, index, total) {
-    if (total <= 1) return palette[0];
-    const scaledPosition = (index / (total - 1)) * (palette.length - 1);
-    const leftIndex = Math.floor(scaledPosition);
-    const fraction = scaledPosition - leftIndex;
-    const left = palette[Math.min(leftIndex, palette.length - 1)];
-    const right = palette[Math.min(leftIndex + 1, palette.length - 1)];
-    const leftBackground = parseRgba(left.bg);
-    const rightBackground = parseRgba(right.bg);
-    const leftForeground = parseRgba(left.fg);
-    const rightForeground = parseRgba(right.fg);
-    if (!leftBackground || !rightBackground || !leftForeground || !rightForeground) {
-      return palette[Math.min(index, palette.length - 1)];
-    }
-    return {
-      bg: rgbaToString(interpolateRgba(leftBackground, rightBackground, fraction)),
-      fg: rgbaToString(interpolateRgba(leftForeground, rightForeground, fraction))
-    };
-  }
-
-  function parseRgba(value) {
-    const match = /rgba\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*\)/i.exec(value);
-    if (!match) return null;
-    return { r: Number(match[1]), g: Number(match[2]), b: Number(match[3]), a: Number(match[4]) };
-  }
-
-  function interpolateRgba(left, right, fraction) {
-    return {
-      r: left.r + (right.r - left.r) * fraction,
-      g: left.g + (right.g - left.g) * fraction,
-      b: left.b + (right.b - left.b) * fraction,
-      a: left.a + (right.a - left.a) * fraction
-    };
-  }
-
-  function rgbaToString(color) {
-    return `rgba(${Math.round(color.r)},${Math.round(color.g)},${Math.round(color.b)},${color.a})`;
   }
 
   /**
