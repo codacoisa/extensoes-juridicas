@@ -105,6 +105,13 @@ test('atalhos do processo e filtros de intimações mantêm o comportamento atua
   assert.match(intimacoes, /\.pjip-table tbody tr\.pjip-row--marked > td\s*\{\s*background-color: #eaf3ff !important;/, 'linhas a fazer não recebem o fundo azul');
   assert.match(intimacoes, /\.pjip-table tbody tr\.pjip-row--done > td\s*\{\s*background-color: #eaf8ef !important;/, 'linhas concluídas não recebem o fundo verde');
   assert.match(intimacoes, /else hideDeadlineRow\(row\);/, 'o filtro de data não oculta linhas incompatíveis');
+  assert.match(intimacoes, /safeRun\('Falha ao preparar uma linha da tabela de intimações\.'/, 'uma linha inválida ainda interrompe toda a tabela');
+  assert.doesNotMatch(intimacoes, /host\.replaceChildren\([\s\S]{0,800}?renderFontAwesome\(host\)/, 'os controles textuais da linha ainda acionam o carregador de ícones');
+  assert.doesNotMatch(intimacoes, /item \? '★' : '☆'|buildInlineButton\([\s\S]{0,120}?['"]✓['"]/, 'os controles inline ainda dependem de glifos da fonte');
+  assert.match(intimacoes, /buildInlineFontAwesomeIcon\(doc, iconName\)/, 'os controles inline não usam SVG direto');
+  assert.match(intimacoes, /use\.setAttribute\('href', `#pj-suite-fa-\$\{iconName\}`\)/, 'os SVGs inline não usam o sprite isolado da suíte');
+  assert.match(intimacoes, /if \(!doc\) return Promise\.resolve\(null\);/, 'o carregador SVG não tolera documentos antigos do Projudi');
+  assert.match(intimacoes, /const styleHost = doc\.head \|\| doc\.documentElement;/, 'o CSS isolado exige indevidamente um elemento head');
   assert.doesNotMatch(intimacoes, /DEADLINE_WEEKDAY_PALETTE|DEADLINE_WEEKEND_COLOR|applyDeadlineHighlightToCell|tm-hl7d/, 'o destaque obsoleto por célula foi reintroduzido');
 });
 

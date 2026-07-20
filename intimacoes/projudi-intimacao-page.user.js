@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.07.20-1446
+// @version      2026.07.20-1459
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       louencosv (GPT)
@@ -751,6 +751,7 @@
    */
   function syncPageRows(context) {
     const markedIds = new Set(Object.keys(state.store.items));
+    ensureFontAwesome(context.doc);
 
     for (const tableEntry of context.markTables) {
       const { table, headerMap, legend } = tableEntry;
@@ -758,7 +759,9 @@
 
       for (const body of Array.from(table.tBodies)) {
         for (const row of Array.from(body.rows)) {
-          syncSingleRow(row, headerMap, legend, markedIds);
+          safeRun('Falha ao preparar uma linha da tabela de intimações.', () => {
+            syncSingleRow(row, headerMap, legend, markedIds);
+          });
         }
       }
     }
@@ -782,7 +785,6 @@
     const item = state.store.items[rowData.id] || null;
     const rowSignature = `${rowData.id}|${item ? 1 : 0}|${item?.done ? 1 : 0}|${state.store.ui.onlyMarkedOnPage ? 1 : 0}`;
     if (row[PRIVATE.rowSignature] === rowSignature) return;
-    row[PRIVATE.rowSignature] = rowSignature;
 
     row.classList.toggle('pjip-row--marked', Boolean(item));
     row.classList.toggle('pjip-row--done', Boolean(item && item.done));
@@ -790,7 +792,10 @@
 
     const actionCellIndex = headerMap.actionHost >= 0 ? headerMap.actionHost : Math.max(headerMap.mark, headerMap.details, 0);
     const actionCell = /** @type {HTMLTableCellElement | undefined} */ (row.children[actionCellIndex]);
-    if (!actionCell) return;
+    if (!actionCell) {
+      row[PRIVATE.rowSignature] = rowSignature;
+      return;
+    }
     actionCell.classList.add('pjip-native-host');
 
     let host = actionCell.querySelector('.pjip-inline');
@@ -803,37 +808,46 @@
     host.replaceChildren(
       buildInlineButton(
         row.ownerDocument,
-        item ? '★' : '☆',
+        'star',
         item ? 'Remover das minhas intimações' : 'Marcar como minha',
-        () => toggleMarked(rowData)
+        () => toggleMarked(rowData),
+        false,
+        Boolean(item),
+        'mark'
       ),
       buildInlineButton(
         row.ownerDocument,
-        '✓',
+        'check',
         item ? (item.done ? 'Reabrir intimação' : 'Marcar como concluída') : 'Marque primeiro como sua',
         () => toggleDone(rowData.id),
-        !item
+        !item,
+        Boolean(item?.done),
+        'done'
       )
     );
-    renderFontAwesome(host);
+    row[PRIVATE.rowSignature] = rowSignature;
   }
 
   /**
    * Cria um botao inline com binding direto para garantir confiabilidade do clique.
    * @param {Document} doc
-   * @param {string} label
+   * @param {'star' | 'check'} iconName
    * @param {string} title
    * @param {() => void} onClick
    * @param {boolean=} disabled
+   * @param {boolean=} active
+   * @param {'mark' | 'done'=} kind
    * @returns {HTMLButtonElement}
    */
-  function buildInlineButton(doc, label, title, onClick, disabled = false) {
+  function buildInlineButton(doc, iconName, title, onClick, disabled = false, active = false, kind = 'mark') {
     const button = doc.createElement('button');
     button.type = 'button';
-    button.className = 'pjip-inline-btn';
-    button.textContent = label;
+    button.className = `pjip-inline-btn pjip-inline-btn--${kind}`;
     button.title = title;
+    button.setAttribute('aria-label', title);
+    button.dataset.active = active ? 'true' : 'false';
     button.disabled = disabled;
+    button.appendChild(buildInlineFontAwesomeIcon(doc, iconName));
     if (!disabled) {
       button.addEventListener('click', (event) => {
         event.preventDefault();
@@ -842,6 +856,23 @@
       });
     }
     return button;
+  }
+
+  /**
+   * Cria um SVG direto para evitar renderizadores e observadores por linha.
+   * @param {Document} doc
+   * @param {'star' | 'check'} iconName
+   * @returns {SVGSVGElement}
+   */
+  function buildInlineFontAwesomeIcon(doc, iconName) {
+    const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'pjip-inline-icon');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    const use = doc.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', `#pj-suite-fa-${iconName}`);
+    svg.appendChild(use);
+    return svg;
   }
 
   /**
@@ -2090,12 +2121,14 @@
   const fontAwesomeSprites = new WeakMap();
 
   function ensureFontAwesome(doc = document) {
-    if (!doc || !doc.head) return null;
+    if (!doc) return Promise.resolve(null);
+    const styleHost = doc.head || doc.documentElement;
+    if (!styleHost) return Promise.resolve(null);
     if (!doc.getElementById('pj-suite-core-style')) {
       const coreStyle = doc.createElement('style');
       coreStyle.id = 'pj-suite-core-style';
       coreStyle.textContent = SUITE_UI_CSS;
-      doc.head.appendChild(coreStyle);
+      styleHost.appendChild(coreStyle);
     }
     const mounted = doc.getElementById('pj-suite-fa-sprite');
     if (mounted) return Promise.resolve(mounted);
@@ -2171,7 +2204,9 @@
     if (!root || root.nodeType !== 1) return;
     const doc = root.ownerDocument || document;
     root.setAttribute('data-pj-suite-ui', 'intimacoes');
-    ensureFontAwesome(doc).then(sprite => {
+    const spritePromise = ensureFontAwesome(doc);
+    if (!spritePromise || typeof spritePromise.then !== 'function') return;
+    spritePromise.then(sprite => {
       if (!sprite || !root.isConnected) return;
       convertFontAwesomeIcons(root);
       if (fontAwesomeRoots.has(root)) return;
@@ -2218,16 +2253,14 @@
         align-items: center;
         justify-content: center;
         min-width: 0;
-        width: 18px;
-        height: 18px;
+        width: 22px;
+        height: 22px;
         padding: 0 !important;
         margin: 0 !important;
         border: 0;
         border-radius: 0;
         background: transparent;
         color: #1d4d87;
-        font-size: 18px;
-        font-weight: 700;
         line-height: 1;
         vertical-align: middle;
         box-shadow: none;
@@ -2235,6 +2268,23 @@
       .pjip-inline-btn:hover {
         background: transparent;
         color: #114b96;
+      }
+      .pjip-inline-icon {
+        display: block;
+        width: 16px;
+        height: 16px;
+        overflow: visible;
+        fill: currentColor;
+        pointer-events: none;
+      }
+      .pjip-inline-btn[data-active="false"] .pjip-inline-icon {
+        opacity: .46;
+      }
+      .pjip-inline-btn--mark[data-active="true"] {
+        color: #1f69d5;
+      }
+      .pjip-inline-btn--done[data-active="true"] {
+        color: #16833a;
       }
       .pjip-inline-btn[disabled] {
         opacity: .4;
