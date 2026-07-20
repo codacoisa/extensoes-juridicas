@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Anotações
 // @namespace    projudi-anotacoes-locais.user.js
-// @version      2026.07.20-1416
+// @version      2026.07.20-1439
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Adiciona Post-it local ao Projudi, com painel de notas, importação e exportação.
 // @author       lourencosv (GPT)
@@ -947,9 +947,9 @@ html = persistentGet(key, '');
             #pj-add-btn :is(i, .pj-suite-fa) {
                 color: #d4a017 !important;
                 display: inline-block !important;
-                width: 20px !important;
-                height: 20px !important;
-                font-size: 20px !important;
+                width: 32px !important;
+                height: 32px !important;
+                font-size: 32px !important;
                 line-height: 1 !important;
                 vertical-align: middle !important;
                 transform-origin: center center !important;
@@ -1741,7 +1741,7 @@ html = persistentGet(key, '');
         const widthPx = parseFloat(cs.width) || 0;
         const heightPx = parseFloat(cs.height) || 0;
         const hasUsableSize = widthPx > 0 && heightPx > 0;
-        const normalizedSize = 36;
+        const normalizedSize = 44;
 
         btn.style.setProperty('float', cs.float || 'none', 'important');
         btn.style.setProperty('margin-top', cs.marginTop, 'important');

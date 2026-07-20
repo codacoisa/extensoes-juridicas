@@ -95,6 +95,20 @@ test('ícones SVG preservam os contratos usados pelas extensões', () => {
   assert.doesNotMatch(sources.tarefas, /script\[data-pj-fa-svg/, 'tarefas ainda contém referência ao runtime removido');
 });
 
+test('atalhos do processo e destaques de prazo mantêm a escala e o comportamento atuais', () => {
+  assert.match(sources.anotacoes, /const normalizedSize = 44;/, 'atalho de anotações menor que o ícone nativo');
+  assert.match(sources.anotacoes, /#pj-add-btn :is\(i, \.pj-suite-fa\)[\s\S]*?width: 32px !important;/, 'ícone de anotações fora da escala esperada');
+  assert.match(sources.tarefas, /#\$\{ID_PROC_BTN\}[\s\S]*?width: 44px !important;/, 'atalho de tarefas menor que o ícone nativo');
+  assert.match(sources.tarefas, /#\$\{ID_PROC_BTN\} :is\(i, \.pj-suite-fa\)[\s\S]*?width: 32px !important;/, 'ícone de tarefas fora da escala esperada');
+
+  const intimacoes = sources.intimacoes;
+  assert.match(intimacoes, /byYmd: new Map\(/, 'estado de destaque não indexa as datas visíveis');
+  assert.match(intimacoes, /highlightSnapshot:/, 'cache de destaque não acompanha a janela de datas');
+  assert.match(intimacoes, /function injectDeadlineStyles[\s\S]*?appendChild\(dynamicStyle\)/, 'CSS dinâmico de prazos não é injetado');
+  assert.match(intimacoes, /if \(targetCols\.has\(col\)\) applyDeadlineHighlightToCell\(cells\[col\]\)/, 'células de prazo não recebem destaque');
+  assert.doesNotMatch(intimacoes, /function injectDeadlineStyles[\s\S]{0,500}?getElementById\(baseId\)\?\.remove\(\)/, 'o inicializador ainda remove o CSS de prazo');
+});
+
 test('APIs auxiliares e mensagens ficam isoladas do contexto global da página', () => {
   for (const [id, source] of Object.entries(sources)) {
     assert.match(source, /const gmRegisterMenuCommand =/, `${id}: wrapper local do menu ausente`);

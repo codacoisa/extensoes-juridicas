@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2026.07.20-1416
+// @version      2026.07.20-1439
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -1781,10 +1781,10 @@
         bottom: auto !important;
         appearance: none !important;
         -webkit-appearance: none !important;
-        width: 36px !important;
-        min-width: 36px !important;
-        height: 36px !important;
-        min-height: 36px !important;
+        width: 44px !important;
+        min-width: 44px !important;
+        height: 44px !important;
+        min-height: 44px !important;
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
@@ -1792,9 +1792,9 @@
       #${ID_PROC_BTN} :is(i, .pj-suite-fa) {
         color: #2b69aa !important;
         display: inline-block !important;
-        width: 20px !important;
-        height: 20px !important;
-        font-size: 20px !important;
+        width: 32px !important;
+        height: 32px !important;
+        font-size: 32px !important;
         line-height: 1 !important;
         vertical-align: middle !important;
         transform-origin: center center !important;
