@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2026.07.19-0345
+// @version      2026.07.20-1125
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -638,6 +638,12 @@
     return true;
   }
 
+  function buildProcessLookupUrl(processNumber) {
+    const normalized = String(processNumber || '').trim().replace(/\s+/g, ' ');
+    if (!normalized || normalized.length > 80 || !/\d/.test(normalized)) return '';
+    return `BuscaProcesso?PaginaAtual=2&TipoConsultaProcesso=24&ProcessoNumero=${encodeURIComponent(normalized)}`;
+  }
+
   function findProcessSearchInput(doc) {
     const inputs = Array.from(doc.querySelectorAll('input:not([type]), input[type="text"], input[type="search"], input[type="tel"]'))
       .filter(input => !input.closest(`#pj-todo, #${ID_MANAGER_OVERLAY}, #${ID_MIN_BTN}, #${ID_PROC_BTN}`));
@@ -691,6 +697,11 @@
   }
 
   function openProcessFromCnj(cnj, processUrl = '') {
+    // URLs armazenadas de uma pendência podem conter um ID contextual que
+    // expira no Projudi. A consulta pelo número do processo é estável e deve
+    // ser tentada antes do link legado salvo no índice local.
+    const lookupUrl = buildProcessLookupUrl(cnj);
+    if (lookupUrl && navigateToProcessUrl(lookupUrl)) return true;
     if (processUrl && navigateToProcessUrl(processUrl)) return true;
     return searchProcessByCnj(cnj);
   }
