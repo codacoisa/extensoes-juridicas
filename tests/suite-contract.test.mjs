@@ -110,12 +110,15 @@ test('atalhos do processo e filtros de intimações mantêm o comportamento atua
   assert.doesNotMatch(intimacoes, /item \? '★' : '☆'|buildInlineButton\([\s\S]{0,120}?['"]✓['"]/, 'os controles inline ainda dependem de glifos da fonte');
   assert.match(intimacoes, /buildInlineFontAwesomeIcon\(doc, iconName\)/, 'os controles inline não usam SVG direto');
   assert.match(intimacoes, /use\.setAttribute\('href', `#pj-suite-fa-\$\{iconName\}`\)/, 'os SVGs inline não usam o sprite isolado da suíte');
+  assert.match(intimacoes, /svg\.dataset\.icon = iconName;/, 'os SVGs inline não preservam o nome necessário à reconstrução no Safari');
+  assert.match(intimacoes, /ensureFontAwesome\(context\.doc\)\.then\(sprite =>[\s\S]{0,240}?refreshInlineFontAwesomeIcons\(context\.doc\)/, 'os ícones criados antes do sprite não são reconstruídos no Safari');
   assert.match(intimacoes, /if \(!doc\) return Promise\.resolve\(null\);/, 'o carregador SVG não tolera documentos antigos do Projudi');
   assert.match(intimacoes, /const styleHost = doc\.head \|\| doc\.documentElement;/, 'o CSS isolado exige indevidamente um elemento head');
-  assert.match(intimacoes, /if \(syncFrameDocument\(frame\)\) refreshFrameContext\(\);\s*scheduleRefreshBurst\(\);/, 'a carga inicial não revisita o iframe após o Projudi preencher a página');
+  assert.match(intimacoes, /beginFrameSettlement\(state\.frameDoc\);\s*refreshFrameContext\(\);[\s\S]{0,80}?scheduleRefreshBurst\(\);/, 'a carga inicial não acompanha a montagem tardia do iframe');
+  assert.match(intimacoes, /state\.settleObserver = new MutationObserver[\s\S]{0,700}?state\.settleObserver\.observe\(root, \{ childList: true, subtree: true \}\)/, 'a tabela montada após o load não dispara nova sincronização');
+  assert.match(intimacoes, /endFrameSettlement\(false\);\s*safeRun\('Falha ao aplicar os estilos da tabela de intimações\.'[\s\S]{0,260}?safeRun\('Falha ao sincronizar a tabela de intimações\.'/, 'a sincronização principal não encerra a observação temporária ou não está isolada de falhas');
   assert.match(intimacoes, /const hasCurrentDocument = state\.frame \? syncFrameDocument\(state\.frame\) : false;/, 'as atualizações continuam usando uma referência antiga do iframe');
   assert.match(intimacoes, /const documentChanged = currentDoc !== state\.frameDoc;/, 'a substituição do documento interno não é detectada');
-  assert.match(intimacoes, /injectFrameStyles\(nextContext\.doc\);\s*syncPageRows\(nextContext\);/, 'uma assinatura de página ainda bloqueia a sincronização das linhas');
   assert.doesNotMatch(intimacoes, /pageSignature|buildPageSignature/, 'o cache obsoleto de página ainda pode ocultar as ações');
   assert.doesNotMatch(intimacoes, /DEADLINE_WEEKDAY_PALETTE|DEADLINE_WEEKEND_COLOR|applyDeadlineHighlightToCell|tm-hl7d/, 'o destaque obsoleto por célula foi reintroduzido');
 });

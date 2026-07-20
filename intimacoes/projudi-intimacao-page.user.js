@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.07.20-1512
+// @version      2026.07.20-1530
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       louencosv (GPT)
@@ -222,6 +222,9 @@
    * frameWin: Window | null,
    * frameLoadHandler: ((event: Event) => void) | null,
    * pageContext: ReturnType<typeof analyzeFrameContext> | null,
+   * settleObserver: MutationObserver | null,
+   * settleDebounceTimer: number,
+   * settleStopTimer: number,
    * refreshTimers: number[],
    * refreshNonce: number,
    * menuRegistered: boolean,
@@ -244,6 +247,9 @@
     frameWin: null,
     frameLoadHandler: null,
     pageContext: null,
+    settleObserver: null,
+    settleDebounceTimer: 0,
+    settleStopTimer: 0,
     refreshTimers: [],
     refreshNonce: 0,
     menuRegistered: false,
@@ -399,7 +405,10 @@
    */
   function onFrameLoaded(frame) {
     clearRefreshTimers();
-    if (syncFrameDocument(frame)) refreshFrameContext();
+    if (syncFrameDocument(frame)) {
+      beginFrameSettlement(state.frameDoc);
+      refreshFrameContext();
+    }
     scheduleRefreshBurst();
   }
 
@@ -420,6 +429,7 @@
     if (documentChanged) {
       state.pageContext = null;
       attachFrameHooks(currentDoc);
+      beginFrameSettlement(currentDoc);
     }
     patchFrameFunctions(currentWin);
     return true;
@@ -509,6 +519,49 @@
   }
 
   /**
+   * Observa apenas a janela de montagem inicial do iframe. O Projudi insere a
+   * tabela depois do evento load no Safari; o observador se desliga assim que
+   * a tabela é encontrada ou, no máximo, após dez segundos.
+   * @param {Document | null} doc
+   */
+  function beginFrameSettlement(doc) {
+    endFrameSettlement(false);
+    if (!doc) return;
+
+    const root = doc.getElementById('divTabela') || doc.getElementById('divCorpo') || doc.body || doc.documentElement;
+    if (!root) return;
+
+    state.settleObserver = new MutationObserver((mutations) => {
+      const changed = mutations.some(mutation =>
+        mutation.type === 'childList' && (mutation.addedNodes.length || mutation.removedNodes.length)
+      );
+      if (!changed) return;
+
+      window.clearTimeout(state.settleDebounceTimer);
+      state.settleDebounceTimer = window.setTimeout(() => {
+        state.settleDebounceTimer = 0;
+        if (state.frameDoc === doc) refreshFrameContext();
+      }, 80);
+    });
+    state.settleObserver.observe(root, { childList: true, subtree: true });
+    state.settleStopTimer = window.setTimeout(() => endFrameSettlement(true), 10000);
+  }
+
+  /**
+   * Encerra a observação temporária do carregamento.
+   * @param {boolean} refreshAfterStop
+   */
+  function endFrameSettlement(refreshAfterStop) {
+    state.settleObserver?.disconnect();
+    state.settleObserver = null;
+    if (state.settleDebounceTimer) window.clearTimeout(state.settleDebounceTimer);
+    if (state.settleStopTimer) window.clearTimeout(state.settleStopTimer);
+    state.settleDebounceTimer = 0;
+    state.settleStopTimer = 0;
+    if (refreshAfterStop && state.frameDoc) refreshFrameContext();
+  }
+
+  /**
    * Reconstrói o contexto da pagina atual.
    */
   function refreshFrameContext() {
@@ -523,18 +576,22 @@
 
     const nextContext = analyzeFrameContext(state.frame, state.frameDoc);
     state.pageContext = nextContext;
-    updateActionMenuVisibility(nextContext);
-    syncDeadlineState();
-    processDeadlineRoot(nextContext.doc);
+    safeRun('Falha ao atualizar o menu de intimações.', () => updateActionMenuVisibility(nextContext));
+    safeRun('Falha ao atualizar os filtros de prazo.', () => syncDeadlineState());
 
     if (!nextContext.isIntimationPage) {
+      safeRun('Falha ao aplicar os filtros de prazo.', () => processDeadlineRoot(nextContext.doc));
       if (state.modalOpen) renderModal();
       return;
     }
 
-    injectFrameStyles(nextContext.doc);
-    syncPageRows(nextContext);
-    processDeadlineRoot(nextContext.doc);
+    const hasDataRows = nextContext.markTables.some(({ table }) =>
+      Array.from(table.tBodies).some(body => Array.from(body.rows).some(row => row.querySelector('td')))
+    );
+    if (hasDataRows) endFrameSettlement(false);
+    safeRun('Falha ao aplicar os estilos da tabela de intimações.', () => injectFrameStyles(nextContext.doc));
+    safeRun('Falha ao sincronizar a tabela de intimações.', () => syncPageRows(nextContext));
+    safeRun('Falha ao aplicar os filtros de prazo.', () => processDeadlineRoot(nextContext.doc));
 
     if (state.modalOpen) {
       renderModal();
@@ -724,7 +781,6 @@
    */
   function syncPageRows(context) {
     const markedIds = new Set(Object.keys(state.store.items));
-    ensureFontAwesome(context.doc);
 
     for (const tableEntry of context.markTables) {
       const { table, headerMap, legend } = tableEntry;
@@ -738,6 +794,11 @@
         }
       }
     }
+
+    ensureFontAwesome(context.doc).then(sprite => {
+      if (!sprite || state.frameDoc !== context.doc) return;
+      refreshInlineFontAwesomeIcons(context.doc);
+    });
   }
 
   /**
@@ -840,12 +901,26 @@
   function buildInlineFontAwesomeIcon(doc, iconName) {
     const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('class', 'pjip-inline-icon');
+    svg.dataset.icon = iconName;
     svg.setAttribute('aria-hidden', 'true');
     svg.setAttribute('focusable', 'false');
     const use = doc.createElementNS('http://www.w3.org/2000/svg', 'use');
     use.setAttribute('href', `#pj-suite-fa-${iconName}`);
     svg.appendChild(use);
     return svg;
+  }
+
+  /**
+   * Recria os usos após o sprite existir. O Safari não atualiza de forma
+   * confiável referências internas criadas antes do símbolo correspondente.
+   * @param {Document} doc
+   */
+  function refreshInlineFontAwesomeIcons(doc) {
+    doc.querySelectorAll('.pjip-inline-icon[data-icon]').forEach(icon => {
+      const iconName = icon.dataset.icon;
+      if (iconName !== 'star' && iconName !== 'check') return;
+      icon.replaceWith(buildInlineFontAwesomeIcon(doc, iconName));
+    });
   }
 
   /**
