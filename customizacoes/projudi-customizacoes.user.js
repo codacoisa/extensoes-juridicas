@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      2026.07.20-2350
+// @version      2026.07.20-2358
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -2291,53 +2291,166 @@
             ${settings.hideHeaderIcons ? '#pgn_cabecalho > div[style*="float: right"] { display: none !important; }' : ""}
         `;
 
-        // Mantém a geometria nativa do Projudi e moderniza apenas a aparência.
+        // Preserva a estrutura funcional do Projudi e aplica uma identidade visual moderna em duas faixas.
         const stableCustomHeaderCss = settings.customHeaderEnabled ? `
             #pjc-custom-header-root {
+                --pjc-header-primary: #0b3b67;
+                --pjc-header-accent: #176fa6;
+                --pjc-header-ink: #17324d;
+                --pjc-header-muted: #5f7185;
+                --pjc-header-border: #d7e3ee;
                 position: relative !important;
                 z-index: 1200 !important;
                 width: 100% !important;
                 overflow: visible !important;
-                background: #f8fafc !important;
-                box-shadow: 0 6px 20px rgba(15, 45, 78, .14) !important;
+                background: #f5f8fb !important;
+                border-bottom: 1px solid var(--pjc-header-border) !important;
+                box-shadow: 0 8px 24px rgba(15, 45, 78, .13) !important;
             }
             #pjc-custom-header-root #Cabecalho {
                 position: relative !important;
                 z-index: 2 !important;
                 overflow: visible !important;
-                border-bottom: 1px solid rgba(255,255,255,.16) !important;
-                background: linear-gradient(110deg, #0b3b67, #17689f) !important;
+                min-height: 56px !important;
+                border-bottom: 1px solid rgba(255,255,255,.14) !important;
+                background:
+                    radial-gradient(circle at 78% -120%, rgba(111, 205, 238, .42), transparent 42%),
+                    linear-gradient(118deg, #092f55 0%, var(--pjc-header-primary) 52%, var(--pjc-header-accent) 100%) !important;
+                box-shadow: inset 0 -1px 0 rgba(3, 20, 38, .22) !important;
             }
             #pjc-custom-header-root #pgn_cabecalho {
                 width: min(1480px, calc(100% - 28px)) !important;
                 max-width: none !important;
+                min-height: 56px !important;
                 margin-left: auto !important;
                 margin-right: auto !important;
+                padding-left: 18px !important;
+                padding-right: 18px !important;
                 box-sizing: border-box !important;
+                color: #ffffff !important;
+                letter-spacing: -.012em !important;
+            }
+            #pjc-custom-header-root #img_logotj {
+                max-height: 38px !important;
+                width: auto !important;
+                margin-left: 0 !important;
+                margin-right: 12px !important;
+                vertical-align: middle !important;
+                filter: drop-shadow(0 2px 5px rgba(2, 18, 34, .28)) !important;
+            }
+            #pjc-custom-header-root #pgn_cabecalho > div[style*="float: right"] {
+                display: flex !important;
+                align-items: center !important;
+                gap: 4px !important;
+                min-height: 56px !important;
+            }
+            #pjc-custom-header-root #cssmenu,
+            #pjc-custom-header-root #cssmenu > ul {
+                overflow: visible !important;
+                background: transparent !important;
+            }
+            #pjc-custom-header-root #cssmenu > ul {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: flex-end !important;
+                gap: 4px !important;
+            }
+            #pjc-custom-header-root #cssmenu > ul > li {
+                float: none !important;
+            }
+            #pjc-custom-header-root #cssmenu > ul > li > a {
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                min-width: 34px !important;
+                min-height: 34px !important;
+                padding: 0 9px !important;
+                color: #ffffff !important;
+                border: 1px solid transparent !important;
+                border-radius: 10px !important;
+                transition: background-color .15s ease, border-color .15s ease, transform .15s ease !important;
+            }
+            #pjc-custom-header-root #cssmenu > ul > li:hover > a,
+            #pjc-custom-header-root #cssmenu > ul > li:focus-within > a {
+                color: #ffffff !important;
+                border-color: rgba(255,255,255,.18) !important;
+                background: rgba(255,255,255,.13) !important;
+                transform: translateY(-1px) !important;
             }
             #pjc-custom-header-root [data-pjc-custom-nav-shell="true"],
             #pjc-custom-header-root #menuPrinciapl.menu {
                 position: relative !important;
                 z-index: 1 !important;
                 overflow: visible !important;
-                border-bottom: 1px solid #d9e4ef !important;
-                background: #f8fafc !important;
+                min-height: 42px !important;
+                border-bottom: 0 !important;
+                background: rgba(255,255,255,.96) !important;
+                backdrop-filter: blur(12px) !important;
+                -webkit-backdrop-filter: blur(12px) !important;
             }
-            #pjc-custom-header-root #cssmenu > ul > li > a,
+            #pjc-custom-header-root #menuPrinciapl.menu > ul {
+                display: flex !important;
+                align-items: center !important;
+                gap: 3px !important;
+                min-height: 42px !important;
+                margin: 0 !important;
+                padding: 5px 8px !important;
+                box-sizing: border-box !important;
+            }
+            #pjc-custom-header-root #menuPrinciapl.menu > ul > li {
+                float: none !important;
+                position: relative !important;
+            }
             #pjc-custom-header-root #menuPrinciapl.menu > ul > li > a,
             #pjc-custom-header-root #menuPrinciapl.menu > a {
-                border-radius: 7px !important;
-                transition: background-color .15s ease, color .15s ease !important;
-            }
-            #pjc-custom-header-root #cssmenu > ul > li:hover > a {
-                background: rgba(255,255,255,.15) !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                min-height: 32px !important;
+                padding: 0 11px !important;
+                border: 1px solid transparent !important;
+                border-radius: 9px !important;
+                color: var(--pjc-header-ink) !important;
+                font-weight: 650 !important;
+                line-height: 1.2 !important;
+                text-decoration: none !important;
+                transition: background-color .15s ease, border-color .15s ease, color .15s ease !important;
             }
             #pjc-custom-header-root #menuPrinciapl.menu > ul > li:hover > a,
-            #pjc-custom-header-root #menuPrinciapl.menu > ul > li.active > a {
-                background: #eaf3fb !important;
-                color: #0b548b !important;
+            #pjc-custom-header-root #menuPrinciapl.menu > ul > li:focus-within > a {
+                border-color: #cfe1ef !important;
+                background: #edf5fb !important;
+                color: #0b5d91 !important;
             }
-            #pjc-custom-header-root #cronometro { color: #52657a !important; font-weight: 650 !important; }
+            #pjc-custom-header-root #menuPrinciapl.menu > ul > li.active > a,
+            #pjc-custom-header-root #menuPrinciapl.menu > ul > li.ativo > a {
+                border-color: #bdd7e9 !important;
+                background: #e5f1f9 !important;
+                color: #084f7d !important;
+                box-shadow: inset 0 -2px 0 #1682bd !important;
+            }
+            #pjc-custom-header-root #menuPrinciapl.menu ul ul {
+                border: 1px solid var(--pjc-header-border) !important;
+                border-radius: 10px !important;
+                background: #ffffff !important;
+                box-shadow: 0 14px 32px rgba(15, 45, 78, .18) !important;
+            }
+            #pjc-custom-header-root #cronometro {
+                margin: 6px 10px 6px auto !important;
+                padding: 5px 9px !important;
+                border: 1px solid #d7e5ef !important;
+                border-radius: 999px !important;
+                background: #f0f6fa !important;
+                color: var(--pjc-header-muted) !important;
+                font-size: 11px !important;
+                font-weight: 700 !important;
+                line-height: 1 !important;
+            }
+            @media (max-width: 1080px) {
+                #pjc-custom-header-root #menuPrinciapl.menu > ul > li > a {
+                    padding-left: 8px !important;
+                    padding-right: 8px !important;
+                }
+            }
         ` : "";
 
         const topFontCss = settings.googleFontEnabled && settings.googleFontFamily
@@ -3549,7 +3662,6 @@
                 line-height: 1.25 !important;
                 height: auto !important;
                 vertical-align: middle !important;
-                text-align: left !important;
             }
             table:not(.pjip-table) th[align="center"],
             table:not(.pjip-table) tr.fundoCabecalhoTabela > td[align="center"],

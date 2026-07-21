@@ -136,6 +136,9 @@ test('Customizações reverte integralmente recursos visuais', () => {
   assert.match(source, /#menuPrinciapl\.menu \{[\s\S]{0,220}?width: \$\{widthValue\} !important;/, 'a largura não alcança a navegação principal');
   assert.match(source, /const widthLayoutCss = widthEnabled \? `[\s\S]{0,900}?#divCorpo,[\s\S]{0,500}?width: \$\{widthValue\} !important;/, 'a largura não sobrescreve os contêineres nativos do conteúdo');
   assert.match(source, /body > div\[style\*="width:"\]\[style\*="margin"\],[\s\S]{0,160}?width: \$\{widthValue\} !important;/, 'a largura não alcança os contêineres inline usados pelo Projudi');
+  assert.match(source, /--pjc-header-primary:[\s\S]{0,1500}?radial-gradient\([\s\S]{0,220}?linear-gradient\(/, 'o cabeçalho personalizado não possui identidade visual própria');
+  assert.match(source, /#menuPrinciapl\.menu > ul > li\.active > a,[\s\S]{0,260}?box-shadow: inset 0 -2px 0/, 'a navegação personalizada não diferencia a seção ativa');
+  assert.doesNotMatch(source, /table\.listagem:not\(\.pjip-table\) th,[\s\S]{0,650}?vertical-align: middle !important;\s*text-align: left !important;/, 'tabelas legíveis sobrescrevem o alinhamento semântico dos cabeçalhos');
 });
 
 test('APIs auxiliares e mensagens ficam isoladas do contexto global da página', () => {
