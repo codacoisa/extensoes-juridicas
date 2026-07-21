@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Anotações
 // @namespace    projudi-anotacoes-locais.user.js
-// @version      2026.07.20-1439
+// @version      2026.07.20-2328
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Adiciona Post-it local ao Projudi, com painel de notas, importação e exportação.
 // @author       lourencosv (GPT)
@@ -947,9 +947,9 @@ html = persistentGet(key, '');
             #pj-add-btn :is(i, .pj-suite-fa) {
                 color: #d4a017 !important;
                 display: inline-block !important;
-                width: 32px !important;
-                height: 32px !important;
-                font-size: 32px !important;
+                width: var(--pj-integrated-icon-size, 32px) !important;
+                height: var(--pj-integrated-icon-size, 32px) !important;
+                font-size: var(--pj-integrated-icon-size, 32px) !important;
                 line-height: 1 !important;
                 vertical-align: middle !important;
                 transform-origin: center center !important;
@@ -1741,7 +1741,14 @@ html = persistentGet(key, '');
         const widthPx = parseFloat(cs.width) || 0;
         const heightPx = parseFloat(cs.height) || 0;
         const hasUsableSize = widthPx > 0 && heightPx > 0;
-        const normalizedSize = 44;
+        const nativeIcon = nativeBtn.querySelector('i, svg');
+        const nativeIconStyle = nativeIcon ? window.getComputedStyle(nativeIcon) : null;
+        const nativeIconSize = Math.max(
+            parseFloat(nativeIconStyle?.width) || 0,
+            parseFloat(nativeIconStyle?.height) || 0,
+            parseFloat(nativeIconStyle?.fontSize) || 0
+        );
+        if (nativeIconSize > 0) btn.style.setProperty('--pj-integrated-icon-size', `${nativeIconSize}px`);
 
         btn.style.setProperty('float', cs.float || 'none', 'important');
         btn.style.setProperty('margin-top', cs.marginTop, 'important');
@@ -1784,10 +1791,10 @@ html = persistentGet(key, '');
         btn.style.setProperty('line-height', cs.lineHeight, 'important');
         btn.style.setProperty('text-align', cs.textAlign, 'important');
         if (hasUsableSize) {
-            btn.style.setProperty('width', `${normalizedSize}px`, 'important');
-            btn.style.setProperty('height', `${normalizedSize}px`, 'important');
-            btn.style.setProperty('min-width', `${normalizedSize}px`, 'important');
-            btn.style.setProperty('min-height', `${normalizedSize}px`, 'important');
+            btn.style.setProperty('width', cs.width, 'important');
+            btn.style.setProperty('height', cs.height, 'important');
+            btn.style.setProperty('min-width', cs.width, 'important');
+            btn.style.setProperty('min-height', cs.height, 'important');
         } else {
             btn.style.removeProperty('width');
             btn.style.removeProperty('height');

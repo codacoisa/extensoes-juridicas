@@ -96,10 +96,10 @@ test('ícones SVG preservam os contratos usados pelas extensões', () => {
 });
 
 test('atalhos do processo e filtros de intimações mantêm o comportamento atual', () => {
-  assert.match(sources.anotacoes, /const normalizedSize = 44;/, 'atalho de anotações menor que o ícone nativo');
-  assert.match(sources.anotacoes, /#pj-add-btn :is\(i, \.pj-suite-fa\)[\s\S]*?width: 32px !important;/, 'ícone de anotações fora da escala esperada');
-  assert.match(sources.tarefas, /#\$\{ID_PROC_BTN\}[\s\S]*?width: 44px !important;/, 'atalho de tarefas menor que o ícone nativo');
-  assert.match(sources.tarefas, /#\$\{ID_PROC_BTN\} :is\(i, \.pj-suite-fa\)[\s\S]*?width: 32px !important;/, 'ícone de tarefas fora da escala esperada');
+  assert.match(sources.anotacoes, /const nativeIconSize = Math\.max\([\s\S]{0,300}?--pj-integrated-icon-size/, 'anotações não mede o ícone nativo');
+  assert.match(sources.anotacoes, /width: var\(--pj-integrated-icon-size, 32px\) !important;/, 'ícone de anotações não acompanha a escala nativa');
+  assert.match(sources.tarefas, /function matchProcessLauncherSize\(button, anchor\)/, 'tarefas não mede o atalho vizinho');
+  assert.match(sources.tarefas, /width: var\(--pj-process-icon-size, 32px\) !important;/, 'ícone de tarefas não acompanha a escala vizinha');
 
   const intimacoes = sources.intimacoes;
   assert.match(intimacoes, /\.pjip-table tbody tr\.pjip-row--marked > td\s*\{\s*background-color: #eaf3ff !important;/, 'linhas a fazer não recebem o fundo azul');
@@ -109,6 +109,7 @@ test('atalhos do processo e filtros de intimações mantêm o comportamento atua
   assert.doesNotMatch(intimacoes, /host\.replaceChildren\([\s\S]{0,800}?renderFontAwesome\(host\)/, 'os controles textuais da linha ainda acionam o carregador de ícones');
   assert.doesNotMatch(intimacoes, /item \? '★' : '☆'|buildInlineButton\([\s\S]{0,120}?['"]✓['"]/, 'os controles inline ainda dependem de glifos da fonte');
   assert.match(intimacoes, /buildInlineFontAwesomeIcon\(doc, iconName\)/, 'os controles inline não usam SVG direto');
+  assert.match(intimacoes, /--pjip-native-icon-size/, 'os controles inline não acompanham os ícones nativos da tabela');
   assert.match(intimacoes, /use\.setAttribute\('href', `#pj-suite-fa-\$\{iconName\}`\)/, 'os SVGs inline não usam o sprite isolado da suíte');
   assert.match(intimacoes, /svg\.dataset\.icon = iconName;/, 'os SVGs inline não preservam o nome necessário à reconstrução no Safari');
   assert.match(intimacoes, /ensureFontAwesome\(context\.doc\)\.then\(sprite =>[\s\S]{0,240}?refreshInlineFontAwesomeIcons\(context\.doc\)/, 'os ícones criados antes do sprite não são reconstruídos no Safari');
@@ -121,6 +122,15 @@ test('atalhos do processo e filtros de intimações mantêm o comportamento atua
   assert.match(intimacoes, /const documentChanged = currentDoc !== state\.frameDoc;/, 'a substituição do documento interno não é detectada');
   assert.doesNotMatch(intimacoes, /pageSignature|buildPageSignature/, 'o cache obsoleto de página ainda pode ocultar as ações');
   assert.doesNotMatch(intimacoes, /DEADLINE_WEEKDAY_PALETTE|DEADLINE_WEEKEND_COLOR|applyDeadlineHighlightToCell|tm-hl7d/, 'o destaque obsoleto por célula foi reintroduzido');
+});
+
+test('Customizações reverte integralmente recursos visuais', () => {
+  const source = sources.customizacoes;
+  assert.match(source, /function restoreCustomHeaderStructure\(\)/, 'cabeçalho personalizado não possui restauração explícita');
+  assert.match(source, /function resetLayoutEffects\(\)[\s\S]{0,1800}?restoreCustomHeaderStructure\(\);/, 'desativar personalizações deixa a estrutura do cabeçalho alterada');
+  assert.match(source, /if \(!settings\.enabled \|\| !settings\.enableIframeAutoHeight\) \{\s*iframe\.style\.removeProperty\("height"\);/, 'desativar altura automática deixa a altura anterior no iframe');
+  assert.match(source, /const iframeTop = Math\.max\(0, iframe\.getBoundingClientRect\(\)\.top\);/, 'altura automática ignora a posição real do iframe');
+  assert.match(source, /function resetLayoutEffects\(\)[\s\S]{0,350}?unbindIframeLoadListener\(\);/, 'desativar personalizações deixa listeners do iframe ativos');
 });
 
 test('APIs auxiliares e mensagens ficam isoladas do contexto global da página', () => {

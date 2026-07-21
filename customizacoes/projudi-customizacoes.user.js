@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      2026.07.20-1416
+// @version      2026.07.20-2328
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -2167,16 +2167,17 @@
         document.addEventListener("keydown", escClose);
     }
 
+    function restoreCustomHeaderStructure() {
+        if (!customHeaderMount) return;
+        customHeaderMount.items.forEach(({ node, marker }) => {
+            if (marker.parentNode) marker.parentNode.insertBefore(node, marker);
+            marker.remove();
+        });
+        customHeaderMount.root.remove();
+        customHeaderMount = null;
+    }
+
     function syncCustomHeaderStructure() {
-        const restore = () => {
-            if (!customHeaderMount) return;
-            customHeaderMount.items.forEach(({ node, marker }) => {
-                if (marker.parentNode) marker.parentNode.insertBefore(node, marker);
-                marker.remove();
-            });
-            customHeaderMount.root.remove();
-            customHeaderMount = null;
-        };
 
         const attrs = [
             "data-pjc-custom-header-shell",
@@ -2187,7 +2188,7 @@
             document.querySelectorAll(`[${attr}]`).forEach(node => node.removeAttribute(attr));
         });
         if (!settings.customHeaderEnabled || !document.body) {
-            restore();
+            restoreCustomHeaderStructure();
             return;
         }
 
@@ -2203,7 +2204,7 @@
         if (navShell) navShell.setAttribute("data-pjc-custom-nav-shell", "true");
 
         if (customHeaderMount?.root?.isConnected) return;
-        restore();
+        restoreCustomHeaderStructure();
         const topChild = node => {
             let current = node;
             while (current?.parentElement && current.parentElement !== document.body) current = current.parentElement;
@@ -2309,25 +2310,15 @@
     }
 
     function ajustarAlturaIframe() {
-        if (!settings.enabled || !settings.enableIframeAutoHeight) return;
-
         const iframe = document.getElementById("Principal");
         if (!iframe) return;
+        if (!settings.enabled || !settings.enableIframeAutoHeight) {
+            iframe.style.removeProperty("height");
+            return;
+        }
 
-        const cabecalho = document.getElementById("Cabecalho");
-        const barraCinza = Array.from(document.body.children).find(
-            d =>
-                d !== iframe &&
-                d.style &&
-                d.style.height === "28px" &&
-                d.style.backgroundColor === "#ccc"
-        );
-
-        let offsetTop = 0;
-        if (cabecalho && cabecalho.offsetHeight) offsetTop += cabecalho.offsetHeight;
-        if (barraCinza && barraCinza.offsetHeight) offsetTop += barraCinza.offsetHeight;
-
-        const h = window.innerHeight - offsetTop;
+        const iframeTop = Math.max(0, iframe.getBoundingClientRect().top);
+        const h = Math.floor(window.innerHeight - iframeTop);
         if (h > 200) iframe.style.height = h + "px";
     }
 
@@ -3763,6 +3754,12 @@
         retryInjectInIframe(14, 220);
     }
 
+    function unbindIframeLoadListener() {
+        if (!boundIframeEl) return;
+        boundIframeEl.removeEventListener("load", onIframeLoad);
+        boundIframeEl = null;
+    }
+
     function scheduleTopDomMaintenance() {
         if (topDomWorkScheduled) return;
         topDomWorkScheduled = true;
@@ -3849,6 +3846,7 @@
         }
 
         if (shouldManageIframeFeatures()) watchForIframeAvailability();
+        else unbindIframeLoadListener();
 
         if (!settings.applyToStandalonePages || document.getElementById("Principal")) return;
         standaloneDomObserver = new MutationObserver(mutations => {
@@ -5857,6 +5855,15 @@
     function resetLayoutEffects() {
         clearPendingIframeRetryTimers();
         iframeRetryRunId += 1;
+        unbindIframeLoadListener();
+        if (iframeAvailabilityObserver) {
+            iframeAvailabilityObserver.disconnect();
+            iframeAvailabilityObserver = null;
+        }
+        if (standaloneDomObserver) {
+            standaloneDomObserver.disconnect();
+            standaloneDomObserver = null;
+        }
         stopPopupContextObserver();
         if (mouseMoveListenerBound) {
             document.removeEventListener("mousemove", onDocumentMouseMove, { passive: true });
@@ -5868,6 +5875,7 @@
         }
         removeStyleFromDoc(document, "projudi-top-header-style");
         removeStyleFromDoc(document, "projudi-ajuste-largura");
+        restoreCustomHeaderStructure();
         if (movimentacoesModule) movimentacoesModule.setEnabled(false);
         if (popupHookCleanup) popupHookCleanup();
         removeProcessPopupUi();

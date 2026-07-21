@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.07.20-1530
+// @version      2026.07.20-2328
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       louencosv (GPT)
@@ -831,6 +831,13 @@
       return;
     }
     actionCell.classList.add('pjip-native-host');
+    const nativeIcon = actionCell.querySelector(':scope > i, :scope > svg, :scope > :not(.pjip-inline) i, :scope > :not(.pjip-inline) svg');
+    const nativeIconStyle = nativeIcon ? row.ownerDocument.defaultView?.getComputedStyle(nativeIcon) : null;
+    const nativeIconSize = Math.max(
+      parseFloat(nativeIconStyle?.width) || 0,
+      parseFloat(nativeIconStyle?.height) || 0,
+      parseFloat(nativeIconStyle?.fontSize) || 0
+    );
 
     let host = actionCell.querySelector('.pjip-inline');
     if (!host) {
@@ -838,6 +845,7 @@
       host.className = 'pjip-inline';
       actionCell.appendChild(host);
     }
+    if (nativeIconSize > 0) host.style.setProperty('--pjip-native-icon-size', `${nativeIconSize}px`);
 
     host.replaceChildren(
       buildInlineButton(
@@ -2301,8 +2309,8 @@
         align-items: center;
         justify-content: center;
         min-width: 0;
-        width: 22px;
-        height: 22px;
+        width: calc(var(--pjip-native-icon-size, 16px) + 6px);
+        height: calc(var(--pjip-native-icon-size, 16px) + 6px);
         padding: 0 !important;
         margin: 0 !important;
         border: 0;
@@ -2319,8 +2327,8 @@
       }
       .pjip-inline-icon {
         display: block;
-        width: 16px;
-        height: 16px;
+        width: var(--pjip-native-icon-size, 16px);
+        height: var(--pjip-native-icon-size, 16px);
         overflow: visible;
         fill: currentColor;
         pointer-events: none;

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2026.07.20-1439
+// @version      2026.07.20-2328
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -1781,10 +1781,10 @@
         bottom: auto !important;
         appearance: none !important;
         -webkit-appearance: none !important;
-        width: 44px !important;
-        min-width: 44px !important;
-        height: 44px !important;
-        min-height: 44px !important;
+        width: var(--pj-process-button-size, 44px) !important;
+        min-width: var(--pj-process-button-size, 44px) !important;
+        height: var(--pj-process-button-size, 44px) !important;
+        min-height: var(--pj-process-button-size, 44px) !important;
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
@@ -1792,9 +1792,9 @@
       #${ID_PROC_BTN} :is(i, .pj-suite-fa) {
         color: #2b69aa !important;
         display: inline-block !important;
-        width: 32px !important;
-        height: 32px !important;
-        font-size: 32px !important;
+        width: var(--pj-process-icon-size, 32px) !important;
+        height: var(--pj-process-icon-size, 32px) !important;
+        font-size: var(--pj-process-icon-size, 32px) !important;
         line-height: 1 !important;
         vertical-align: middle !important;
         transform-origin: center center !important;
@@ -2501,6 +2501,22 @@
     renderFontAwesome(btn);
   }
 
+  function matchProcessLauncherSize(button, anchor) {
+    const anchorStyle = getComputedStyle(anchor);
+    const anchorRect = anchor.getBoundingClientRect();
+    const anchorSize = Math.max(anchorRect.width, anchorRect.height);
+    const anchorIcon = anchor.querySelector('i, svg');
+    const iconStyle = anchorIcon ? getComputedStyle(anchorIcon) : null;
+    const iconSize = Math.max(
+      parseFloat(iconStyle?.width) || 0,
+      parseFloat(iconStyle?.height) || 0,
+      parseFloat(iconStyle?.fontSize) || 0
+    );
+    if (anchorSize >= 20 && anchorSize <= 64) button.style.setProperty('--pj-process-button-size', `${anchorSize}px`);
+    if (iconSize >= 10 && iconSize <= 48) button.style.setProperty('--pj-process-icon-size', `${iconSize}px`);
+    button.style.setProperty('vertical-align', anchorStyle.verticalAlign || 'middle', 'important');
+  }
+
   function mountProcessInlineButton({ onOpen }) {
     const existing = document.getElementById(ID_PROC_BTN);
     if (existing) return true;
@@ -2520,6 +2536,7 @@
       title: 'Tarefas locais deste processo',
       'aria-label': 'Tarefas locais deste processo'
     }, [el('i', { className: 'fa-solid fa-list-check', 'aria-hidden': 'true' })]);
+    matchProcessLauncherSize(btn, anchor);
 
     btn.addEventListener('mousedown', e => {
       e.preventDefault();
@@ -2601,6 +2618,7 @@
       title: 'Tarefas locais deste processo',
       'aria-label': 'Tarefas locais deste processo'
     }, [el('i', { className: 'fa-solid fa-list-check', 'aria-hidden': 'true' })]);
+    matchProcessLauncherSize(btn, anchor);
 
     btn.addEventListener('mousedown', e => {
       e.preventDefault();
