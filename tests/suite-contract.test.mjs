@@ -131,6 +131,11 @@ test('Customizações reverte integralmente recursos visuais', () => {
   assert.match(source, /if \(!settings\.enabled \|\| !settings\.enableIframeAutoHeight\) \{\s*iframe\.style\.removeProperty\("height"\);/, 'desativar altura automática deixa a altura anterior no iframe');
   assert.match(source, /const iframeTop = Math\.max\(0, iframe\.getBoundingClientRect\(\)\.top\);/, 'altura automática ignora a posição real do iframe');
   assert.match(source, /function resetLayoutEffects\(\)[\s\S]{0,350}?unbindIframeLoadListener\(\);/, 'desativar personalizações deixa listeners do iframe ativos');
+  assert.match(source, /const hasHeaderAdjust = widthEnabled \|\| settings\.hideClock/, 'a largura não ativa os ajustes do topo');
+  assert.match(source, /#pgn_cabecalho \{[\s\S]{0,180}?width: \$\{widthValue\} !important;/, 'a largura não alcança o conteúdo do cabeçalho');
+  assert.match(source, /#menuPrinciapl\.menu \{[\s\S]{0,220}?width: \$\{widthValue\} !important;/, 'a largura não alcança a navegação principal');
+  assert.match(source, /const widthLayoutCss = widthEnabled \? `[\s\S]{0,900}?#divCorpo,[\s\S]{0,500}?width: \$\{widthValue\} !important;/, 'a largura não sobrescreve os contêineres nativos do conteúdo');
+  assert.match(source, /body > div\[style\*="width:"\]\[style\*="margin"\],[\s\S]{0,160}?width: \$\{widthValue\} !important;/, 'a largura não alcança os contêineres inline usados pelo Projudi');
 });
 
 test('APIs auxiliares e mensagens ficam isoladas do contexto global da página', () => {

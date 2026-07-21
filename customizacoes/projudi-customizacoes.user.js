@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      2026.07.20-2328
+// @version      2026.07.20-2350
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -2230,12 +2230,61 @@
     function injectTopHeaderCSS() {
         syncCustomHeaderStructure();
         syncGoogleFont(document);
-        const hasHeaderAdjust = settings.hideClock || settings.hideHeaderIcons ||
+        const widthEnabled = !!settings.enableWidthAdjustments;
+        const widthPercent = widthEnabled ? sanitizeWidthPercent(settings.contentWidthPercent) : 100;
+        const widthValue = `${widthPercent}%`;
+        const centeredMargins = settings.centerContent && widthPercent < 100 ? "auto" : "0";
+        const horizontalGutter = settings.centerContent && widthPercent < 100
+            ? `calc((100% - ${widthValue}) / 2)`
+            : "0px";
+        const topPageBg =
+            widthEnabled && settings.sideBackgroundEnabled && settings.sideBackground === "white"
+                ? "#ffffff"
+                : widthEnabled && settings.sideBackgroundEnabled && settings.sideBackground === "light"
+                    ? "#f3f4f6"
+                    : "";
+        const hasHeaderAdjust = widthEnabled || settings.hideClock || settings.hideHeaderIcons ||
             settings.customHeaderEnabled || settings.googleFontEnabled;
         if (!hasHeaderAdjust) {
             removeStyleFromDoc(document, "projudi-top-header-style");
             return;
         }
+
+        const widthCss = widthEnabled ? `
+            ${topPageBg ? `body.fundo { background-color: ${topPageBg} !important; }` : ""}
+            #Cabecalho {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+            }
+            #pgn_cabecalho {
+                width: ${widthValue} !important;
+                max-width: ${widthValue} !important;
+                margin-left: ${centeredMargins} !important;
+                margin-right: ${centeredMargins} !important;
+                box-sizing: border-box !important;
+            }
+            #cssmenu {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+                padding-left: ${horizontalGutter} !important;
+                padding-right: ${horizontalGutter} !important;
+                box-sizing: border-box !important;
+            }
+            #menuPrinciapl.menu {
+                float: none !important;
+                display: block !important;
+                width: ${widthValue} !important;
+                max-width: ${widthValue} !important;
+                margin-left: ${centeredMargins} !important;
+                margin-right: ${centeredMargins} !important;
+                box-sizing: border-box !important;
+                clear: both !important;
+            }
+        ` : "";
 
         const visibilityCss = `
             ${settings.hideClock ? "#cronometro { display: none !important; }" : ""}
@@ -2298,7 +2347,7 @@
                 }
             `
             : "";
-        const css = `${visibilityCss}\n${stableCustomHeaderCss}\n${topFontCss}`;
+        const css = `${visibilityCss}\n${stableCustomHeaderCss}\n${widthCss}\n${topFontCss}`;
 
         let style = document.getElementById("projudi-top-header-style");
         if (!style) {
@@ -3327,9 +3376,7 @@
         const widthEnabled = !!settings.enableWidthAdjustments;
         const widthPercent = widthEnabled ? sanitizeWidthPercent(settings.contentWidthPercent) : 100;
         const widthValue = widthPercent + "%";
-        const widthGutter = `calc(100% - ${widthValue})`;
-        const leftGutter = settings.centerContent ? `calc(${widthGutter} / 2)` : "0px";
-        const rightGutter = settings.centerContent ? `calc(${widthGutter} / 2)` : widthGutter;
+        const centeredMargins = settings.centerContent && widthPercent < 100 ? "auto" : "0";
         const pageBg =
             widthEnabled && settings.sideBackgroundEnabled && settings.sideBackground === "white"
                 ? "#ffffff"
@@ -3631,26 +3678,53 @@
         ` : "";
 
         const widthLayoutCss = widthEnabled ? `
-            html {
+            html, body {
                 width: 100% !important;
                 max-width: 100% !important;
                 margin: 0 !important;
-                padding-left: ${leftGutter} !important;
-                padding-right: ${rightGutter} !important;
                 box-sizing: border-box !important;
                 ${pageBg ? `background-color: ${pageBg} !important;` : ""}
             }
-            body {
+
+            #divCorpo,
+            .divCorpo,
+            #Corpo,
+            #conteudo,
+            #conteudoPrincipal,
+            #pgn_corpo,
+            .Tela,
+            .Corpo,
+            .conteudo,
+            table[width="980"],
+            table[width="1000"] {
+                width: ${widthValue} !important;
+                max-width: ${widthValue} !important;
+                margin-left: ${centeredMargins} !important;
+                margin-right: ${centeredMargins} !important;
+                box-sizing: border-box !important;
+            }
+
+            #Formulario,
+            #divEditar,
+            .divEditar,
+            .VisualizaDados,
+            #abas {
                 width: 100% !important;
-                max-width: none !important;
-                min-width: 0 !important;
+                max-width: 100% !important;
                 margin-left: 0 !important;
                 margin-right: 0 !important;
                 box-sizing: border-box !important;
-                overflow-x: auto !important;
             }
             table, .Tabela, .divTabela, .divTabela table {
                 max-width: 100% !important;
+            }
+
+            body > div[style*="width:"][style*="margin"],
+            body > table[style*="width:"] {
+                width: ${widthValue} !important;
+                max-width: ${widthValue} !important;
+                margin-left: ${centeredMargins} !important;
+                margin-right: ${centeredMargins} !important;
             }
         ` : "";
 
