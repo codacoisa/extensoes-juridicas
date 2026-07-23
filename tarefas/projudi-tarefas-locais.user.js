@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2026.07.22-2212
+// @version      2026.07.22-2217
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -1541,17 +1541,32 @@
       }
       .pj-home-tabs {
         display: flex;
+        align-items: stretch;
         gap: 4px;
         padding: 4px;
         border: 1px solid #dbe3ef;
         border-radius: 11px;
         background: #edf3f8;
         width: 100%;
+        height: 44px;
         min-height: 44px;
       }
       .pj-home-tab {
+        position: relative !important;
+        inset: auto !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        align-self: stretch !important;
         flex: 1 1 0;
         gap: 7px;
+        width: auto !important;
+        min-width: 0 !important;
+        height: 34px !important;
+        min-height: 34px !important;
+        max-height: 34px !important;
+        margin: 0 !important;
+        padding: 0 9px !important;
         border: 1px solid transparent;
         border-radius: 8px;
         background: transparent;
@@ -1559,17 +1574,22 @@
         cursor: pointer;
         font-size: 12px;
         font-weight: 750;
-        line-height: 1.2;
-        padding: 0 9px;
-        min-width: 0;
-        min-height: 34px;
+        line-height: 1 !important;
         text-align: center;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
+        white-space: nowrap;
+        vertical-align: middle !important;
+        transform: none !important;
         appearance: none;
         -webkit-appearance: none;
         transition: background .14s ease, color .14s ease, box-shadow .14s ease;
+      }
+      .pj-home-tab :is(i, .pj-suite-fa) {
+        display: block;
+        flex: 0 0 auto;
+        width: 13px;
+        height: 13px;
+        margin: 0;
+        vertical-align: middle;
       }
       .pj-home-tab:hover { color: #123f6d; }
       .pj-home-tab.active {
@@ -1582,14 +1602,18 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        flex: 0 0 auto;
         min-width: 20px;
         height: 20px;
+        margin: 0;
         padding: 0 6px;
         border-radius: 999px;
         background: rgba(15, 62, 117, .09);
         color: inherit;
         font-size: 10px;
         font-weight: 850;
+        line-height: 20px;
+        vertical-align: middle;
       }
       .pj-home-tab.active .pj-home-tab-count {
         background: #e5f0fa;
