@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2026.07.22-2224
+// @version      2026.07.22-2231
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -1330,7 +1330,7 @@
         overscroll-behavior: contain;
       }
       #pj-todo * { box-sizing: border-box; }
-      #pj-todo.pj-todo-home {
+      #pj-todo.pj-todo-modern {
         width: min(480px, calc(100vw - 24px));
         max-height: 88vh;
       }
@@ -1356,7 +1356,7 @@
         text-overflow: ellipsis;
         max-width: 310px;
       }
-      .pj-todo-home #pj-todo-header {
+      .pj-todo-modern #pj-todo-header {
         min-height: 62px;
         padding: 11px 12px 11px 14px;
         cursor: move;
@@ -1648,6 +1648,41 @@
         padding: 0 2px 2px;
         background: transparent;
       }
+      #pj-todo.pj-todo-modern .pj-process-layout {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-height: 0;
+      }
+      #pj-todo.pj-todo-modern .pj-process-layout .pj-section {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-height: 0;
+        overflow: visible;
+        border: 0;
+        border-radius: 0;
+      }
+      #pj-todo.pj-todo-modern .pj-process-layout .pj-list {
+        flex: 1;
+        min-height: 0;
+        max-height: none;
+        padding: 0 2px 2px;
+        background: transparent;
+      }
+      #pj-todo.pj-todo-modern .pj-process-count-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 24px;
+        height: 24px;
+        padding: 0 8px;
+        border-radius: 999px;
+        background: #e4eef7;
+        color: #315879;
+        font-size: 10px;
+        font-weight: 850;
+      }
       .pj-home-toolbar {
         display: flex;
         align-items: center;
@@ -1782,7 +1817,7 @@
         box-shadow: 0 0 0 3px rgba(37, 118, 189, .16);
       }
       .pj-home-tag-row .pj-tag-input:focus-visible { outline: 0 !important; }
-      .pj-home-layout .pj-item {
+      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) .pj-item {
         gap: 8px;
         margin-bottom: 7px;
         padding: 9px 8px;
@@ -1792,58 +1827,58 @@
         box-shadow: 0 1px 2px rgba(15, 39, 66, .025);
         transition: border-color .14s ease, box-shadow .14s ease, transform .14s ease;
       }
-      .pj-home-layout .pj-item:hover {
+      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) .pj-item:hover {
         border-color: #b9cde0;
         background: #fff;
         box-shadow: 0 5px 14px rgba(15, 49, 85, .07);
         transform: translateY(-1px);
       }
-      .pj-home-layout .pj-mini input[type="checkbox"] {
+      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) .pj-mini input[type="checkbox"] {
         width: 17px;
         height: 17px;
         margin-top: 1px;
         accent-color: #1767a8;
       }
-      .pj-home-layout .pj-drag {
+      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) .pj-drag {
         width: 8px;
         padding-left: 0;
         color: #a7b5c3;
         opacity: .72;
       }
-      .pj-home-layout .pj-text {
+      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) .pj-text {
         color: #163858;
         font-size: 12px;
         font-weight: 650;
         line-height: 1.35;
         text-align: left;
       }
-      .pj-home-layout .pj-meta {
+      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) .pj-meta {
         margin-top: 4px;
         color: #8191a5;
         font-size: 9px;
       }
-      .pj-home-layout .pj-item-actions {
+      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) .pj-item-actions {
         gap: 3px;
         padding-left: 2px;
         opacity: .62;
         transition: opacity .14s ease;
       }
-      .pj-home-layout .pj-item:hover .pj-item-actions,
-      .pj-home-layout .pj-item:focus-within .pj-item-actions { opacity: 1; }
-      .pj-home-layout .pj-move,
-      .pj-home-layout .pj-edit-tags,
-      .pj-home-layout .pj-del {
+      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) .pj-item:hover .pj-item-actions,
+      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) .pj-item:focus-within .pj-item-actions { opacity: 1; }
+      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) .pj-move,
+      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) .pj-edit-tags,
+      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) .pj-del {
         width: 26px;
         height: 26px;
         border-radius: 7px;
       }
-      .pj-home-layout .pj-tag {
+      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) .pj-tag {
         border-color: #d7e4ef;
         background: #f4f8fb;
         color: #526d87;
         font-size: 9px;
       }
-      .pj-home-layout .pj-empty {
+      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) .pj-empty {
         display: grid;
         place-items: center;
         min-height: 110px;
@@ -1855,7 +1890,7 @@
         font-size: 11px;
         text-align: center;
       }
-      .pj-home-layout .pj-proc-row {
+      #pj-todo.pj-todo-modern .pj-home-layout .pj-proc-row {
         margin-bottom: 9px;
         padding: 0;
         overflow: hidden;
@@ -1863,22 +1898,22 @@
         border-radius: 11px;
         background: #fff;
       }
-      .pj-home-layout .pj-proc-head {
+      #pj-todo.pj-todo-modern .pj-home-layout .pj-proc-head {
         min-height: 42px;
         margin: 0;
         padding: 8px 10px;
         border-bottom: 1px solid #e1e9f0;
         background: #f5f9fc;
       }
-      .pj-home-layout .pj-proc-count {
+      #pj-todo.pj-todo-modern .pj-home-layout .pj-proc-count {
         padding: 3px 8px;
         border-radius: 999px;
         background: #e4eef7;
         color: #315879;
         font-size: 9px;
       }
-      .pj-home-layout .pj-list-inline { padding: 7px; }
-      .pj-home-layout .pj-list-inline .pj-item:last-child { margin-bottom: 0; }
+      #pj-todo.pj-todo-modern .pj-home-layout .pj-list-inline { padding: 7px; }
+      #pj-todo.pj-todo-modern .pj-home-layout .pj-list-inline .pj-item:last-child { margin-bottom: 0; }
       @media (max-width: 480px) {
         .pj-home-summary-sub { display: none; }
         .pj-home-composer-footer { grid-template-columns: 1fr; }
@@ -3425,27 +3460,42 @@
     };
 
     const header = el('div', { id: 'pj-todo-header' }, [
-      el('div', { id: 'pj-todo-title', title: `Tarefas do processo ${ctx.cnj}` }, [`Tarefas • ${cnjLabel}`]),
+      el('div', { className: 'pj-home-header-brand', title: `Tarefas do processo ${ctx.cnj}` }, [
+        el('div', { className: 'pj-home-header-icon' }, [faIcon('fa-solid fa-scale-balanced')]),
+        el('div', { className: 'pj-home-header-copy' }, [
+          el('div', { className: 'pj-home-header-title' }, ['Tarefas do processo']),
+          el('div', { className: 'pj-home-header-subtitle' }, [ctx.cnj])
+        ])
+      ]),
       createHeaderActions({ onClose })
     ]);
 
     const section = el('div', { className: 'pj-section' }, []);
-    const secHead = el('div', { className: 'pj-sec-head' }, [
-      el('div', {}, ['Tarefas do processo']),
-      el('small', {}, ['Duplo clique edita'])
+    const input = el('input', { className: 'pj-input', type: 'text', placeholder: 'O que precisa ser feito neste processo?', 'aria-label': `Descrição da nova tarefa do processo ${cnjLabel}` });
+    const tagsInput = el('input', { className: 'pj-input pj-tag-input', type: 'text', placeholder: 'Adicionar tags, separadas por vírgula', 'aria-label': 'Tags da nova tarefa do processo' });
+    const addBtn = el('button', { className: 'pj-add', type: 'button' }, [faIcon('fa-solid fa-plus'), 'Criar tarefa']);
+    const newRow = el('div', { className: 'pj-home-composer' }, [
+      el('div', { className: 'pj-home-composer-label' }, [faIcon('fa-solid fa-bolt'), 'Nova tarefa deste processo']),
+      el('div', { className: 'pj-home-composer-main' }, [input]),
+      el('div', { className: 'pj-home-composer-footer' }, [
+        el('div', { className: 'pj-home-tag-row' }, [faIcon('fa-solid fa-tags'), tagsInput]),
+        addBtn
+      ])
     ]);
-    const input = el('input', { className: 'pj-input', type: 'text', placeholder: 'Nova tarefa...' });
-    const tagsInput = el('input', { className: 'pj-input pj-tag-input', type: 'text', placeholder: 'tags' });
-    const addBtn = el('button', { className: 'pj-add', type: 'button' }, ['Adicionar']);
-    const newRow = el('div', { className: 'pj-new' }, [input, tagsInput, addBtn]);
+    const pendingCount = el('span', { className: 'pj-process-count-pill', title: 'Tarefas pendentes neste processo' }, ['0']);
+    const listToolbar = el('div', { className: 'pj-home-toolbar' }, [
+      el('div', { className: 'pj-home-list-title' }, ['Pendências deste processo']),
+      pendingCount
+    ]);
     const list = el('div', { className: 'pj-list' }, []);
 
-    section.appendChild(secHead);
     section.appendChild(newRow);
+    section.appendChild(listToolbar);
     section.appendChild(list);
 
-    const body = el('div', { id: 'pj-todo-body' }, [section]);
-    const panel = el('div', { id: 'pj-todo' }, [header, body]);
+    const processLayout = el('div', { className: 'pj-process-layout' }, [section]);
+    const body = el('div', { id: 'pj-todo-body' }, [processLayout]);
+    const panel = el('div', { id: 'pj-todo', className: 'pj-todo-modern pj-todo-process' }, [header, body]);
 
     const ui = getUI();
     panel.style.right = `${ui.right}px`;
@@ -3453,9 +3503,11 @@
 
     function rerender() {
       const items = loadItemsByKey(ctx.key).filter(x => !x.done);
+      pendingCount.textContent = String(items.length);
       renderItemsList({
         listEl: list,
         items,
+        emptyMessage: 'Nenhuma pendência neste processo. Crie uma tarefa quando surgir a próxima providência.',
         onToggle: (id, done) => {
           const it = loadItemsByKey(ctx.key);
           const x = it.find(a => a.id === id);
@@ -3630,7 +3682,7 @@
     const homeLayout = el('div', { className: 'pj-home-layout' }, [summary, tabs, stack]);
 
     const body = el('div', { id: 'pj-todo-body' }, [homeLayout]);
-    const panel = el('div', { id: 'pj-todo', className: 'pj-todo-home' }, [header, body]);
+    const panel = el('div', { id: 'pj-todo', className: 'pj-todo-modern pj-todo-home' }, [header, body]);
 
     const ui = getUI();
     panel.style.right = `${ui.right}px`;

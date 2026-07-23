@@ -132,6 +132,14 @@ test('abas da visão geral de tarefas ficam isoladas dos botões do Projudi', ()
   assert.match(tarefas, /tabGlobal\.addEventListener\('keydown'/, 'as abas isoladas não preservam a navegação por teclado');
 });
 
+test('painel interno do processo acompanha a visão geral de tarefas', () => {
+  const tarefas = sources.tarefas;
+  assert.match(tarefas, /className:\s*'pj-todo-modern pj-todo-process'/, 'o painel do processo não usa a estrutura visual reformulada');
+  assert.match(tarefas, /'Nova tarefa deste processo'/, 'o painel do processo não possui o compositor reformulado');
+  assert.match(tarefas, /className:\s*'pj-process-count-pill'/, 'o painel do processo não informa a quantidade de pendências');
+  assert.match(tarefas, /:is\(\.pj-home-layout, \.pj-process-layout\) \.pj-item/, 'os cartões reformulados não são compartilhados com o painel do processo');
+});
+
 test('Customizações reverte integralmente recursos visuais', () => {
   const source = sources.customizacoes;
   assert.match(source, /function restoreCustomHeaderStructure\(\)/, 'cabeçalho personalizado não possui restauração explícita');
