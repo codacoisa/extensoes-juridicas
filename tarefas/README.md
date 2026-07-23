@@ -5,7 +5,7 @@ Script para criar tarefas locais por processo no Projudi do TJGO, com visão ger
 ## O que ele faz
 
 - permite criar tarefas locais vinculadas a cada processo;
-- reúne as tarefas em uma visão geral na página inicial;
+- reúne as tarefas em uma visão geral com resumo, contadores e busca por texto, tag ou processo;
 - oferece um painel próprio para gestão das pendências;
 - mantém as informações salvas localmente no navegador;
 - facilita o controle operacional da rotina sem depender de ferramentas externas.

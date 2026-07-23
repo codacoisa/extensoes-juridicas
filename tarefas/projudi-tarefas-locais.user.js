@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2026.07.20-2328
+// @version      2026.07.22-2200
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -1330,6 +1330,10 @@
         overscroll-behavior: contain;
       }
       #pj-todo * { box-sizing: border-box; }
+      #pj-todo.pj-todo-home {
+        width: min(480px, calc(100vw - 24px));
+        max-height: 88vh;
+      }
 
       #pj-todo-header {
         display: flex;
@@ -1351,6 +1355,41 @@
         overflow: hidden;
         text-overflow: ellipsis;
         max-width: 310px;
+      }
+      .pj-todo-home #pj-todo-header {
+        min-height: 62px;
+        padding: 11px 12px 11px 14px;
+        cursor: move;
+      }
+      .pj-home-header-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+      .pj-home-header-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        width: 34px;
+        height: 34px;
+        border: 1px solid rgba(255,255,255,.22);
+        border-radius: 10px;
+        background: rgba(255,255,255,.13);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
+      }
+      .pj-home-header-copy { min-width: 0; }
+      .pj-home-header-title {
+        font-size: 14px;
+        font-weight: 850;
+        line-height: 1.15;
+      }
+      .pj-home-header-subtitle {
+        margin-top: 3px;
+        color: rgba(255,255,255,.74);
+        font-size: 10px;
+        font-weight: 550;
       }
       #pj-todo-actions { display: inline-flex; gap: 4px; }
       .pj-todo-btn {
@@ -1465,52 +1504,107 @@
       .pj-home-layout {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 12px;
         min-height: 0;
         flex: 1;
       }
+      .pj-home-summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 2px 2px 0;
+      }
+      .pj-home-summary-copy { min-width: 0; }
+      .pj-home-eyebrow {
+        margin-bottom: 2px;
+        color: #64748b;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+      }
+      .pj-home-summary-title {
+        color: #102a46;
+        font-size: 17px;
+        font-weight: 800;
+        line-height: 1.15;
+      }
+      .pj-home-summary-sub {
+        margin-top: 3px;
+        color: #64748b;
+        font-size: 11px;
+        line-height: 1.35;
+      }
+      .pj-home-total {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        min-width: 48px;
+        height: 48px;
+        border: 1px solid #cfe0f2;
+        border-radius: 14px;
+        background: linear-gradient(145deg, #f7fbff, #eaf3fb);
+        color: #0f4d86;
+        font-size: 20px;
+        font-weight: 850;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.9);
+      }
       .pj-home-tabs {
         display: flex;
-        gap: 6px;
-        padding: 6px;
+        gap: 4px;
+        padding: 4px;
         border: 1px solid #dbe3ef;
-        border-radius: 12px;
-        background: #f8fafc;
+        border-radius: 11px;
+        background: #edf3f8;
         width: 100%;
-        max-width: 100%;
-        margin: 0 auto;
-        overflow: visible;
-        align-items: stretch;
-        min-height: 50px;
+        min-height: 44px;
       }
       .pj-home-tab {
         flex: 1 1 0;
-        border: 1px solid #cbd5e1;
-        border-radius: 10px;
-        background: #fff;
-        color: #334155;
+        gap: 7px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        background: transparent;
+        color: #52677e;
         cursor: pointer;
-        font-size: 13px;
-        font-weight: 500;
+        font-size: 12px;
+        font-weight: 750;
         line-height: 1.2;
-        padding: 0 10px;
+        padding: 0 9px;
         min-width: 0;
-        min-height: 36px;
-        width: auto;
+        min-height: 34px;
         text-align: center;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        margin: 0;
         appearance: none;
         -webkit-appearance: none;
-        box-shadow: none;
+        transition: background .14s ease, color .14s ease, box-shadow .14s ease;
       }
+      .pj-home-tab:hover { color: #123f6d; }
       .pj-home-tab.active {
-        border-color: #0f3e75;
-        background: #0f3e75;
-        color: #fff;
-        font-weight: 600;
+        border-color: #d3dfeb;
+        background: #fff;
+        color: #103f70;
+        box-shadow: 0 2px 8px rgba(15, 49, 85, .09);
+      }
+      .pj-home-tab-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 20px;
+        height: 20px;
+        padding: 0 6px;
+        border-radius: 999px;
+        background: rgba(15, 62, 117, .09);
+        color: inherit;
+        font-size: 10px;
+        font-weight: 850;
+      }
+      .pj-home-tab.active .pj-home-tab-count {
+        background: #e5f0fa;
       }
       .pj-home-stack {
         flex: 1;
@@ -1528,35 +1622,222 @@
       .pj-home-panel .pj-section {
         flex: 1;
         min-height: 0;
+        border: 0;
+        border-radius: 0;
+        overflow: visible;
       }
       .pj-home-panel .pj-list {
         flex: 1;
         min-height: 0;
         max-height: none;
+        padding: 0 2px 2px;
+        background: transparent;
       }
-      .pj-home-panel .pj-new {
-        flex-wrap: wrap;
-        align-items: stretch;
+      .pj-home-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        min-height: 34px;
+        margin-bottom: 7px;
+        padding: 0 2px;
       }
-      .pj-home-panel .pj-new .pj-input {
-        flex: 1 1 240px;
+      .pj-home-list-title {
+        color: #294766;
+        font-size: 11px;
+        font-weight: 850;
+        letter-spacing: .035em;
+        text-transform: uppercase;
       }
-      .pj-home-panel .pj-new .pj-tag-input {
-        flex: 1 1 180px;
-        max-width: none;
+      .pj-home-search-wrap {
+        position: relative;
+        flex: 0 1 190px;
+        min-width: 0;
       }
-      .pj-home-panel .pj-new .pj-add {
-        flex: 1 1 180px;
-        max-width: none;
-        min-height: 36px;
+      .pj-home-search-wrap :is(i, .pj-suite-fa) {
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        width: 11px;
+        height: 11px;
+        color: #7890a8;
+        transform: translateY(-50%);
+        pointer-events: none;
       }
-      @media (max-width: 720px) {
-        .pj-home-panel .pj-new .pj-tag-input {
-          flex: 1 1 100%;
-        }
-        .pj-home-panel .pj-new .pj-add {
-          flex: 1 1 100%;
-        }
+      .pj-home-search {
+        width: 100%;
+        height: 32px;
+        padding: 5px 9px 5px 28px;
+        border: 1px solid #d5e0eb;
+        border-radius: 8px;
+        background: #f8fbfd;
+        color: #173a61;
+        font-size: 11px;
+      }
+      .pj-home-composer {
+        margin-bottom: 12px;
+        padding: 11px;
+        border: 1px solid #d5e2ef;
+        border-radius: 12px;
+        background: linear-gradient(145deg, #f8fbfe 0%, #f2f7fb 100%);
+      }
+      .pj-home-composer-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 8px;
+        color: #31506f;
+        font-size: 11px;
+        font-weight: 800;
+      }
+      .pj-home-composer-label :is(i, .pj-suite-fa) { color: #1767a8; }
+      .pj-home-composer-main {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 7px;
+      }
+      .pj-home-composer .pj-input {
+        height: 38px;
+        padding: 7px 10px;
+        border-color: #c8d6e4;
+        background: #fff;
+      }
+      .pj-home-composer .pj-add {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-width: 96px;
+        height: 38px;
+        padding: 7px 13px;
+        border-color: #13558e;
+        background: #13558e;
+        box-shadow: 0 4px 10px rgba(19, 85, 142, .16);
+      }
+      .pj-home-composer .pj-add:hover { background: #0d477a; }
+      .pj-home-tag-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 7px;
+      }
+      .pj-home-tag-row :is(i, .pj-suite-fa) {
+        flex: 0 0 auto;
+        width: 12px;
+        color: #7890a8;
+      }
+      .pj-home-tag-row .pj-tag-input {
+        flex: 1;
+        height: 30px;
+        padding: 4px 8px;
+        border: 0;
+        background: transparent;
+        color: #52677e;
+        font-size: 11px;
+      }
+      .pj-home-layout .pj-item {
+        gap: 8px;
+        margin-bottom: 7px;
+        padding: 9px 8px;
+        border-color: #d9e3ed;
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(15, 39, 66, .025);
+        transition: border-color .14s ease, box-shadow .14s ease, transform .14s ease;
+      }
+      .pj-home-layout .pj-item:hover {
+        border-color: #b9cde0;
+        background: #fff;
+        box-shadow: 0 5px 14px rgba(15, 49, 85, .07);
+        transform: translateY(-1px);
+      }
+      .pj-home-layout .pj-mini input[type="checkbox"] {
+        width: 17px;
+        height: 17px;
+        margin-top: 1px;
+        accent-color: #1767a8;
+      }
+      .pj-home-layout .pj-drag {
+        width: 8px;
+        padding-left: 0;
+        color: #a7b5c3;
+        opacity: .72;
+      }
+      .pj-home-layout .pj-text {
+        color: #163858;
+        font-size: 12px;
+        font-weight: 650;
+        line-height: 1.35;
+        text-align: left;
+      }
+      .pj-home-layout .pj-meta {
+        margin-top: 4px;
+        color: #8191a5;
+        font-size: 9px;
+      }
+      .pj-home-layout .pj-item-actions {
+        gap: 3px;
+        padding-left: 2px;
+        opacity: .62;
+        transition: opacity .14s ease;
+      }
+      .pj-home-layout .pj-item:hover .pj-item-actions,
+      .pj-home-layout .pj-item:focus-within .pj-item-actions { opacity: 1; }
+      .pj-home-layout .pj-move,
+      .pj-home-layout .pj-edit-tags,
+      .pj-home-layout .pj-del {
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+      }
+      .pj-home-layout .pj-tag {
+        border-color: #d7e4ef;
+        background: #f4f8fb;
+        color: #526d87;
+        font-size: 9px;
+      }
+      .pj-home-layout .pj-empty {
+        display: grid;
+        place-items: center;
+        min-height: 110px;
+        padding: 22px;
+        border: 1px dashed #cbd9e6;
+        border-radius: 12px;
+        background: #f8fbfd;
+        color: #6f8499;
+        font-size: 11px;
+        text-align: center;
+      }
+      .pj-home-layout .pj-proc-row {
+        margin-bottom: 9px;
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid #d8e3ed;
+        border-radius: 11px;
+        background: #fff;
+      }
+      .pj-home-layout .pj-proc-head {
+        min-height: 42px;
+        margin: 0;
+        padding: 8px 10px;
+        border-bottom: 1px solid #e1e9f0;
+        background: #f5f9fc;
+      }
+      .pj-home-layout .pj-proc-count {
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: #e4eef7;
+        color: #315879;
+        font-size: 9px;
+      }
+      .pj-home-layout .pj-list-inline { padding: 7px; }
+      .pj-home-layout .pj-list-inline .pj-item:last-child { margin-bottom: 0; }
+      @media (max-width: 480px) {
+        .pj-home-summary-sub { display: none; }
+        .pj-home-composer-main { grid-template-columns: 1fr; }
+        .pj-home-composer .pj-add { width: 100%; }
+        .pj-home-toolbar { align-items: stretch; flex-direction: column; }
+        .pj-home-search-wrap { flex-basis: auto; }
       }
 
       .pj-item {
@@ -2347,11 +2628,11 @@
     }
   }
 
-  function renderItemsList({ listEl, items, onToggle, onDelete, onEdit, onReorder, onMove, onEditTags }) {
+  function renderItemsList({ listEl, items, onToggle, onDelete, onEdit, onReorder, onMove, onEditTags, emptyMessage = 'Sem tarefas.' }) {
     listEl.innerHTML = '';
 
     if (!items.length) {
-      listEl.appendChild(el('div', { className: 'pj-empty' }, ['Sem tarefas.']));
+      listEl.appendChild(el('div', { className: 'pj-empty' }, [emptyMessage]));
       return;
     }
 
@@ -3239,54 +3520,112 @@
     };
 
     const header = el('div', { id: 'pj-todo-header' }, [
-      el('div', { id: 'pj-todo-title', title: 'Visão geral de tarefas' }, ['Tarefas • Visão geral']),
+      el('div', { className: 'pj-home-header-brand', title: 'Visão geral de tarefas' }, [
+        el('div', { className: 'pj-home-header-icon' }, [faIcon('fa-solid fa-list-check')]),
+        el('div', { className: 'pj-home-header-copy' }, [
+          el('div', { className: 'pj-home-header-title' }, ['Visão geral']),
+          el('div', { className: 'pj-home-header-subtitle' }, ['Seu espaço de trabalho no Projudi'])
+        ])
+      ]),
       createHeaderActions({ onClose })
     ]);
 
     const globalSection = el('div', { className: 'pj-section' }, []);
-    const globalHead = el('div', { className: 'pj-sec-head' }, [
-      el('div', {}, ['Tarefas globais']),
-      el('small', {}, ['Ex.: protocolar'])
+    const globalInput = el('input', { className: 'pj-input', type: 'text', placeholder: 'O que precisa ser feito?', 'aria-label': 'Descrição da nova tarefa global' });
+    const globalTagsInput = el('input', { className: 'pj-input pj-tag-input', type: 'text', placeholder: 'Adicionar tags, separadas por vírgula', 'aria-label': 'Tags da nova tarefa global' });
+    const globalAdd = el('button', { className: 'pj-add', type: 'button' }, [faIcon('fa-solid fa-plus'), 'Criar tarefa']);
+    const globalNew = el('div', { className: 'pj-home-composer' }, [
+      el('div', { className: 'pj-home-composer-label' }, [faIcon('fa-solid fa-bolt'), 'Nova tarefa global']),
+      el('div', { className: 'pj-home-composer-main' }, [globalInput, globalAdd]),
+      el('div', { className: 'pj-home-tag-row' }, [faIcon('fa-solid fa-tags'), globalTagsInput])
     ]);
-    const globalInput = el('input', { className: 'pj-input', type: 'text', placeholder: 'Nova tarefa global...' });
-    const globalTagsInput = el('input', { className: 'pj-input pj-tag-input', type: 'text', placeholder: 'tags' });
-    const globalAdd = el('button', { className: 'pj-add', type: 'button' }, ['Adicionar']);
-    const globalNew = el('div', { className: 'pj-new' }, [globalInput, globalTagsInput, globalAdd]);
+    const globalSearch = el('input', { className: 'pj-home-search', type: 'search', placeholder: 'Buscar tarefas', 'aria-label': 'Buscar tarefas globais' });
+    const globalToolbar = el('div', { className: 'pj-home-toolbar' }, [
+      el('div', { className: 'pj-home-list-title' }, ['Pendências globais']),
+      el('div', { className: 'pj-home-search-wrap' }, [faIcon('fa-solid fa-magnifying-glass'), globalSearch])
+    ]);
     const globalList = el('div', { className: 'pj-list' }, []);
 
-    globalSection.appendChild(globalHead);
     globalSection.appendChild(globalNew);
+    globalSection.appendChild(globalToolbar);
     globalSection.appendChild(globalList);
 
     const procSection = el('div', { className: 'pj-section' }, []);
-    const procHead = el('div', { className: 'pj-sec-head' }, [
-      el('div', {}, ['Pendências por processo']),
-      el('small', {}, ['Clique no CNJ para copiar'])
+    const processSearch = el('input', { className: 'pj-home-search', type: 'search', placeholder: 'Buscar CNJ ou tarefa', 'aria-label': 'Buscar pendências por processo' });
+    const procHead = el('div', { className: 'pj-home-toolbar' }, [
+      el('div', { className: 'pj-home-list-title' }, ['Pendências por processo']),
+      el('div', { className: 'pj-home-search-wrap' }, [faIcon('fa-solid fa-magnifying-glass'), processSearch])
     ]);
     const procList = el('div', { className: 'pj-list' }, []);
     procSection.appendChild(procHead);
     procSection.appendChild(procList);
 
-    const tabGlobal = el('button', { className: 'pj-home-tab active', type: 'button' }, ['Globais']);
-    const tabProcess = el('button', { className: 'pj-home-tab', type: 'button' }, ['Processos']);
-    const tabs = el('div', { className: 'pj-home-tabs' }, [tabGlobal, tabProcess]);
+    const globalCount = el('span', { className: 'pj-home-tab-count' }, ['0']);
+    const processCount = el('span', { className: 'pj-home-tab-count' }, ['0']);
+    const tabGlobal = el('button', { className: 'pj-home-tab active', type: 'button', role: 'tab', 'aria-selected': 'true' }, [faIcon('fa-solid fa-layer-group'), 'Globais', globalCount]);
+    const tabProcess = el('button', { className: 'pj-home-tab', type: 'button', role: 'tab', 'aria-selected': 'false' }, [faIcon('fa-solid fa-scale-balanced'), 'Processos', processCount]);
+    const tabs = el('div', { className: 'pj-home-tabs', role: 'tablist', 'aria-label': 'Escopo das tarefas' }, [tabGlobal, tabProcess]);
+    const summaryTitle = el('div', { className: 'pj-home-summary-title' }, ['Seu dia em ordem']);
+    const summarySub = el('div', { className: 'pj-home-summary-sub' }, ['Carregando suas pendências...']);
+    const totalCount = el('div', { className: 'pj-home-total', title: 'Total de tarefas ativas' }, ['0']);
+    const summary = el('div', { className: 'pj-home-summary' }, [
+      el('div', { className: 'pj-home-summary-copy' }, [
+        el('div', { className: 'pj-home-eyebrow' }, ['Agora']),
+        summaryTitle,
+        summarySub
+      ]),
+      totalCount
+    ]);
     const globalPanel = el('div', { className: 'pj-home-panel active' }, [globalSection]);
     const processPanel = el('div', { className: 'pj-home-panel' }, [procSection]);
     const stack = el('div', { className: 'pj-home-stack' }, [globalPanel, processPanel]);
-    const homeLayout = el('div', { className: 'pj-home-layout' }, [tabs, stack]);
+    const homeLayout = el('div', { className: 'pj-home-layout' }, [summary, tabs, stack]);
 
     const body = el('div', { id: 'pj-todo-body' }, [homeLayout]);
-    const panel = el('div', { id: 'pj-todo' }, [header, body]);
+    const panel = el('div', { id: 'pj-todo', className: 'pj-todo-home' }, [header, body]);
 
     const ui = getUI();
     panel.style.right = `${ui.right}px`;
     panel.style.top = `${ui.top}px`;
 
+    function collectProcessPendingRows() {
+      const rows = [];
+      for (const entry of loadIndex()) {
+        if (!entry || !entry.key || !entry.cnj) continue;
+        const pending = loadItemsByKey(entry.key).filter(x => !x.done);
+        if (!pending.length) continue;
+        rows.push({ cnj: entry.cnj, key: entry.key, processUrl: entry.processUrl || '', pending });
+      }
+      return rows;
+    }
+
+    function updateOverviewCounts() {
+      const globalActive = loadGlobalItems().filter(x => !x.done).length;
+      const processRows = collectProcessPendingRows();
+      const processActive = processRows.reduce((sum, row) => sum + row.pending.length, 0);
+      const total = globalActive + processActive;
+      globalCount.textContent = String(globalActive);
+      processCount.textContent = String(processRows.length);
+      totalCount.textContent = String(total);
+      summaryTitle.textContent = total ? `${formatCount(total, 'pendência', 'pendências')} em aberto` : 'Seu dia está em ordem';
+      summarySub.textContent = total
+        ? `${formatCount(globalActive, 'global', 'globais')} e ${formatCount(processActive, 'vinculada a processo', 'vinculadas a processos')}.`
+        : 'Nenhuma tarefa aguardando providência.';
+    }
+
     function renderGlobal() {
-      const items = loadGlobalItems().filter(x => !x.done);
+      const query = String(globalSearch.value || '').trim().toLowerCase();
+      let items = loadGlobalItems().filter(x => !x.done);
+      if (query) {
+        items = items.filter(item =>
+          item.text.toLowerCase().includes(query) ||
+          (item.tags || []).some(tag => tag.toLowerCase().includes(query))
+        );
+      }
       renderItemsList({
         listEl: globalList,
         items,
+        emptyMessage: query ? 'Nenhuma tarefa encontrada para esta busca.' : 'Tudo limpo por aqui. Crie uma tarefa quando surgir a próxima pendência.',
         onToggle: (id, done) => {
           const it = loadGlobalItems();
           const x = it.find(a => a.id === id);
@@ -3334,24 +3673,27 @@
           renderGlobal();
         }
       });
+      updateOverviewCounts();
     }
 
     function renderProcessesPending() {
       procList.innerHTML = '';
-
-      const idx = loadIndex();
-      const rows = [];
-
-      for (const entry of idx) {
-        if (!entry || !entry.key || !entry.cnj) continue;
-        const items = loadItemsByKey(entry.key);
-        const pending = items.filter(x => !x.done);
-        if (!pending.length) continue;
-        rows.push({ cnj: entry.cnj, key: entry.key, processUrl: entry.processUrl || '', pending });
+      const query = String(processSearch.value || '').trim().toLowerCase();
+      let rows = collectProcessPendingRows();
+      if (query) {
+        rows = rows.map(row => ({
+          ...row,
+          pending: row.pending.filter(item =>
+            row.cnj.toLowerCase().includes(query) ||
+            item.text.toLowerCase().includes(query) ||
+            (item.tags || []).some(tag => tag.toLowerCase().includes(query))
+          )
+        })).filter(row => row.pending.length);
       }
 
       if (!rows.length) {
-        procList.appendChild(el('div', { className: 'pj-empty' }, ['Sem pendências por processo.']));
+        procList.appendChild(el('div', { className: 'pj-empty' }, [query ? 'Nenhuma pendência encontrada para esta busca.' : 'Nenhuma pendência vinculada a processo.']));
+        updateOverviewCounts();
         return;
       }
 
@@ -3382,7 +3724,7 @@
             const all = loadItemsByKey(r.key);
             const x = all.find(a => a.id === id);
             if (!x) return;
-            x.done = !!done;
+            toggleDoneState(x, done);
             saveItemsByKey(r.key, all);
             touchIndex({ key: r.key, cnj: r.cnj });
             maybeRemoveFromIndexIfEmpty({ key: r.key, cnj: r.cnj });
@@ -3440,6 +3782,7 @@
         box.appendChild(innerList);
         procList.appendChild(box);
       }
+      updateOverviewCounts();
     }
 
     function addGlobal() {
@@ -3460,6 +3803,8 @@
     }
 
     globalAdd.addEventListener('click', addGlobal);
+    globalSearch.addEventListener('input', renderGlobal);
+    processSearch.addEventListener('input', renderProcessesPending);
     globalInput.addEventListener('keydown', e => {
       if (e.key === 'Enter') addGlobal();
     });
@@ -3471,8 +3816,11 @@
       const isGlobal = which === 'global';
       tabGlobal.classList.toggle('active', isGlobal);
       tabProcess.classList.toggle('active', !isGlobal);
+      tabGlobal.setAttribute('aria-selected', isGlobal ? 'true' : 'false');
+      tabProcess.setAttribute('aria-selected', isGlobal ? 'false' : 'true');
       globalPanel.classList.toggle('active', isGlobal);
       processPanel.classList.toggle('active', !isGlobal);
+      (isGlobal ? globalInput : processSearch).focus();
     }
 
     tabGlobal.addEventListener('click', () => setHomeTab('global'));
