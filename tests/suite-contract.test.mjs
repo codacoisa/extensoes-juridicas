@@ -164,6 +164,14 @@ test('Customizações reverte integralmente recursos visuais', () => {
   assert.match(source, /body > div\[style\*="width:"\]\[style\*="margin"\],[\s\S]{0,160}?width: \$\{widthValue\} !important;/, 'a largura não alcança os contêineres inline usados pelo Projudi');
   assert.match(source, /--pjc-header-primary:[\s\S]{0,1500}?radial-gradient\([\s\S]{0,220}?linear-gradient\(/, 'o cabeçalho personalizado não possui identidade visual própria');
   assert.match(source, /#menuPrinciapl\.menu > ul > li\.active > a,[\s\S]{0,260}?box-shadow: inset 0 -2px 0/, 'a navegação personalizada não diferencia a seção ativa');
+  assert.match(source, /const header = document\.getElementById\("Cabecalho"\) \|\| document\.getElementById\("pgn_cabecalho"\);/, 'o cabeçalho personalizado não reconhece páginas autônomas');
+  assert.match(source, /!settings\.customHeaderEnabled \|\| !document\.body \|\| isPublicLandingPage\(\)/, 'o cabeçalho personalizado ainda alcança a entrada pública');
+  assert.match(source, /#pjc-custom-header-root #pgn_cabecalho h1 \{\s*color: #ffffff !important;/, 'o visual moderno pode apagar o título do cabeçalho autônomo');
+  assert.match(source, /#menuPrinciapl\.menu \{[\s\S]{0,240}?display: flex !important;[\s\S]{0,240}?flex-wrap: nowrap !important;/, 'a navegação personalizada não mantém os itens na mesma faixa');
+  assert.match(source, /#menuPrinciapl\.menu > ul \{[\s\S]{0,220}?flex: 0 0 auto !important;/, 'os grupos nativos do menu ainda ocupam a barra inteira');
+  assert.match(source, /function isPublicLandingPage\(\)[\s\S]{0,360}?pathname === "\/"/, 'a página pública inicial não é reconhecida explicitamente');
+  assert.match(source, /function isStandaloneContentPage\(\)[\s\S]{0,260}?isPublicLandingPage\(\)[\s\S]{0,220}?\/\\\/Usuario\\b\/i/, 'páginas autônomas autenticadas não estão separadas da entrada pública');
+  assert.match(source, /!settings\.applyToStandalonePages && !hasStandaloneVisualFeatures\(\)/, 'o visual autônomo ainda depende do ajuste de largura');
   assert.doesNotMatch(source, /table\.listagem:not\(\.pjip-table\) th,[\s\S]{0,650}?vertical-align: middle !important;\s*text-align: left !important;/, 'tabelas legíveis sobrescrevem o alinhamento semântico dos cabeçalhos');
 });
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      2026.07.20-2358
+// @version      2026.07.23-1946
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -2178,7 +2178,6 @@
     }
 
     function syncCustomHeaderStructure() {
-
         const attrs = [
             "data-pjc-custom-header-shell",
             "data-pjc-custom-nav-shell",
@@ -2187,15 +2186,15 @@
         attrs.forEach(attr => {
             document.querySelectorAll(`[${attr}]`).forEach(node => node.removeAttribute(attr));
         });
-        if (!settings.customHeaderEnabled || !document.body) {
+        if (!settings.customHeaderEnabled || !document.body || isPublicLandingPage()) {
             restoreCustomHeaderStructure();
             return;
         }
 
-        const header = document.getElementById("Cabecalho");
+        const header = document.getElementById("Cabecalho") || document.getElementById("pgn_cabecalho");
         const nav = document.getElementById("menuPrinciapl");
-        if (!header || !nav) return;
-        if (header) header.setAttribute("data-pjc-custom-header-shell", "true");
+        if (!header) return;
+        header.setAttribute("data-pjc-custom-header-shell", "true");
         if (nav) nav.setAttribute("data-pjc-custom-nav", "true");
 
         const navShell = nav && nav.parentElement && nav.parentElement !== document.body
@@ -2307,7 +2306,7 @@
                 border-bottom: 1px solid var(--pjc-header-border) !important;
                 box-shadow: 0 8px 24px rgba(15, 45, 78, .13) !important;
             }
-            #pjc-custom-header-root #Cabecalho {
+            #pjc-custom-header-root [data-pjc-custom-header-shell="true"] {
                 position: relative !important;
                 z-index: 2 !important;
                 overflow: visible !important;
@@ -2329,6 +2328,9 @@
                 box-sizing: border-box !important;
                 color: #ffffff !important;
                 letter-spacing: -.012em !important;
+            }
+            #pjc-custom-header-root #pgn_cabecalho h1 {
+                color: #ffffff !important;
             }
             #pjc-custom-header-root #img_logotj {
                 max-height: 38px !important;
@@ -2388,13 +2390,24 @@
                 backdrop-filter: blur(12px) !important;
                 -webkit-backdrop-filter: blur(12px) !important;
             }
-            #pjc-custom-header-root #menuPrinciapl.menu > ul {
+            #pjc-custom-header-root #menuPrinciapl.menu {
                 display: flex !important;
                 align-items: center !important;
+                flex-wrap: nowrap !important;
                 gap: 3px !important;
-                min-height: 42px !important;
-                margin: 0 !important;
+                width: min(1480px, calc(100% - 28px)) !important;
+                max-width: none !important;
+                margin-left: auto !important;
+                margin-right: auto !important;
                 padding: 5px 8px !important;
+                box-sizing: border-box !important;
+            }
+            #pjc-custom-header-root #menuPrinciapl.menu > ul {
+                display: block !important;
+                flex: 0 0 auto !important;
+                min-height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
                 box-sizing: border-box !important;
             }
             #pjc-custom-header-root #menuPrinciapl.menu > ul > li {
@@ -3874,12 +3887,34 @@
         if (style.textContent !== css) style.textContent = css;
     }
 
+    function isPublicLandingPage() {
+        if (!isTopWindow()) return false;
+        const pathname = String(window.location.pathname || "").replace(/\/+$/, "") || "/";
+        return pathname === "/" || /\/(?:index|default)\.(?:html?|jsp)$/i.test(pathname);
+    }
+
+    function hasStandaloneVisualFeatures() {
+        return !!(
+            settings.compactMode ||
+            settings.fontScaleEnabled ||
+            settings.googleFontEnabled ||
+            settings.modernVisualEnabled ||
+            settings.modernTablesEnabled ||
+            settings.modernFormsEnabled ||
+            settings.stickyActionsEnabled ||
+            settings.stickyTableHeadersEnabled ||
+            settings.highlightHoveredRowEnabled
+        );
+    }
+
     function isStandaloneContentPage() {
         if (!isTopWindow()) return false;
-        if (!settings.applyToStandalonePages) return false;
         if (document.getElementById("Principal")) return false;
+        if (isPublicLandingPage()) return false;
+        if (!settings.applyToStandalonePages && !hasStandaloneVisualFeatures()) return false;
 
         return (
+            /\/Usuario\b/i.test(window.location.pathname) ||
             /\/BuscaProcesso\b/i.test(window.location.pathname) ||
             /\bId_Processo=/i.test(window.location.search) ||
             !!document.querySelector(
@@ -4034,7 +4069,9 @@
         if (shouldManageIframeFeatures()) watchForIframeAvailability();
         else unbindIframeLoadListener();
 
-        if (!settings.applyToStandalonePages || document.getElementById("Principal")) return;
+        if ((!settings.applyToStandalonePages && !hasStandaloneVisualFeatures()) ||
+            document.getElementById("Principal") ||
+            isPublicLandingPage()) return;
         standaloneDomObserver = new MutationObserver(mutations => {
             if (!hasStandaloneRelevantMutation(mutations)) return;
             scheduleStandaloneRefresh();
