@@ -140,6 +140,16 @@ test('painel interno do processo acompanha a visão geral de tarefas', () => {
   assert.match(tarefas, /:is\(\.pj-home-layout, \.pj-process-layout\) \.pj-item/, 'os cartões reformulados não são compartilhados com o painel do processo');
 });
 
+test('script de tarefas não conserva a interface flutuante removida', () => {
+  const tarefas = sources.tarefas;
+  assert.doesNotMatch(tarefas, /ID_MIN_BTN|FAB_UI|mountFloatingMinButton/, 'o lançador flutuante sem uso ainda permanece no script');
+  assert.doesNotMatch(tarefas, /\.pj-sec-head|\.pj-new\s*\{|#pj-todo-title/, 'estilos da interface anterior ainda são injetados');
+  assert.doesNotMatch(tarefas, /minimized/, 'o estado visual sem efeito ainda é persistido');
+  assert.match(tarefas, /function createModernPanelHeader\(/, 'os painéis modernos ainda duplicam a construção do cabeçalho');
+  assert.match(tarefas, /function createTaskComposer\(/, 'os painéis modernos ainda duplicam o compositor de tarefas');
+  assert.match(tarefas, /function normalizePanelUI\(/, 'a posição salva do painel não é normalizada');
+});
+
 test('Customizações reverte integralmente recursos visuais', () => {
   const source = sources.customizacoes;
   assert.match(source, /function restoreCustomHeaderStructure\(\)/, 'cabeçalho personalizado não possui restauração explícita');

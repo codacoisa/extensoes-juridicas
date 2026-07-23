@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2026.07.22-2231
+// @version      2026.07.22-2238
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -113,7 +113,7 @@
   const KEY_GLOBAL_ITEMS = `${KEY_PREFIX}global::items`;
   const KEY_GLOBAL_UI = `${KEY_PREFIX}global::ui`;
   const EXPORT_EXCLUDED_KEYS = new Set([KEY_BACKUP]);
-  const DEFAULT_UI = { minimized: true, right: 12, top: 12 };
+  const DEFAULT_UI = { right: 12, top: 12 };
   const EXPORT_SCHEMA = 'projudi-tarefas-export-v1';
   const DEFAULT_BACKUP_SETTINGS = {
     enabled: false,
@@ -180,13 +180,6 @@
     .pj-backup-ui__dialog .pj-suite-fa { width: 1em; height: 1em; }
     @media (max-width: 720px) { .pj-backup-ui__popover { padding: 10px !important; } .pj-backup-ui__dialog { width: calc(100vw - 20px) !important; padding: 16px !important; } .pj-backup-ui__grid, .pj-backup-ui__actions { grid-template-columns: 1fr !important; } .pj-backup-ui__field--full { grid-column: auto !important; } .pj-backup-ui__toggles { align-items: stretch !important; flex-direction: column !important; } }
   `;
-  const FAB_UI = {
-    right: 16,
-    bottom: 16,
-    size: 38,
-    brand: '#2b69aa',
-    brandHover: '#245a92'
-  };
   const PROC_BTN_GAP = {
     postitLeft: 16,
     postitRight: 0,
@@ -195,7 +188,6 @@
     directHeaderLeft: 10,
     directHeaderRight: 0
   };
-  const ID_MIN_BTN = 'pj-todo-min';
   const ID_PROC_BTN = 'pj-todo-proc-btn';
   const ID_HEADER_MENU = 'pj-todo-header-menu';
   const ID_MANAGER_OVERLAY = 'pj-task-manager-overlay';
@@ -651,7 +643,7 @@
 
   function findProcessSearchInput(doc) {
     const inputs = Array.from(doc.querySelectorAll('input:not([type]), input[type="text"], input[type="search"], input[type="tel"]'))
-      .filter(input => !input.closest(`#pj-todo, #${ID_MANAGER_OVERLAY}, #${ID_MIN_BTN}, #${ID_PROC_BTN}`));
+      .filter(input => !input.closest(`#pj-todo, #${ID_MANAGER_OVERLAY}, #${ID_PROC_BTN}`));
     const scored = inputs
       .map(input => {
         const haystack = [
@@ -736,7 +728,7 @@
 
     const cnj = getCNJFromDocument(document);
     if (cnj) {
-      const ctx = processCtxFromCnj(cnj);
+      const ctx = processCtxFromCnj(cnj, getCurrentProcessUrl(document));
       if (!ctx) return false;
       if (!state.mounted || state.mode !== 'process' || state.ctxKey !== ctx.key) {
         unmount();
@@ -792,11 +784,6 @@
     const titleText = String(titleEl && titleEl.textContent ? titleEl.textContent : '').trim();
     const url = String(location.href || '');
     return /intima(ç|c)(a|ã)o|intima(ç|c)ões/i.test(titleText) || /intimac/i.test(url);
-  }
-
-  function processCtxFromDoc() {
-    const cnj = getCNJFromDocument(document);
-    return processCtxFromCnj(cnj, getCurrentProcessUrl(document));
   }
 
   function processCtxFromCnj(cnj, processUrl = '') {
@@ -863,19 +850,26 @@
     scheduleTodoAutoBackup();
   }
 
+  function normalizePanelUI(value) {
+    const source = value && typeof value === 'object' ? value : {};
+    const rawRight = Number(source.right);
+    const rawTop = Number(source.top);
+    const maxRight = Math.max(0, window.innerWidth - 120);
+    const maxTop = Math.max(0, window.innerHeight - 62);
+    const right = Number.isFinite(rawRight) ? rawRight : DEFAULT_UI.right;
+    const top = Number.isFinite(rawTop) ? rawTop : DEFAULT_UI.top;
+    return {
+      right: Math.min(maxRight, Math.max(0, right)),
+      top: Math.min(maxTop, Math.max(0, top))
+    };
+  }
+
   function loadUIByKey(ctxKey) {
-    const u = storage.get(uiKey(ctxKey), DEFAULT_UI);
-    const base = Object.assign({}, DEFAULT_UI);
-    if (u && typeof u === 'object') Object.assign(base, u);
-    base.minimized = true;
-    if (typeof base.top !== 'number') base.top = DEFAULT_UI.top;
-    if (typeof base.right !== 'number') base.right = DEFAULT_UI.right;
-    return base;
+    return normalizePanelUI(storage.get(uiKey(ctxKey), DEFAULT_UI));
   }
 
   function saveUIByKey(ctxKey, ui) {
-    const u = Object.assign({}, ui, { minimized: true });
-    storage.set(uiKey(ctxKey), u);
+    storage.set(uiKey(ctxKey), normalizePanelUI(ui));
   }
 
   function loadGlobalItems() {
@@ -889,18 +883,11 @@
   }
 
   function loadGlobalUI() {
-    const u = storage.get(KEY_GLOBAL_UI, DEFAULT_UI);
-    const base = Object.assign({}, DEFAULT_UI);
-    if (u && typeof u === 'object') Object.assign(base, u);
-    base.minimized = true;
-    if (typeof base.top !== 'number') base.top = DEFAULT_UI.top;
-    if (typeof base.right !== 'number') base.right = DEFAULT_UI.right;
-    return base;
+    return normalizePanelUI(storage.get(KEY_GLOBAL_UI, DEFAULT_UI));
   }
 
   function saveGlobalUI(ui) {
-    const u = Object.assign({}, ui, { minimized: true });
-    storage.set(KEY_GLOBAL_UI, u);
+    storage.set(KEY_GLOBAL_UI, normalizePanelUI(ui));
   }
 
   function getKnownTodoKeysFromIndex() {
@@ -1347,15 +1334,6 @@
         cursor: move;
         user-select: none;
       }
-      #pj-todo-title {
-        font-size: 14px;
-        font-weight: 800;
-        line-height: 1.15;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 310px;
-      }
       .pj-todo-modern #pj-todo-header {
         min-height: 62px;
         padding: 11px 12px 11px 14px;
@@ -1444,29 +1422,6 @@
         min-height: 0;
       }
 
-      .pj-sec-head {
-        padding: 9px 11px;
-        font-size: 12px;
-        font-weight: 700;
-        background: #f8fafc;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-      }
-      .pj-sec-head small {
-        font-size: 10px;
-        color: #64748b;
-        font-weight: 500;
-      }
-
-      .pj-new {
-        display: flex;
-        gap: 6px;
-        padding: 8px 10px;
-        border-top: 1px solid #dbe3ef;
-        background: #fff;
-      }
       .pj-input {
         flex: 1;
         border: 1px solid #cbd5e1;
@@ -2167,35 +2122,6 @@
         filter: brightness(1.06);
       }
 
-      #${ID_MIN_BTN} {
-        position: fixed;
-        right: ${FAB_UI.right}px;
-        bottom: ${FAB_UI.bottom}px;
-        z-index: ${Z_UI};
-        width: ${FAB_UI.size}px;
-        height: ${FAB_UI.size}px;
-        border-radius: 50%;
-        border: 1px solid ${FAB_UI.brand};
-        background: ${FAB_UI.brand};
-        color: #fff;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        box-shadow: 0 4px 12px rgba(0,0,0,.2);
-        transition: transform .12s ease, background .12s ease;
-      }
-      #${ID_MIN_BTN}:hover {
-        background: ${FAB_UI.brandHover};
-        transform: translateY(-1px);
-      }
-      #${ID_MIN_BTN} :is(i, .pj-suite-fa) {
-        pointer-events: none;
-        width: 16px;
-        height: 16px;
-        font-size: 16px;
-      }
-
       #${ID_MANAGER_OVERLAY} {
         position: fixed;
         inset: 0;
@@ -2837,31 +2763,11 @@
     runPanelCleanup();
     const p = document.getElementById('pj-todo');
     if (p) p.remove();
-    const m = document.getElementById(ID_MIN_BTN);
-    if (m) m.remove();
     const pb = document.getElementById(ID_PROC_BTN);
     if (pb) pb.remove();
     state.mounted = false;
     state.mode = null;
     state.ctxKey = null;
-  }
-
-  function mountFloatingMinButton({ onOpen }) {
-    const existing = document.getElementById(ID_MIN_BTN);
-    if (existing) return;
-    const inlineBtn = document.getElementById(ID_PROC_BTN);
-    if (inlineBtn) inlineBtn.remove();
-    ensureFontAwesome();
-    const icon = el('i', { className: 'fa-solid fa-list-check', 'aria-hidden': 'true' });
-    const btn = el('button', { id: ID_MIN_BTN, title: 'Abrir Tarefas', 'aria-label': 'Abrir Tarefas' }, [icon]);
-    btn.addEventListener('click', () => {
-      openLauncherSafely({
-        removeLauncher: () => btn.remove(),
-        onOpen
-      });
-    });
-    document.body.appendChild(btn);
-    renderFontAwesome(btn);
   }
 
   function matchProcessLauncherSize(button, anchor) {
@@ -2888,9 +2794,6 @@
     const nativeNoteButton = document.querySelector('button.notaProcesso, button[onclick*="criarNota"]');
     const anchor = postitButton || nativeNoteButton;
     if (!anchor || !anchor.parentElement) return false;
-
-    const fab = document.getElementById(ID_MIN_BTN);
-    if (fab) fab.remove();
 
     ensureFontAwesome();
     const btn = el('button', {
@@ -2971,9 +2874,6 @@
     const anchor = findDirectProcessHeaderAnchor();
     if (!anchor || !anchor.parentElement) return false;
 
-    const fab = document.getElementById(ID_MIN_BTN);
-    if (fab) fab.remove();
-
     ensureFontAwesome();
     const btn = el('button', {
       id: ID_PROC_BTN,
@@ -3025,6 +2925,39 @@
     closeBtn.addEventListener('click', onClose);
 
     return el('div', { id: 'pj-todo-actions' }, [closeBtn]);
+  }
+
+  function createModernPanelHeader({ title, subtitle, icon, tooltip, onClose }) {
+    return el('div', { id: 'pj-todo-header' }, [
+      el('div', { className: 'pj-home-header-brand', title: tooltip || title }, [
+        el('div', { className: 'pj-home-header-icon' }, [faIcon(icon)]),
+        el('div', { className: 'pj-home-header-copy' }, [
+          el('div', { className: 'pj-home-header-title' }, [title]),
+          el('div', { className: 'pj-home-header-subtitle' }, [subtitle])
+        ])
+      ]),
+      createHeaderActions({ onClose })
+    ]);
+  }
+
+  function createTaskComposer({ label, inputPlaceholder, inputAriaLabel, tagsAriaLabel }) {
+    const input = el('input', { className: 'pj-input', type: 'text', placeholder: inputPlaceholder, 'aria-label': inputAriaLabel });
+    const tagsInput = el('input', {
+      className: 'pj-input pj-tag-input',
+      type: 'text',
+      placeholder: 'Adicionar tags, separadas por vírgula',
+      'aria-label': tagsAriaLabel
+    });
+    const addBtn = el('button', { className: 'pj-add', type: 'button' }, [faIcon('fa-solid fa-plus'), 'Criar tarefa']);
+    const root = el('div', { className: 'pj-home-composer' }, [
+      el('div', { className: 'pj-home-composer-label' }, [faIcon('fa-solid fa-bolt'), label]),
+      el('div', { className: 'pj-home-composer-main' }, [input]),
+      el('div', { className: 'pj-home-composer-footer' }, [
+        el('div', { className: 'pj-home-tag-row' }, [faIcon('fa-solid fa-tags'), tagsInput]),
+        addBtn
+      ])
+    ]);
+    return { root, input, tagsInput, addBtn };
   }
 
   function openManagerPanel() {
@@ -3449,39 +3382,31 @@
     const getUI = () => loadUIByKey(ctx.key);
     const setUI = u => saveUIByKey(ctx.key, u);
 
-    const chip = document.getElementById(ID_MIN_BTN);
-    if (chip) chip.remove();
     const inlineBtn = document.getElementById(ID_PROC_BTN);
     if (inlineBtn) inlineBtn.remove();
 
     const onClose = () => {
+      runPanelCleanup();
       panel.remove();
       syncProcessLauncher(ctx);
     };
 
-    const header = el('div', { id: 'pj-todo-header' }, [
-      el('div', { className: 'pj-home-header-brand', title: `Tarefas do processo ${ctx.cnj}` }, [
-        el('div', { className: 'pj-home-header-icon' }, [faIcon('fa-solid fa-scale-balanced')]),
-        el('div', { className: 'pj-home-header-copy' }, [
-          el('div', { className: 'pj-home-header-title' }, ['Tarefas do processo']),
-          el('div', { className: 'pj-home-header-subtitle' }, [ctx.cnj])
-        ])
-      ]),
-      createHeaderActions({ onClose })
-    ]);
+    const header = createModernPanelHeader({
+      title: 'Tarefas do processo',
+      subtitle: ctx.cnj,
+      icon: 'fa-solid fa-scale-balanced',
+      tooltip: `Tarefas do processo ${ctx.cnj}`,
+      onClose
+    });
 
     const section = el('div', { className: 'pj-section' }, []);
-    const input = el('input', { className: 'pj-input', type: 'text', placeholder: 'O que precisa ser feito neste processo?', 'aria-label': `Descrição da nova tarefa do processo ${cnjLabel}` });
-    const tagsInput = el('input', { className: 'pj-input pj-tag-input', type: 'text', placeholder: 'Adicionar tags, separadas por vírgula', 'aria-label': 'Tags da nova tarefa do processo' });
-    const addBtn = el('button', { className: 'pj-add', type: 'button' }, [faIcon('fa-solid fa-plus'), 'Criar tarefa']);
-    const newRow = el('div', { className: 'pj-home-composer' }, [
-      el('div', { className: 'pj-home-composer-label' }, [faIcon('fa-solid fa-bolt'), 'Nova tarefa deste processo']),
-      el('div', { className: 'pj-home-composer-main' }, [input]),
-      el('div', { className: 'pj-home-composer-footer' }, [
-        el('div', { className: 'pj-home-tag-row' }, [faIcon('fa-solid fa-tags'), tagsInput]),
-        addBtn
-      ])
-    ]);
+    const composer = createTaskComposer({
+      label: 'Nova tarefa deste processo',
+      inputPlaceholder: 'O que precisa ser feito neste processo?',
+      inputAriaLabel: `Descrição da nova tarefa do processo ${cnjLabel}`,
+      tagsAriaLabel: 'Tags da nova tarefa do processo'
+    });
+    const { input, tagsInput, addBtn } = composer;
     const pendingCount = el('span', { className: 'pj-process-count-pill', title: 'Tarefas pendentes neste processo' }, ['0']);
     const listToolbar = el('div', { className: 'pj-home-toolbar' }, [
       el('div', { className: 'pj-home-list-title' }, ['Pendências deste processo']),
@@ -3489,7 +3414,7 @@
     ]);
     const list = el('div', { className: 'pj-list' }, []);
 
-    section.appendChild(newRow);
+    section.appendChild(composer.root);
     section.appendChild(listToolbar);
     section.appendChild(list);
 
@@ -3611,36 +3536,27 @@
     const getUI = () => loadGlobalUI();
     const setUI = u => saveGlobalUI(u);
 
-    const chip = document.getElementById(ID_MIN_BTN);
-    if (chip) chip.remove();
-
     const onClose = () => {
+      runPanelCleanup();
       panel.remove();
     };
 
-    const header = el('div', { id: 'pj-todo-header' }, [
-      el('div', { className: 'pj-home-header-brand', title: 'Visão geral de tarefas' }, [
-        el('div', { className: 'pj-home-header-icon' }, [faIcon('fa-solid fa-list-check')]),
-        el('div', { className: 'pj-home-header-copy' }, [
-          el('div', { className: 'pj-home-header-title' }, ['Visão geral']),
-          el('div', { className: 'pj-home-header-subtitle' }, ['Seu espaço de trabalho no Projudi'])
-        ])
-      ]),
-      createHeaderActions({ onClose })
-    ]);
+    const header = createModernPanelHeader({
+      title: 'Visão geral',
+      subtitle: 'Seu espaço de trabalho no Projudi',
+      icon: 'fa-solid fa-list-check',
+      tooltip: 'Visão geral de tarefas',
+      onClose
+    });
 
     const globalSection = el('div', { className: 'pj-section' }, []);
-    const globalInput = el('input', { className: 'pj-input', type: 'text', placeholder: 'O que precisa ser feito?', 'aria-label': 'Descrição da nova tarefa global' });
-    const globalTagsInput = el('input', { className: 'pj-input pj-tag-input', type: 'text', placeholder: 'Adicionar tags, separadas por vírgula', 'aria-label': 'Tags da nova tarefa global' });
-    const globalAdd = el('button', { className: 'pj-add', type: 'button' }, [faIcon('fa-solid fa-plus'), 'Criar tarefa']);
-    const globalNew = el('div', { className: 'pj-home-composer' }, [
-      el('div', { className: 'pj-home-composer-label' }, [faIcon('fa-solid fa-bolt'), 'Nova tarefa global']),
-      el('div', { className: 'pj-home-composer-main' }, [globalInput]),
-      el('div', { className: 'pj-home-composer-footer' }, [
-        el('div', { className: 'pj-home-tag-row' }, [faIcon('fa-solid fa-tags'), globalTagsInput]),
-        globalAdd
-      ])
-    ]);
+    const globalComposer = createTaskComposer({
+      label: 'Nova tarefa global',
+      inputPlaceholder: 'O que precisa ser feito?',
+      inputAriaLabel: 'Descrição da nova tarefa global',
+      tagsAriaLabel: 'Tags da nova tarefa global'
+    });
+    const { input: globalInput, tagsInput: globalTagsInput, addBtn: globalAdd } = globalComposer;
     const globalSearch = el('input', { className: 'pj-home-search', type: 'search', placeholder: 'Buscar tarefas', 'aria-label': 'Buscar tarefas globais' });
     const globalToolbar = el('div', { className: 'pj-home-toolbar' }, [
       el('div', { className: 'pj-home-list-title' }, ['Pendências globais']),
@@ -3648,7 +3564,7 @@
     ]);
     const globalList = el('div', { className: 'pj-list' }, []);
 
-    globalSection.appendChild(globalNew);
+    globalSection.appendChild(globalComposer.root);
     globalSection.appendChild(globalToolbar);
     globalSection.appendChild(globalList);
 
@@ -3993,9 +3909,9 @@
 
   function isOwnUiNode(node) {
     if (!(node instanceof Element)) return false;
-    if (node.id === 'pj-todo' || node.id === ID_MIN_BTN || node.id === ID_PROC_BTN) return true;
+    if (node.id === 'pj-todo' || node.id === ID_PROC_BTN) return true;
     if (node.id === 'pj-todo-style') return true;
-    return !!node.closest?.(`#pj-todo, #${ID_MIN_BTN}, #${ID_PROC_BTN}`);
+    return !!node.closest?.(`#pj-todo, #${ID_PROC_BTN}`);
   }
 
   function shouldIgnoreMutations(mutations) {
