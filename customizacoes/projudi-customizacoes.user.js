@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      2026.07.23-2000
+// @version      2026.07.23-2049
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -2378,20 +2378,39 @@
                 background: transparent !important;
                 box-shadow: none !important;
             }
-            #pjc-custom-header-root #cssmenu > ul > li > a {
+            #pjc-custom-header-root #cssmenu > ul > li > a,
+            #pjc-custom-header-root #cssmenu > ul > li > #btn-voz-pesquisa,
+            #pjc-custom-header-root #cssmenu > ul > li > #ContrasteAlterar,
+            #pjc-custom-header-root #cssmenu > ul > li > #FonteAumentar,
+            #pjc-custom-header-root #cssmenu > ul > li > #FonteDiminuir {
                 display: inline-flex !important;
                 align-items: center !important;
                 justify-content: center !important;
                 min-width: 34px !important;
+                width: auto !important;
                 min-height: 34px !important;
                 padding: 0 9px !important;
                 color: #ffffff !important;
                 border: 1px solid transparent !important;
                 border-radius: 10px !important;
+                box-sizing: border-box !important;
+                cursor: pointer !important;
+                font-size: 13px !important;
+                font-style: normal !important;
+                line-height: 1 !important;
+                white-space: nowrap !important;
                 transition: background-color .15s ease, border-color .15s ease, transform .15s ease !important;
             }
             #pjc-custom-header-root #cssmenu > ul > li:hover > a,
-            #pjc-custom-header-root #cssmenu > ul > li:focus-within > a {
+            #pjc-custom-header-root #cssmenu > ul > li:focus-within > a,
+            #pjc-custom-header-root #cssmenu > ul > li:hover > #btn-voz-pesquisa,
+            #pjc-custom-header-root #cssmenu > ul > li:focus-within > #btn-voz-pesquisa,
+            #pjc-custom-header-root #cssmenu > ul > li:hover > #ContrasteAlterar,
+            #pjc-custom-header-root #cssmenu > ul > li:focus-within > #ContrasteAlterar,
+            #pjc-custom-header-root #cssmenu > ul > li:hover > #FonteAumentar,
+            #pjc-custom-header-root #cssmenu > ul > li:focus-within > #FonteAumentar,
+            #pjc-custom-header-root #cssmenu > ul > li:hover > #FonteDiminuir,
+            #pjc-custom-header-root #cssmenu > ul > li:focus-within > #FonteDiminuir {
                 color: #ffffff !important;
                 border-color: rgba(255,255,255,.18) !important;
                 background: rgba(255,255,255,.13) !important;
@@ -3566,10 +3585,24 @@
         return matches;
     }
 
+    function syncModernTableSemantics(doc) {
+        if (!doc) return;
+        doc.querySelectorAll('[data-pjc-column-kind="quantity"]').forEach(cell => {
+            cell.removeAttribute("data-pjc-column-kind");
+        });
+        if (!settings.modernTablesEnabled) return;
+        doc.querySelectorAll("table tr:first-child > th, table tr:first-child > td").forEach(cell => {
+            if (normalizeLabel(cell.textContent) === "qtde") {
+                cell.setAttribute("data-pjc-column-kind", "quantity");
+            }
+        });
+    }
+
     function injectWidthCSS(doc) {
         if (!settings.enabled || !doc || !doc.head || !canInjectIntoDoc(doc)) return;
         syncGoogleFont(doc);
         syncServentiaSelectionContext(doc);
+        syncModernTableSemantics(doc);
         const widthEnabled = !!settings.enableWidthAdjustments;
         const widthPercent = widthEnabled ? sanitizeWidthPercent(settings.contentWidthPercent) : 100;
         const widthValue = widthPercent + "%";
@@ -3619,6 +3652,22 @@
                 }
                 :where(h1, h2, h3, h4, h5, h6):not([data-pj-suite-ui] *) { margin-top: 4px !important; margin-bottom: 4px !important; }
                 p:not([data-pj-suite-ui] *) { margin-top: 4px !important; margin-bottom: 4px !important; }
+            `
+            : "";
+        let isIframeDocument = false;
+        try {
+            isIframeDocument = !!doc.defaultView && doc.defaultView !== doc.defaultView.top;
+        } catch (_) {
+            isIframeDocument = true;
+        }
+        const customHeaderIframeClearanceCss = settings.customHeaderEnabled && isIframeDocument
+            ? `
+                body > .area,
+                #divCorpo > .area:first-child,
+                .divCorpo > .area:first-child,
+                body > h2.area:first-of-type {
+                    margin-top: 6px !important;
+                }
             `
             : "";
 
@@ -3832,6 +3881,9 @@
             table:not(.pjip-table) tr.tituloTabela > td[align="right"] {
                 text-align: right !important;
             }
+            table :is(th, td)[data-pjc-column-kind="quantity"] {
+                text-align: center !important;
+            }
             table.Tabela:not(.pjip-table) td, table#Tabela:not(.pjip-table) td,
             .Tabela table:not(.pjip-table) td, .divTabela table:not(.pjip-table) td,
             #TabelaArquivos:not(.pjip-table) td, table.lista:not(.pjip-table) td,
@@ -4000,7 +4052,8 @@
         ` : "";
 
         const styleId = "projudi-ajuste-largura";
-        const hasCssAdjust = widthEnabled || !!settings.compactMode || !!settings.fontScaleEnabled ||
+        const hasCssAdjust = widthEnabled || !!settings.customHeaderEnabled ||
+            !!settings.compactMode || !!settings.fontScaleEnabled ||
             !!settings.googleFontEnabled ||
             !!settings.modernVisualEnabled || !!settings.modernTablesEnabled ||
             !!settings.modernFormsEnabled || !!settings.stickyActionsEnabled ||
@@ -4016,6 +4069,7 @@
             ${fontScaleCss}
             ${googleFontCss}
             ${compactCss}
+            ${customHeaderIframeClearanceCss}
             ${modernVisualCss}
             ${modernTablesCss}
             ${modernFormsCss}
