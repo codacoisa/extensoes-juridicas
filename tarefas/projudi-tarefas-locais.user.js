@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2026.07.22-2200
+// @version      2026.07.22-2212
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -1513,9 +1513,12 @@
         align-items: center;
         justify-content: space-between;
         gap: 14px;
-        padding: 2px 2px 0;
+        padding: 2px 4px 0;
       }
-      .pj-home-summary-copy { min-width: 0; }
+      .pj-home-summary-copy {
+        flex: 1;
+        min-width: 0;
+      }
       .pj-home-eyebrow {
         margin-bottom: 2px;
         color: #64748b;
@@ -1535,21 +1538,6 @@
         color: #64748b;
         font-size: 11px;
         line-height: 1.35;
-      }
-      .pj-home-total {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        flex: 0 0 auto;
-        min-width: 48px;
-        height: 48px;
-        border: 1px solid #cfe0f2;
-        border-radius: 14px;
-        background: linear-gradient(145deg, #f7fbff, #eaf3fb);
-        color: #0f4d86;
-        font-size: 20px;
-        font-weight: 850;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.9);
       }
       .pj-home-tabs {
         display: flex;
@@ -1665,14 +1653,18 @@
         pointer-events: none;
       }
       .pj-home-search {
+        display: block;
         width: 100%;
+        min-width: 0;
         height: 32px;
+        margin: 0;
         padding: 5px 9px 5px 28px;
         border: 1px solid #d5e0eb;
         border-radius: 8px;
         background: #f8fbfd;
         color: #173a61;
         font-size: 11px;
+        box-shadow: none;
       }
       .pj-home-composer {
         margin-bottom: 12px;
@@ -1687,39 +1679,58 @@
         gap: 6px;
         margin-bottom: 8px;
         color: #31506f;
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 800;
       }
       .pj-home-composer-label :is(i, .pj-suite-fa) { color: #1767a8; }
       .pj-home-composer-main {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 7px;
+        display: block;
+        width: 100%;
       }
       .pj-home-composer .pj-input {
+        display: block;
+        width: 100%;
+        min-width: 0;
         height: 38px;
+        margin: 0;
         padding: 7px 10px;
         border-color: #c8d6e4;
         background: #fff;
+      }
+      .pj-home-composer-footer {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 118px;
+        align-items: stretch;
+        gap: 8px;
+        margin-top: 8px;
       }
       .pj-home-composer .pj-add {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         gap: 6px;
-        min-width: 96px;
-        height: 38px;
-        padding: 7px 13px;
+        width: 100%;
+        min-width: 0;
+        height: 34px;
+        margin: 0;
+        padding: 6px 10px;
         border-color: #13558e;
         background: #13558e;
         box-shadow: 0 4px 10px rgba(19, 85, 142, .16);
+        font-size: 11px;
       }
       .pj-home-composer .pj-add:hover { background: #0d477a; }
       .pj-home-tag-row {
         display: flex;
         align-items: center;
         gap: 6px;
-        margin-top: 7px;
+        min-width: 0;
+        height: 34px;
+        margin: 0;
+        padding: 0 9px;
+        border: 1px solid #c8d6e4;
+        border-radius: 8px;
+        background: #fff;
       }
       .pj-home-tag-row :is(i, .pj-suite-fa) {
         flex: 0 0 auto;
@@ -1728,13 +1739,22 @@
       }
       .pj-home-tag-row .pj-tag-input {
         flex: 1;
-        height: 30px;
-        padding: 4px 8px;
-        border: 0;
+        width: auto;
+        height: 32px;
+        margin: 0;
+        padding: 4px 0;
+        border: 0 !important;
         background: transparent;
         color: #52677e;
         font-size: 11px;
+        box-shadow: none !important;
+        outline-offset: 0;
       }
+      .pj-home-tag-row:focus-within {
+        border-color: #2476bd;
+        box-shadow: 0 0 0 3px rgba(37, 118, 189, .16);
+      }
+      .pj-home-tag-row .pj-tag-input:focus-visible { outline: 0 !important; }
       .pj-home-layout .pj-item {
         gap: 8px;
         margin-bottom: 7px;
@@ -1834,8 +1854,8 @@
       .pj-home-layout .pj-list-inline .pj-item:last-child { margin-bottom: 0; }
       @media (max-width: 480px) {
         .pj-home-summary-sub { display: none; }
-        .pj-home-composer-main { grid-template-columns: 1fr; }
-        .pj-home-composer .pj-add { width: 100%; }
+        .pj-home-composer-footer { grid-template-columns: 1fr; }
+        .pj-home-composer .pj-add { height: 36px; }
         .pj-home-toolbar { align-items: stretch; flex-direction: column; }
         .pj-home-search-wrap { flex-basis: auto; }
       }
@@ -3536,8 +3556,11 @@
     const globalAdd = el('button', { className: 'pj-add', type: 'button' }, [faIcon('fa-solid fa-plus'), 'Criar tarefa']);
     const globalNew = el('div', { className: 'pj-home-composer' }, [
       el('div', { className: 'pj-home-composer-label' }, [faIcon('fa-solid fa-bolt'), 'Nova tarefa global']),
-      el('div', { className: 'pj-home-composer-main' }, [globalInput, globalAdd]),
-      el('div', { className: 'pj-home-tag-row' }, [faIcon('fa-solid fa-tags'), globalTagsInput])
+      el('div', { className: 'pj-home-composer-main' }, [globalInput]),
+      el('div', { className: 'pj-home-composer-footer' }, [
+        el('div', { className: 'pj-home-tag-row' }, [faIcon('fa-solid fa-tags'), globalTagsInput]),
+        globalAdd
+      ])
     ]);
     const globalSearch = el('input', { className: 'pj-home-search', type: 'search', placeholder: 'Buscar tarefas', 'aria-label': 'Buscar tarefas globais' });
     const globalToolbar = el('div', { className: 'pj-home-toolbar' }, [
@@ -3567,14 +3590,12 @@
     const tabs = el('div', { className: 'pj-home-tabs', role: 'tablist', 'aria-label': 'Escopo das tarefas' }, [tabGlobal, tabProcess]);
     const summaryTitle = el('div', { className: 'pj-home-summary-title' }, ['Seu dia em ordem']);
     const summarySub = el('div', { className: 'pj-home-summary-sub' }, ['Carregando suas pendências...']);
-    const totalCount = el('div', { className: 'pj-home-total', title: 'Total de tarefas ativas' }, ['0']);
     const summary = el('div', { className: 'pj-home-summary' }, [
       el('div', { className: 'pj-home-summary-copy' }, [
         el('div', { className: 'pj-home-eyebrow' }, ['Agora']),
         summaryTitle,
         summarySub
-      ]),
-      totalCount
+      ])
     ]);
     const globalPanel = el('div', { className: 'pj-home-panel active' }, [globalSection]);
     const processPanel = el('div', { className: 'pj-home-panel' }, [procSection]);
@@ -3606,7 +3627,6 @@
       const total = globalActive + processActive;
       globalCount.textContent = String(globalActive);
       processCount.textContent = String(processRows.length);
-      totalCount.textContent = String(total);
       summaryTitle.textContent = total ? `${formatCount(total, 'pendência', 'pendências')} em aberto` : 'Seu dia está em ordem';
       summarySub.textContent = total
         ? `${formatCount(globalActive, 'global', 'globais')} e ${formatCount(processActive, 'vinculada a processo', 'vinculadas a processos')}.`
