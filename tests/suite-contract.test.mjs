@@ -124,6 +124,14 @@ test('atalhos do processo e filtros de intimações mantêm o comportamento atua
   assert.doesNotMatch(intimacoes, /DEADLINE_WEEKDAY_PALETTE|DEADLINE_WEEKEND_COLOR|applyDeadlineHighlightToCell|tm-hl7d/, 'o destaque obsoleto por célula foi reintroduzido');
 });
 
+test('abas da visão geral de tarefas ficam isoladas dos botões do Projudi', () => {
+  const tarefas = sources.tarefas;
+  assert.doesNotMatch(tarefas, /el\('button',\s*\{\s*className:\s*'pj-home-tab/, 'as abas ainda herdam os estilos globais de button do Projudi');
+  assert.match(tarefas, /el\('div',\s*\{\s*className:\s*'pj-home-tab active',\s*role:\s*'tab'/, 'a aba global não usa um controle isolado com semântica de tab');
+  assert.match(tarefas, /#pj-todo\.pj-todo-home \.pj-home-tab\s*\{\s*all:\s*unset;/, 'os estilos das abas não estão isolados e limitados à raiz da extensão');
+  assert.match(tarefas, /tabGlobal\.addEventListener\('keydown'/, 'as abas isoladas não preservam a navegação por teclado');
+});
+
 test('Customizações reverte integralmente recursos visuais', () => {
   const source = sources.customizacoes;
   assert.match(source, /function restoreCustomHeaderStructure\(\)/, 'cabeçalho personalizado não possui restauração explícita');

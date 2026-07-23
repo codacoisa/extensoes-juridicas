@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2026.07.22-2217
+// @version      2026.07.22-2224
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       louencosv (GPT)
@@ -1539,7 +1539,7 @@
         font-size: 11px;
         line-height: 1.35;
       }
-      .pj-home-tabs {
+      #pj-todo.pj-todo-home .pj-home-tabs {
         display: flex;
         align-items: stretch;
         gap: 4px;
@@ -1551,22 +1551,24 @@
         height: 44px;
         min-height: 44px;
       }
-      .pj-home-tab {
-        position: relative !important;
-        inset: auto !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        align-self: stretch !important;
+      #pj-todo.pj-todo-home .pj-home-tab {
+        all: unset;
+        box-sizing: border-box;
+        position: relative;
+        inset: auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        align-self: stretch;
         flex: 1 1 0;
         gap: 7px;
-        width: auto !important;
-        min-width: 0 !important;
-        height: 34px !important;
-        min-height: 34px !important;
-        max-height: 34px !important;
-        margin: 0 !important;
-        padding: 0 9px !important;
+        width: auto;
+        min-width: 0;
+        height: 34px;
+        min-height: 34px;
+        max-height: 34px;
+        margin: 0;
+        padding: 0 9px;
         border: 1px solid transparent;
         border-radius: 8px;
         background: transparent;
@@ -1574,16 +1576,15 @@
         cursor: pointer;
         font-size: 12px;
         font-weight: 750;
-        line-height: 1 !important;
+        line-height: 1;
         text-align: center;
         white-space: nowrap;
-        vertical-align: middle !important;
-        transform: none !important;
-        appearance: none;
-        -webkit-appearance: none;
+        vertical-align: middle;
+        transform: none;
+        user-select: none;
         transition: background .14s ease, color .14s ease, box-shadow .14s ease;
       }
-      .pj-home-tab :is(i, .pj-suite-fa) {
+      #pj-todo.pj-todo-home .pj-home-tab :is(i, .pj-suite-fa) {
         display: block;
         flex: 0 0 auto;
         width: 13px;
@@ -1591,14 +1592,16 @@
         margin: 0;
         vertical-align: middle;
       }
-      .pj-home-tab:hover { color: #123f6d; }
-      .pj-home-tab.active {
+      #pj-todo.pj-todo-home .pj-home-tab:hover { color: #123f6d; }
+      #pj-todo.pj-todo-home .pj-home-tab.active {
         border-color: #d3dfeb;
         background: #fff;
         color: #103f70;
         box-shadow: 0 2px 8px rgba(15, 49, 85, .09);
       }
-      .pj-home-tab-count {
+      #pj-todo.pj-todo-home .pj-home-tab-count {
+        all: unset;
+        box-sizing: border-box;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -1615,7 +1618,7 @@
         line-height: 20px;
         vertical-align: middle;
       }
-      .pj-home-tab.active .pj-home-tab-count {
+      #pj-todo.pj-todo-home .pj-home-tab.active .pj-home-tab-count {
         background: #e5f0fa;
       }
       .pj-home-stack {
@@ -3609,8 +3612,8 @@
 
     const globalCount = el('span', { className: 'pj-home-tab-count' }, ['0']);
     const processCount = el('span', { className: 'pj-home-tab-count' }, ['0']);
-    const tabGlobal = el('button', { className: 'pj-home-tab active', type: 'button', role: 'tab', 'aria-selected': 'true' }, [faIcon('fa-solid fa-layer-group'), 'Globais', globalCount]);
-    const tabProcess = el('button', { className: 'pj-home-tab', type: 'button', role: 'tab', 'aria-selected': 'false' }, [faIcon('fa-solid fa-scale-balanced'), 'Processos', processCount]);
+    const tabGlobal = el('div', { className: 'pj-home-tab active', role: 'tab', tabIndex: 0, ariaSelected: 'true' }, [faIcon('fa-solid fa-layer-group'), 'Globais', globalCount]);
+    const tabProcess = el('div', { className: 'pj-home-tab', role: 'tab', tabIndex: 0, ariaSelected: 'false' }, [faIcon('fa-solid fa-scale-balanced'), 'Processos', processCount]);
     const tabs = el('div', { className: 'pj-home-tabs', role: 'tablist', 'aria-label': 'Escopo das tarefas' }, [tabGlobal, tabProcess]);
     const summaryTitle = el('div', { className: 'pj-home-summary-title' }, ['Seu dia em ordem']);
     const summarySub = el('div', { className: 'pj-home-summary-sub' }, ['Carregando suas pendências...']);
@@ -3869,6 +3872,20 @@
 
     tabGlobal.addEventListener('click', () => setHomeTab('global'));
     tabProcess.addEventListener('click', () => setHomeTab('process'));
+    const onTabKeyDown = (which, event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        setHomeTab(which);
+        return;
+      }
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      event.preventDefault();
+      const next = which === 'global' ? 'process' : 'global';
+      setHomeTab(next);
+      (next === 'global' ? tabGlobal : tabProcess).focus();
+    };
+    tabGlobal.addEventListener('keydown', event => onTabKeyDown('global', event));
+    tabProcess.addEventListener('keydown', event => onTabKeyDown('process', event));
 
     const cleanupDrag = enableDragWindow({ loadUI: getUI, saveUI: setUI, panel, handle: header });
     const cleanupScroll = bindPanelScrollLock(panel);
