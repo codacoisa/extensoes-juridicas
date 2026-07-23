@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      2026.07.23-1946
+// @version      2026.07.23-2000
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -2236,6 +2236,9 @@
         const horizontalGutter = settings.centerContent && widthPercent < 100
             ? `calc((100% - ${widthValue}) / 2)`
             : "0px";
+        const customHeaderWidth = widthEnabled ? widthValue : "100%";
+        const customHeaderMargins = widthEnabled ? centeredMargins : "0";
+        const customHeaderInnerWidth = widthEnabled ? "100%" : "min(1480px, calc(100% - 28px))";
         const topPageBg =
             widthEnabled && settings.sideBackgroundEnabled && settings.sideBackground === "white"
                 ? "#ffffff"
@@ -2300,11 +2303,13 @@
                 --pjc-header-border: #d7e3ee;
                 position: relative !important;
                 z-index: 1200 !important;
-                width: 100% !important;
+                width: ${customHeaderWidth} !important;
+                max-width: ${customHeaderWidth} !important;
+                margin: 0 ${customHeaderMargins} 12px !important;
                 overflow: visible !important;
                 background: #f5f8fb !important;
                 border-bottom: 1px solid var(--pjc-header-border) !important;
-                box-shadow: 0 8px 24px rgba(15, 45, 78, .13) !important;
+                box-shadow: 0 4px 14px rgba(15, 45, 78, .11) !important;
             }
             #pjc-custom-header-root [data-pjc-custom-header-shell="true"] {
                 position: relative !important;
@@ -2318,7 +2323,7 @@
                 box-shadow: inset 0 -1px 0 rgba(3, 20, 38, .22) !important;
             }
             #pjc-custom-header-root #pgn_cabecalho {
-                width: min(1480px, calc(100% - 28px)) !important;
+                width: ${customHeaderInnerWidth} !important;
                 max-width: none !important;
                 min-height: 56px !important;
                 margin-left: auto !important;
@@ -2356,9 +2361,22 @@
                 align-items: center !important;
                 justify-content: flex-end !important;
                 gap: 4px !important;
+                margin: 0 !important;
+                padding: 0 !important;
             }
             #pjc-custom-header-root #cssmenu > ul > li {
                 float: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: 0 !important;
+                background: transparent !important;
+                box-shadow: none !important;
+            }
+            #pjc-custom-header-root #cssmenu > ul > li:hover,
+            #pjc-custom-header-root #cssmenu > ul > li:focus-within {
+                border: 0 !important;
+                background: transparent !important;
+                box-shadow: none !important;
             }
             #pjc-custom-header-root #cssmenu > ul > li > a {
                 display: inline-flex !important;
@@ -2395,7 +2413,7 @@
                 align-items: center !important;
                 flex-wrap: nowrap !important;
                 gap: 3px !important;
-                width: min(1480px, calc(100% - 28px)) !important;
+                width: ${customHeaderInnerWidth} !important;
                 max-width: none !important;
                 margin-left: auto !important;
                 margin-right: auto !important;
@@ -2408,11 +2426,30 @@
                 min-height: 0 !important;
                 margin: 0 !important;
                 padding: 0 !important;
+                border: 0 !important;
+                border-radius: 0 !important;
+                background: transparent !important;
+                box-shadow: none !important;
                 box-sizing: border-box !important;
             }
             #pjc-custom-header-root #menuPrinciapl.menu > ul > li {
                 float: none !important;
                 position: relative !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: 0 !important;
+                border-radius: 0 !important;
+                background: transparent !important;
+                box-shadow: none !important;
+            }
+            #pjc-custom-header-root #menuPrinciapl.menu > ul:hover,
+            #pjc-custom-header-root #menuPrinciapl.menu > ul:focus-within,
+            #pjc-custom-header-root #menuPrinciapl.menu > ul > li:hover,
+            #pjc-custom-header-root #menuPrinciapl.menu > ul > li:focus-within {
+                border: 0 !important;
+                border-radius: 0 !important;
+                background: transparent !important;
+                box-shadow: none !important;
             }
             #pjc-custom-header-root #menuPrinciapl.menu > ul > li > a,
             #pjc-custom-header-root #menuPrinciapl.menu > a {
@@ -2446,6 +2483,23 @@
                 border-radius: 10px !important;
                 background: #ffffff !important;
                 box-shadow: 0 14px 32px rgba(15, 45, 78, .18) !important;
+            }
+            #pjc-custom-header-root #menuPrinciapl.menu ul ul > li,
+            #pjc-custom-header-root #menuPrinciapl.menu ul ul > li:hover,
+            #pjc-custom-header-root #menuPrinciapl.menu ul ul > li:focus-within {
+                border: 0 !important;
+                background: transparent !important;
+                box-shadow: none !important;
+            }
+            #pjc-custom-header-root #menuPrinciapl.menu ul ul > li > a {
+                border-radius: 7px !important;
+                background: transparent !important;
+                color: var(--pjc-header-ink) !important;
+            }
+            #pjc-custom-header-root #menuPrinciapl.menu ul ul > li:hover > a,
+            #pjc-custom-header-root #menuPrinciapl.menu ul ul > li:focus-within > a {
+                background: #edf5fb !important;
+                color: #0b5d91 !important;
             }
             #pjc-custom-header-root #cronometro {
                 margin: 6px 10px 6px auto !important;
@@ -3496,9 +3550,26 @@
         if (link.href !== href) link.href = href;
     }
 
+    function syncServentiaSelectionContext(doc) {
+        if (!doc || !doc.documentElement) return false;
+        let routeMatches = false;
+        try {
+            const url = new URL(doc.defaultView?.location?.href || window.location.href);
+            routeMatches = /\/Usuario\b/i.test(url.pathname) && url.searchParams.get("PaginaAtual") === "9";
+        } catch (_) {
+            routeMatches = false;
+        }
+        const heading = normalizeLabel(doc.querySelector("#divCorpo > h2, .divCorpo > h2, h2")?.textContent);
+        const contentMatches = heading.includes("serventias disponiveis");
+        const matches = routeMatches || contentMatches;
+        doc.documentElement.toggleAttribute("data-pjc-serventia-selection", matches);
+        return matches;
+    }
+
     function injectWidthCSS(doc) {
         if (!settings.enabled || !doc || !doc.head || !canInjectIntoDoc(doc)) return;
         syncGoogleFont(doc);
+        syncServentiaSelectionContext(doc);
         const widthEnabled = !!settings.enableWidthAdjustments;
         const widthPercent = widthEnabled ? sanitizeWidthPercent(settings.contentWidthPercent) : 100;
         const widthValue = widthPercent + "%";
@@ -3645,6 +3716,81 @@
             hr {
                 border: 0 !important;
                 border-top: 1px solid var(--pj-ui-border) !important;
+            }
+            html[data-pjc-serventia-selection] body {
+                min-height: 100vh !important;
+                background: var(--pj-ui-canvas) !important;
+            }
+            html[data-pjc-serventia-selection] body > div[style*="background-color"][style*="#ccc"][style*="height:28px"] {
+                display: none !important;
+            }
+            html[data-pjc-serventia-selection] #divCorpo,
+            html[data-pjc-serventia-selection] .divCorpo {
+                padding: 24px 6px 40px !important;
+                border: 0 !important;
+                background: transparent !important;
+                box-shadow: none !important;
+            }
+            html[data-pjc-serventia-selection] #divCorpo > h2,
+            html[data-pjc-serventia-selection] .divCorpo > h2 {
+                margin: 0 0 18px !important;
+                padding: 0 2px 12px !important;
+                border-bottom: 1px solid var(--pj-ui-border) !important;
+                color: var(--pj-ui-primary) !important;
+                font-size: 20px !important;
+                font-weight: 750 !important;
+                line-height: 1.25 !important;
+            }
+            html[data-pjc-serventia-selection] #divCorpo > fieldset,
+            html[data-pjc-serventia-selection] .divCorpo > fieldset {
+                margin: 0 0 14px !important;
+                padding: 14px 18px 16px !important;
+                border: 1px solid var(--pj-ui-border) !important;
+                border-left: 4px solid #2d79b3 !important;
+                border-radius: 10px !important;
+                background: var(--pj-ui-surface) !important;
+                box-shadow: 0 4px 14px rgba(15, 45, 78, .07) !important;
+                transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease !important;
+            }
+            html[data-pjc-serventia-selection] #divCorpo > fieldset:hover,
+            html[data-pjc-serventia-selection] #divCorpo > fieldset:focus-within,
+            html[data-pjc-serventia-selection] .divCorpo > fieldset:hover,
+            html[data-pjc-serventia-selection] .divCorpo > fieldset:focus-within {
+                border-color: #a9c8df !important;
+                border-left-color: #176fa6 !important;
+                box-shadow: 0 8px 22px rgba(15, 45, 78, .11) !important;
+                transform: translateY(-1px) !important;
+            }
+            html[data-pjc-serventia-selection] #divCorpo > fieldset > legend,
+            html[data-pjc-serventia-selection] .divCorpo > fieldset > legend {
+                max-width: calc(100% - 20px) !important;
+                padding: 3px 8px !important;
+                border: 0 !important;
+                background: var(--pj-ui-primary-soft) !important;
+                color: #174f86 !important;
+                font-size: 12.5px !important;
+                font-weight: 750 !important;
+                line-height: 1.35 !important;
+                white-space: normal !important;
+            }
+            html[data-pjc-serventia-selection] #divCorpo > fieldset a,
+            html[data-pjc-serventia-selection] .divCorpo > fieldset a {
+                display: inline-flex !important;
+                align-items: center !important;
+                min-height: 30px !important;
+                margin-top: 2px !important;
+                padding: 2px 8px !important;
+                border-radius: 7px !important;
+                color: #176fa6 !important;
+                font-weight: 700 !important;
+                text-decoration: none !important;
+            }
+            html[data-pjc-serventia-selection] #divCorpo > fieldset a:hover,
+            html[data-pjc-serventia-selection] #divCorpo > fieldset a:focus-visible,
+            html[data-pjc-serventia-selection] .divCorpo > fieldset a:hover,
+            html[data-pjc-serventia-selection] .divCorpo > fieldset a:focus-visible {
+                background: var(--pj-ui-primary-soft) !important;
+                color: #0b5d91 !important;
             }
         ` : "";
 

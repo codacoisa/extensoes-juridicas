@@ -169,6 +169,12 @@ test('Customizações reverte integralmente recursos visuais', () => {
   assert.match(source, /#pjc-custom-header-root #pgn_cabecalho h1 \{\s*color: #ffffff !important;/, 'o visual moderno pode apagar o título do cabeçalho autônomo');
   assert.match(source, /#menuPrinciapl\.menu \{[\s\S]{0,240}?display: flex !important;[\s\S]{0,240}?flex-wrap: nowrap !important;/, 'a navegação personalizada não mantém os itens na mesma faixa');
   assert.match(source, /#menuPrinciapl\.menu > ul \{[\s\S]{0,220}?flex: 0 0 auto !important;/, 'os grupos nativos do menu ainda ocupam a barra inteira');
+  assert.match(source, /const customHeaderWidth = widthEnabled \? widthValue : "100%";/, 'o cabeçalho personalizado não acompanha a largura configurada');
+  assert.match(source, /#pjc-custom-header-root \{[\s\S]{0,500}?width: \$\{customHeaderWidth\} !important;[\s\S]{0,180}?margin: 0 \$\{customHeaderMargins\} 12px !important;/, 'a raiz do cabeçalho personalizado não se alinha ao conteúdo');
+  assert.match(source, /#menuPrinciapl\.menu > ul:hover,[\s\S]{0,380}?background: transparent !important;[\s\S]{0,120}?box-shadow: none !important;/, 'o hover do menu ainda deixa o fundo cinza nativo exposto');
+  assert.match(source, /function syncServentiaSelectionContext\(doc\)[\s\S]{0,850}?data-pjc-serventia-selection/, 'a seleção de serventias não possui contexto visual próprio');
+  assert.match(source, /html\[data-pjc-serventia-selection\] body > div\[style\*="background-color"\]\[style\*="#ccc"\]\[style\*="height:28px"\][\s\S]{0,100}?display: none !important;/, 'o separador cinza legado permanece na seleção de serventias');
+  assert.match(source, /html\[data-pjc-serventia-selection\] #divCorpo > fieldset[\s\S]{0,420}?border-left: 4px solid #2d79b3 !important;/, 'as serventias não usam cartões coerentes com o visual moderno');
   assert.match(source, /function isPublicLandingPage\(\)[\s\S]{0,360}?pathname === "\/"/, 'a página pública inicial não é reconhecida explicitamente');
   assert.match(source, /function isStandaloneContentPage\(\)[\s\S]{0,260}?isPublicLandingPage\(\)[\s\S]{0,220}?\/\\\/Usuario\\b\/i/, 'páginas autônomas autenticadas não estão separadas da entrada pública');
   assert.match(source, /!settings\.applyToStandalonePages && !hasStandaloneVisualFeatures\(\)/, 'o visual autônomo ainda depende do ajuste de largura');
