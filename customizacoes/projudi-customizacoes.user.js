@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      2026.07.24-0001
+// @version      2026.07.24-0018
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -85,6 +85,7 @@
     })();
 
     const STORAGE_KEY = "projudi-suite::customizacoes::data";
+    const BASE_CONTENT_FONT_PX = 12;
     const SCRIPT_META = (() => {
         const fallbackName = "Customizacoes";
         const fallbackId = "projudi-customizacoes";
@@ -2251,8 +2252,7 @@
                 : widthEnabled && settings.sideBackgroundEnabled && settings.sideBackground === "light"
                     ? "#f3f4f6"
                     : "";
-        const hasHeaderAdjust = widthEnabled || settings.hideClock || settings.hideHeaderIcons ||
-            settings.customHeaderEnabled || settings.googleFontEnabled;
+        const hasHeaderAdjust = settings.enabled && !isPublicLandingPage();
         if (!hasHeaderAdjust) {
             removeStyleFromDoc(document, "projudi-top-header-style");
             return;
@@ -2294,9 +2294,29 @@
             }
         ` : "";
 
+        const stableNativeHeaderCss = `
+            #pgn_cabecalho > div[style*="float: right"] {
+                white-space: nowrap !important;
+            }
+            #cssmenu > ul {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: flex-end !important;
+                flex-wrap: nowrap !important;
+            }
+            #cssmenu > ul > li {
+                flex: 0 0 auto !important;
+            }
+        `;
+
         const visibilityCss = `
             ${settings.hideClock ? "#cronometro { display: none !important; }" : ""}
-            ${settings.hideHeaderIcons ? '#pgn_cabecalho > div[style*="float: right"] { display: none !important; }' : ""}
+            ${settings.hideHeaderIcons ? `
+                #pgn_cabecalho > div[style*="float: right"],
+                #pjc-custom-header-root #pgn_cabecalho > div[style*="float: right"] {
+                    display: none !important;
+                }
+            ` : ""}
         `;
 
         // Preserva a estrutura funcional do Projudi e aplica uma identidade visual moderna em duas faixas.
@@ -2552,7 +2572,7 @@
                 }
             `
             : "";
-        const css = `${visibilityCss}\n${stableCustomHeaderCss}\n${widthCss}\n${topFontCss}`;
+        const css = `${stableNativeHeaderCss}\n${stableCustomHeaderCss}\n${widthCss}\n${topFontCss}\n${visibilityCss}`;
 
         let style = document.getElementById("projudi-top-header-style");
         if (!style) {
@@ -2561,6 +2581,7 @@
             document.head.appendChild(style);
         }
         if (style.textContent !== css) style.textContent = css;
+        if (settings.enableIframeAutoHeight) requestAnimationFrame(ajustarAlturaIframe);
     }
 
     function ajustarAlturaIframe() {
@@ -2572,8 +2593,8 @@
         }
 
         const iframeTop = Math.max(0, iframe.getBoundingClientRect().top);
-        const h = Math.floor(window.innerHeight - iframeTop);
-        if (h > 200) iframe.style.height = h + "px";
+        const h = Math.max(200, Math.floor(window.innerHeight - iframeTop));
+        iframe.style.height = h + "px";
     }
 
     let headerHidden = false;
@@ -3619,7 +3640,7 @@
                 : widthEnabled && settings.sideBackgroundEnabled && settings.sideBackground === "light"
                     ? "#f3f4f6"
                     : "";
-        const scaledFontPx = Math.round(13.5 * sanitizeFontScale(settings.fontScalePercent) / 100 * 10) / 10;
+        const scaledFontPx = Math.round(BASE_CONTENT_FONT_PX * sanitizeFontScale(settings.fontScalePercent) / 100 * 10) / 10;
         const fontScaleCss = settings.fontScaleEnabled
             ? `
                 body,
@@ -3670,7 +3691,8 @@
             ? `
                 body {
                     box-sizing: border-box !important;
-                    padding-top: 8px !important;
+                    padding-top: 16px !important;
+                    scroll-padding-top: 16px !important;
                 }
                 body > .area,
                 #divCorpo > .area:first-child,
@@ -3697,11 +3719,11 @@
                 background: var(--pj-ui-canvas) !important;
                 color: var(--pj-ui-text) !important;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
-                font-size: ${settings.fontScaleEnabled ? scaledFontPx : 13.5}px !important;
+                font-size: ${settings.fontScaleEnabled ? scaledFontPx : BASE_CONTENT_FONT_PX}px !important;
                 line-height: 1.48 !important;
             }
             :where(table, td, th, label, input, select, textarea, button):not([data-pj-suite-ui] *) {
-                font-size: ${settings.fontScaleEnabled ? scaledFontPx : 13.5}px !important;
+                font-size: ${settings.fontScaleEnabled ? scaledFontPx : BASE_CONTENT_FONT_PX}px !important;
             }
             #divCorpo, .divCorpo, #Corpo, #conteudo, #conteudoPrincipal,
             #pgn_corpo, #Formulario, .Tela, .Corpo, .conteudo, #content,
@@ -3790,19 +3812,37 @@
                 background: transparent !important;
                 box-shadow: none !important;
             }
+            html[data-pjc-serventia-selection] body > h2 {
+                width: ${widthEnabled ? widthValue : "min(1180px, calc(100% - 32px))"} !important;
+                max-width: ${widthEnabled ? widthValue : "1180px"} !important;
+                margin-left: ${widthEnabled ? centeredMargins : "auto"} !important;
+                margin-right: ${widthEnabled ? centeredMargins : "auto"} !important;
+                box-sizing: border-box !important;
+            }
             html[data-pjc-serventia-selection] #divCorpo > h2,
-            html[data-pjc-serventia-selection] .divCorpo > h2 {
-                margin: 0 0 18px !important;
+            html[data-pjc-serventia-selection] .divCorpo > h2,
+            html[data-pjc-serventia-selection] body > h2 {
+                margin-top: 0 !important;
+                margin-bottom: 18px !important;
                 padding: 0 2px 12px !important;
                 border-bottom: 1px solid var(--pj-ui-border) !important;
                 color: var(--pj-ui-primary) !important;
-                font-size: 20px !important;
+                font-size: 18px !important;
                 font-weight: 750 !important;
                 line-height: 1.25 !important;
             }
+            html[data-pjc-serventia-selection] body > fieldset {
+                width: ${widthEnabled ? widthValue : "min(1180px, calc(100% - 32px))"} !important;
+                max-width: ${widthEnabled ? widthValue : "1180px"} !important;
+                margin-left: ${widthEnabled ? centeredMargins : "auto"} !important;
+                margin-right: ${widthEnabled ? centeredMargins : "auto"} !important;
+                box-sizing: border-box !important;
+            }
             html[data-pjc-serventia-selection] #divCorpo > fieldset,
-            html[data-pjc-serventia-selection] .divCorpo > fieldset {
-                margin: 0 0 14px !important;
+            html[data-pjc-serventia-selection] .divCorpo > fieldset,
+            html[data-pjc-serventia-selection] body > fieldset {
+                margin-top: 0 !important;
+                margin-bottom: 14px !important;
                 padding: 14px 18px 16px !important;
                 border: 1px solid var(--pj-ui-border) !important;
                 border-left: 4px solid #2d79b3 !important;
@@ -3814,14 +3854,17 @@
             html[data-pjc-serventia-selection] #divCorpo > fieldset:hover,
             html[data-pjc-serventia-selection] #divCorpo > fieldset:focus-within,
             html[data-pjc-serventia-selection] .divCorpo > fieldset:hover,
-            html[data-pjc-serventia-selection] .divCorpo > fieldset:focus-within {
+            html[data-pjc-serventia-selection] .divCorpo > fieldset:focus-within,
+            html[data-pjc-serventia-selection] body > fieldset:hover,
+            html[data-pjc-serventia-selection] body > fieldset:focus-within {
                 border-color: #a9c8df !important;
                 border-left-color: #176fa6 !important;
                 box-shadow: 0 8px 22px rgba(15, 45, 78, .11) !important;
                 transform: translateY(-1px) !important;
             }
             html[data-pjc-serventia-selection] #divCorpo > fieldset > legend,
-            html[data-pjc-serventia-selection] .divCorpo > fieldset > legend {
+            html[data-pjc-serventia-selection] .divCorpo > fieldset > legend,
+            html[data-pjc-serventia-selection] body > fieldset > legend {
                 max-width: calc(100% - 20px) !important;
                 padding: 3px 8px !important;
                 border: 0 !important;
@@ -3833,7 +3876,8 @@
                 white-space: normal !important;
             }
             html[data-pjc-serventia-selection] #divCorpo > fieldset a,
-            html[data-pjc-serventia-selection] .divCorpo > fieldset a {
+            html[data-pjc-serventia-selection] .divCorpo > fieldset a,
+            html[data-pjc-serventia-selection] body > fieldset a {
                 display: inline-flex !important;
                 align-items: center !important;
                 min-height: 30px !important;
@@ -3847,7 +3891,9 @@
             html[data-pjc-serventia-selection] #divCorpo > fieldset a:hover,
             html[data-pjc-serventia-selection] #divCorpo > fieldset a:focus-visible,
             html[data-pjc-serventia-selection] .divCorpo > fieldset a:hover,
-            html[data-pjc-serventia-selection] .divCorpo > fieldset a:focus-visible {
+            html[data-pjc-serventia-selection] .divCorpo > fieldset a:focus-visible,
+            html[data-pjc-serventia-selection] body > fieldset a:hover,
+            html[data-pjc-serventia-selection] body > fieldset a:focus-visible {
                 background: var(--pj-ui-primary-soft) !important;
                 color: #0b5d91 !important;
             }

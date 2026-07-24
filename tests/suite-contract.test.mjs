@@ -157,7 +157,7 @@ test('Customizações reverte integralmente recursos visuais', () => {
   assert.match(source, /if \(!settings\.enabled \|\| !settings\.enableIframeAutoHeight\) \{\s*iframe\.style\.removeProperty\("height"\);/, 'desativar altura automática deixa a altura anterior no iframe');
   assert.match(source, /const iframeTop = Math\.max\(0, iframe\.getBoundingClientRect\(\)\.top\);/, 'altura automática ignora a posição real do iframe');
   assert.match(source, /function resetLayoutEffects\(\)[\s\S]{0,350}?unbindIframeLoadListener\(\);/, 'desativar personalizações deixa listeners do iframe ativos');
-  assert.match(source, /const hasHeaderAdjust = widthEnabled \|\| settings\.hideClock/, 'a largura não ativa os ajustes do topo');
+  assert.match(source, /const hasHeaderAdjust = settings\.enabled && !isPublicLandingPage\(\);/, 'a estabilização do cabeçalho nativo alcança a entrada pública ou deixa páginas autenticadas sem proteção');
   assert.match(source, /#pgn_cabecalho \{[\s\S]{0,180}?width: \$\{widthValue\} !important;/, 'a largura não alcança o conteúdo do cabeçalho');
   assert.match(source, /#menuPrinciapl\.menu \{[\s\S]{0,220}?width: \$\{widthValue\} !important;/, 'a largura não alcança a navegação principal');
   assert.match(source, /const widthLayoutCss = widthEnabled \? `[\s\S]{0,900}?#divCorpo,[\s\S]{0,500}?width: \$\{widthValue\} !important;/, 'a largura não sobrescreve os contêineres nativos do conteúdo');
@@ -173,8 +173,13 @@ test('Customizações reverte integralmente recursos visuais', () => {
   assert.match(source, /#pjc-custom-header-root \{[\s\S]{0,500}?width: \$\{customHeaderWidth\} !important;[\s\S]{0,180}?margin: 0 \$\{customHeaderMargins\} 12px !important;/, 'a raiz do cabeçalho personalizado não se alinha ao conteúdo');
   assert.match(source, /#menuPrinciapl\.menu > ul:hover,[\s\S]{0,380}?background: transparent !important;[\s\S]{0,120}?box-shadow: none !important;/, 'o hover do menu ainda deixa o fundo cinza nativo exposto');
   assert.match(source, /#cssmenu > ul > li > #btn-voz-pesquisa,[\s\S]{0,240}?#ContrasteAlterar,[\s\S]{0,240}?#FonteAumentar,[\s\S]{0,240}?#FonteDiminuir \{[\s\S]{0,420}?min-width: 34px !important;/, 'os controles de acessibilidade não compartilham o contrato dos demais ícones');
-  assert.match(source, /const customHeaderIframeClearanceCss = settings\.customHeaderEnabled && isIframeDocument[\s\S]{0,160}?body \{[\s\S]{0,120}?padding-top: 8px !important;/, 'o cabeçalho personalizado não reserva espaço no topo das páginas internas');
+  assert.match(source, /const stableNativeHeaderCss = `[\s\S]{0,500}?#cssmenu > ul \{[\s\S]{0,220}?flex-wrap: nowrap !important;/, 'o cabeçalho nativo permite que o botão de saída caia para outra linha');
+  assert.match(source, /const css = `\$\{stableNativeHeaderCss\}[\s\S]{0,180}?\$\{visibilityCss\}`;/, 'as preferências de visibilidade são sobrescritas pelo visual do cabeçalho');
+  assert.match(source, /#pjc-custom-header-root #pgn_cabecalho > div\[style\*="float: right"\][\s\S]{0,100}?display: none !important;/, 'ocultar ícones não prevalece no cabeçalho personalizado');
+  assert.match(source, /const customHeaderIframeClearanceCss = settings\.customHeaderEnabled && isIframeDocument[\s\S]{0,160}?body \{[\s\S]{0,140}?padding-top: 16px !important;/, 'o cabeçalho personalizado não reserva espaço suficiente no topo das páginas internas');
   assert.match(source, /const customHeaderIframeClearanceCss = settings\.customHeaderEnabled && isIframeDocument[\s\S]{0,380}?\.divCorpo > \.area:first-child,[\s\S]{0,160}?margin-top: 0 !important;/, 'a margem negativa do título inicial anula a folga do iframe');
+  assert.match(source, /const h = Math\.max\(200, Math\.floor\(window\.innerHeight - iframeTop\)\);[\s\S]{0,100}?iframe\.style\.height = h \+ "px";/, 'a altura automática conserva uma altura obsoleta em janelas menores');
+  assert.match(source, /if \(settings\.enableIframeAutoHeight\) requestAnimationFrame\(ajustarAlturaIframe\);/, 'a altura do iframe não é recalculada após o cabeçalho estabilizar');
   assert.match(source, /function cancelIframeInjectionRetries\(\)[\s\S]{0,140}?iframeRetryRunId \+= 1;/, 'as tentativas de injeção do iframe não possuem cancelamento centralizado');
   assert.match(source, /function retryInjectInIframe[\s\S]{0,500}?runId !== iframeRetryRunId \|\| !settings\.enabled \|\| !shouldManageIframeFeatures\(\)/, 'uma tentativa obsoleta ainda pode alterar o iframe');
   assert.match(source, /function initProcessMirrorPdfFeature\(doc\)[\s\S]{0,500}?mirrorPdfObserver && mirrorPdfObservedDoc === doc[\s\S]{0,220}?teardownProcessMirrorPdfFeature\(\);[\s\S]{0,120}?mirrorPdfObservedDoc = doc;/, 'o observer do espelho é recriado ou permanece ligado ao documento anterior');
@@ -192,6 +197,10 @@ test('Customizações reverte integralmente recursos visuais', () => {
   assert.match(source, /function syncServentiaSelectionContext\(doc\)[\s\S]{0,850}?data-pjc-serventia-selection/, 'a seleção de serventias não possui contexto visual próprio');
   assert.match(source, /html\[data-pjc-serventia-selection\] body > div\[style\*="background-color"\]\[style\*="#ccc"\]\[style\*="height:28px"\][\s\S]{0,100}?display: none !important;/, 'o separador cinza legado permanece na seleção de serventias');
   assert.match(source, /html\[data-pjc-serventia-selection\] #divCorpo > fieldset[\s\S]{0,420}?border-left: 4px solid #2d79b3 !important;/, 'as serventias não usam cartões coerentes com o visual moderno');
+  assert.match(source, /html\[data-pjc-serventia-selection\] body > fieldset \{[\s\S]{0,280}?width: \$\{widthEnabled \? widthValue/, 'os cartões autônomos de serventia escapam da largura configurada');
+  assert.match(source, /html\[data-pjc-serventia-selection\] body > fieldset > legend/, 'a estrutura real da seleção de serventias não recebe o visual especializado');
+  assert.match(source, /const BASE_CONTENT_FONT_PX = 12;/, 'o tema moderno não preserva a escala tipográfica nativa do Projudi');
+  assert.match(source, /font-size: \$\{settings\.fontScaleEnabled \? scaledFontPx : BASE_CONTENT_FONT_PX\}px !important;/, 'o tema moderno ainda impõe uma fonte maior quando a escala está desativada');
   assert.match(source, /function isPublicLandingPage\(\)[\s\S]{0,360}?pathname === "\/"/, 'a página pública inicial não é reconhecida explicitamente');
   assert.match(source, /function isStandaloneContentPage\(\)[\s\S]{0,260}?isPublicLandingPage\(\)[\s\S]{0,220}?\/\\\/Usuario\\b\/i/, 'páginas autônomas autenticadas não estão separadas da entrada pública');
   assert.match(source, /!settings\.applyToStandalonePages && !hasStandaloneVisualFeatures\(\)/, 'o visual autônomo ainda depende do ajuste de largura');
