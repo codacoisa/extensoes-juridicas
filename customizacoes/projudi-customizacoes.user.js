@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      2026.07.23-2103
+// @version      2026.07.24-0001
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -108,7 +108,6 @@
     })();
     const BACKUP_STORAGE_KEY = "projudi-suite::customizacoes::gist";
     const BACKUP_SCHEMA = "projudi-customizacoes-backup-v1";
-    const OPEN_SETTINGS_MESSAGE = "projudi-customizacoes-open-settings";
     const LOG_PREFIX = "[Customizações]";
     const FA_SPRITE_URL = "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/sprites/solid.svg";
     const SUITE_UI_CSS = String.raw`
@@ -234,8 +233,9 @@
     let popupContextObservedDoc = null;
     let popupContextSyncScheduled = false;
     let mirrorPdfObserver = null;
-    let mirrorPdfWorkScheduled = false;
-    let mirrorPdfDepsPromise = null;
+    let mirrorPdfObservedDoc = null;
+    let mirrorPdfWorkFrame = 0;
+    const mirrorPdfDepsPromises = new WeakMap();
     let movimentacoesModule = null;
     let customHeaderMount = null;
     const NO_SCROLLBAR_STYLE_ID = "tm-no-scrollbar-style";
@@ -299,6 +299,11 @@
         pendingIframeRetryTimers = [];
     }
 
+    function cancelIframeInjectionRetries() {
+        clearPendingIframeRetryTimers();
+        iframeRetryRunId += 1;
+    }
+
     function formatLastBackupLabel(value) {
         if (!value) return "Último backup: ainda não enviado.";
         const date = new Date(value);
@@ -310,7 +315,7 @@
     const fontAwesomeSprites = new WeakMap();
 
     function ensureFontAwesome(doc = document) {
-        if (!doc || !doc.head) return null;
+        if (!doc || !doc.head) return Promise.resolve(null);
         if (!doc.getElementById("pj-suite-core-style")) {
             const coreStyle = doc.createElement("style");
             coreStyle.id = "pj-suite-core-style";
@@ -356,6 +361,7 @@
                 ontimeout: () => reject(new Error("Tempo esgotado ao carregar o sprite SVG do Font Awesome."))
             });
         }).catch(error => {
+            fontAwesomeSprites.delete(doc);
             logWarn("Falha ao preparar ícones SVG.", error);
             return null;
         });
@@ -4139,6 +4145,8 @@
         if (!shouldManageIframeFeatures()) {
             removeStyleFromDoc(iframeDoc, "projudi-ajuste-largura");
             syncGoogleFont(iframeDoc);
+            removeNoScrollbarStyle(iframeDoc);
+            teardownProcessMirrorPdfFeature(iframeDoc);
             return;
         }
         injectWidthCSS(iframeDoc);
@@ -4148,13 +4156,15 @@
     }
 
     function retryInjectInIframe(times = 12, delay = 240) {
-        if (!settings.enabled || !shouldManageIframeFeatures()) return;
-        clearPendingIframeRetryTimers();
-        iframeRetryRunId += 1;
+        if (!settings.enabled || !shouldManageIframeFeatures()) {
+            cancelIframeInjectionRetries();
+            return;
+        }
+        cancelIframeInjectionRetries();
         const runId = iframeRetryRunId;
         let n = 0;
         const tick = () => {
-            if (runId !== iframeRetryRunId) return;
+            if (runId !== iframeRetryRunId || !settings.enabled || !shouldManageIframeFeatures()) return;
             injectCSSInIframe();
             ajustarAlturaIframe();
             n += 1;
@@ -4180,6 +4190,7 @@
     }
 
     function unbindIframeLoadListener() {
+        cancelIframeInjectionRetries();
         if (!boundIframeEl) return;
         boundIframeEl.removeEventListener("load", onIframeLoad);
         boundIframeEl = null;
@@ -4466,25 +4477,44 @@
                 script.dataset.loaded = "true";
                 resolve();
             };
-            script.onerror = () => reject(new Error(`Falha ao carregar ${src}`));
+            script.onerror = () => {
+                script.remove();
+                reject(new Error(`Falha ao carregar ${src}`));
+            };
             (doc.head || doc.documentElement).appendChild(script);
         });
     }
 
     async function ensureMirrorPdfDeps(doc) {
-        if (doc.defaultView?.jspdf?.jsPDF) return;
-        if (mirrorPdfDepsPromise) {
-            await mirrorPdfDepsPromise;
+        const win = doc && doc.defaultView;
+        const hasJsPdf = () => typeof win?.jspdf?.jsPDF === "function";
+        const hasAutoTable = () => typeof win?.jspdf?.jsPDF?.API?.autoTable === "function";
+        if (hasJsPdf() && hasAutoTable()) return;
+
+        const pending = mirrorPdfDepsPromises.get(doc);
+        if (pending) {
+            await pending;
             return;
         }
-        mirrorPdfDepsPromise = (async () => {
-            await loadExternalScript(doc, "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js");
-            await loadExternalScript(doc, "https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js");
+
+        const promise = (async () => {
+            if (!hasJsPdf()) {
+                await loadExternalScript(doc, "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js");
+            }
+            if (!hasAutoTable()) {
+                await loadExternalScript(doc, "https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js");
+            }
+            if (!hasJsPdf() || !hasAutoTable()) {
+                throw new Error("As dependências do espelho do processo não foram inicializadas.");
+            }
         })();
+        mirrorPdfDepsPromises.set(doc, promise);
         try {
-            await mirrorPdfDepsPromise;
+            await promise;
         } finally {
-            mirrorPdfDepsPromise = null;
+            if (mirrorPdfDepsPromises.get(doc) === promise) {
+                mirrorPdfDepsPromises.delete(doc);
+            }
         }
     }
 
@@ -4812,18 +4842,26 @@
     }
 
     function scheduleProcessMirrorPdfRefresh(doc) {
-        if (mirrorPdfWorkScheduled) return;
-        mirrorPdfWorkScheduled = true;
-        requestAnimationFrame(() => {
-            mirrorPdfWorkScheduled = false;
+        if (mirrorPdfWorkFrame || doc !== mirrorPdfObservedDoc) return;
+        mirrorPdfWorkFrame = requestAnimationFrame(() => {
+            mirrorPdfWorkFrame = 0;
+            if (doc !== mirrorPdfObservedDoc || !settings.enabled || !settings.enableProcessMirrorPdf) return;
             safeRun("Falha ao sincronizar botão de espelho do processo.", () => ensureProcessMirrorPdfButton(doc));
         });
     }
 
     function initProcessMirrorPdfFeature(doc) {
-        if (!doc || !doc.body || !isProcessPageDoc(doc)) return;
+        if (!doc || !doc.body || !isProcessPageDoc(doc)) {
+            teardownProcessMirrorPdfFeature(doc);
+            return;
+        }
+        if (mirrorPdfObserver && mirrorPdfObservedDoc === doc) {
+            ensureProcessMirrorPdfButton(doc);
+            return;
+        }
+        teardownProcessMirrorPdfFeature();
+        mirrorPdfObservedDoc = doc;
         ensureProcessMirrorPdfButton(doc);
-        if (mirrorPdfObserver) mirrorPdfObserver.disconnect();
         mirrorPdfObserver = new MutationObserver((mutations) => {
             if (!isRelevantMirrorPdfMutation(mutations)) return;
             scheduleProcessMirrorPdfRefresh(doc);
@@ -4832,12 +4870,22 @@
     }
 
     function teardownProcessMirrorPdfFeature(doc) {
+        if (mirrorPdfWorkFrame) {
+            cancelAnimationFrame(mirrorPdfWorkFrame);
+            mirrorPdfWorkFrame = 0;
+        }
         if (mirrorPdfObserver) {
             mirrorPdfObserver.disconnect();
             mirrorPdfObserver = null;
         }
-        const btn = doc && doc.getElementById ? doc.getElementById("projudi-mirror-pdf-btn") : null;
-        if (btn) btn.remove();
+        const docs = new Set([mirrorPdfObservedDoc, doc].filter(Boolean));
+        mirrorPdfObservedDoc = null;
+        docs.forEach(targetDoc => {
+            const btn = targetDoc && targetDoc.getElementById
+                ? targetDoc.getElementById("projudi-mirror-pdf-btn")
+                : null;
+            if (btn) btn.remove();
+        });
     }
 
 
@@ -4889,9 +4937,11 @@
     }
 
     function syncMovimentacoesModule() {
+        const enabled = settings.enabled && settings.enableMovimentacoes;
+        if (!enabled && !movimentacoesModule) return;
         const module = ensureMovimentacoesModule();
         if (!module) return;
-        module.setEnabled(settings.enabled && settings.enableMovimentacoes);
+        module.setEnabled(enabled);
     }
 
     function openMovimentacoesPanel() {
@@ -4998,7 +5048,6 @@
 
           const DOC_STYLE_ID = 'phm-doc-style-v28';
           const PANEL_OVERLAY_ID = 'phm-overlay-root';
-          const MOV_TABLE_ROWS_SELECTOR = '#TabelaArquivos tbody tr, #tabListaProcesso tr';
           const MOV_TABLES_SELECTOR = '#TabelaArquivos, #tabListaProcesso';
           const PRIMARY_FRAME_SELECTOR = 'iframe#Principal, iframe[name="userMainFrame"], frame#Principal, frame[name="userMainFrame"]';
           const LOG_PREFIX = '[Movimentações]';
@@ -6256,7 +6305,9 @@
           }
 
           function setMovimentacoesEnabled(enabled) {
-            CFG.enabled = !!enabled;
+            const nextEnabled = !!enabled;
+            if (CFG.enabled === nextEnabled) return;
+            CFG.enabled = nextEnabled;
             saveCfg(CFG);
             reapply();
           }
@@ -6280,8 +6331,6 @@
     }
 
     function resetLayoutEffects() {
-        clearPendingIframeRetryTimers();
-        iframeRetryRunId += 1;
         unbindIframeLoadListener();
         if (iframeAvailabilityObserver) {
             iframeAvailabilityObserver.disconnect();
@@ -6363,11 +6412,6 @@
         registerMenu();
         if (isTopWindow()) {
             initTop();
-            window.addEventListener("message", (event) => {
-                if (event.origin !== window.location.origin) return;
-                if (!event || !event.data || event.data.type !== OPEN_SETTINGS_MESSAGE) return;
-                openSettingsPanel();
-            });
         } else {
             initInsideFrame();
         }
