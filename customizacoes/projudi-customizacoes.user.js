@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      2026.07.23-2049
+// @version      2026.07.23-2103
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -3662,11 +3662,15 @@
         }
         const customHeaderIframeClearanceCss = settings.customHeaderEnabled && isIframeDocument
             ? `
+                body {
+                    box-sizing: border-box !important;
+                    padding-top: 8px !important;
+                }
                 body > .area,
                 #divCorpo > .area:first-child,
                 .divCorpo > .area:first-child,
                 body > h2.area:first-of-type {
-                    margin-top: 6px !important;
+                    margin-top: 0 !important;
                 }
             `
             : "";
