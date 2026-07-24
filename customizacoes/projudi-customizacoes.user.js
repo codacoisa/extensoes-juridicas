@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      2026.07.24-0018
+// @version      2026.07.24-0047
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -237,6 +237,8 @@
     let mirrorPdfObservedDoc = null;
     let mirrorPdfWorkFrame = 0;
     const mirrorPdfDepsPromises = new WeakMap();
+    const nativePopupTableObservers = new WeakMap();
+    const nativePopupTableFrames = new WeakMap();
     let movimentacoesModule = null;
     let customHeaderMount = null;
     const NO_SCROLLBAR_STYLE_ID = "tm-no-scrollbar-style";
@@ -3612,13 +3614,119 @@
         return matches;
     }
 
+    function findNativePopupRoots(doc) {
+        const roots = new Set(doc.querySelectorAll([
+            ".ui-dialog",
+            '[role="dialog"]',
+            ".modal",
+            ".modal-dialog",
+            "#simplemodal-container",
+            ".simplemodal-container",
+            '[class*="modal" i][style]',
+            '[id*="modal" i][style]'
+        ].join(", ")));
+
+        doc.querySelectorAll("div, span, h1, h2, h3, h4, strong").forEach(candidate => {
+            const ownText = Array.from(candidate.childNodes)
+                .filter(node => node.nodeType === 3)
+                .map(node => node.textContent)
+                .join(" ");
+            if (!normalizeLabel(ownText).startsWith("consulta de ")) return;
+
+            let current = candidate.parentElement;
+            while (current && current !== doc.body) {
+                const style = doc.defaultView?.getComputedStyle?.(current);
+                const positioned = style?.position === "fixed" || style?.position === "absolute";
+                const hasCloseControl =
+                    /×/.test(current.textContent || "") ||
+                    !!current.querySelector(
+                        '.ui-dialog-titlebar-close, .close, [aria-label*="fechar" i], [title*="fechar" i], [onclick*="close" i]'
+                    );
+                if (positioned && hasCloseControl && current.querySelector("table")) {
+                    roots.add(current);
+                    break;
+                }
+                current = current.parentElement;
+            }
+        });
+        return roots;
+    }
+
+    function shouldProtectNativePopupTables() {
+        return !!(
+            settings.enabled &&
+            (
+                settings.modernTablesEnabled ||
+                settings.stickyTableHeadersEnabled ||
+                settings.highlightHoveredRowEnabled
+            )
+        );
+    }
+
+    function syncNativePopupTableContext(doc) {
+        if (!doc) return;
+        doc.querySelectorAll("[data-pjc-native-popup-table]").forEach(table => {
+            table.removeAttribute("data-pjc-native-popup-table");
+        });
+        if (!shouldProtectNativePopupTables()) return;
+
+        findNativePopupRoots(doc).forEach(root => {
+            root.querySelectorAll("table").forEach(table => {
+                table.setAttribute("data-pjc-native-popup-table", "true");
+            });
+        });
+    }
+
+    function scheduleNativePopupTableSync(doc) {
+        if (!doc || nativePopupTableFrames.has(doc)) return;
+        const view = doc.defaultView;
+        const schedule = view?.requestAnimationFrame?.bind(view) || requestAnimationFrame;
+        const frame = schedule(() => {
+            nativePopupTableFrames.delete(doc);
+            syncNativePopupTableContext(doc);
+        });
+        nativePopupTableFrames.set(doc, frame);
+    }
+
+    function ensureNativePopupTableObserver(doc) {
+        if (!doc?.body) return;
+        if (!shouldProtectNativePopupTables()) {
+            teardownNativePopupTableObserver(doc);
+            return;
+        }
+        syncNativePopupTableContext(doc);
+        if (nativePopupTableObservers.has(doc)) return;
+        const observer = new MutationObserver(() => scheduleNativePopupTableSync(doc));
+        observer.observe(doc.body, { childList: true, subtree: true });
+        nativePopupTableObservers.set(doc, observer);
+    }
+
+    function teardownNativePopupTableObserver(doc) {
+        if (!doc) return;
+        nativePopupTableObservers.get(doc)?.disconnect();
+        nativePopupTableObservers.delete(doc);
+        const frame = nativePopupTableFrames.get(doc);
+        if (frame != null) {
+            const cancel = doc.defaultView?.cancelAnimationFrame?.bind(doc.defaultView) || cancelAnimationFrame;
+            cancel(frame);
+            nativePopupTableFrames.delete(doc);
+        }
+        doc.querySelectorAll("[data-pjc-native-popup-table]").forEach(table => {
+            table.removeAttribute("data-pjc-native-popup-table");
+        });
+    }
+
     function syncModernTableSemantics(doc) {
         if (!doc) return;
+        ensureNativePopupTableObserver(doc);
         doc.querySelectorAll('[data-pjc-column-kind="quantity"]').forEach(cell => {
             cell.removeAttribute("data-pjc-column-kind");
         });
         if (!settings.modernTablesEnabled) return;
-        doc.querySelectorAll("table tr:first-child > th, table tr:first-child > td").forEach(cell => {
+        doc.querySelectorAll(
+            "table:not([data-pjc-native-popup-table]) tr:first-child > th, " +
+            "table:not([data-pjc-native-popup-table]) tr:first-child > td"
+        ).forEach(cell => {
             if (normalizeLabel(cell.textContent) === "qtde") {
                 cell.setAttribute("data-pjc-column-kind", "quantity");
             }
@@ -3899,11 +4007,12 @@
             }
         ` : "";
 
+        const nativePopupTableGuard = ":not([data-pjc-native-popup-table])";
         const modernTablesCss = settings.modernTablesEnabled ? `
-            table.Tabela:not(.pjip-table), table#Tabela:not(.pjip-table),
-            .Tabela table:not(.pjip-table), .divTabela table:not(.pjip-table),
-            #TabelaArquivos:not(.pjip-table), table.lista:not(.pjip-table),
-            table.listagem:not(.pjip-table) {
+            table.Tabela:not(.pjip-table)${nativePopupTableGuard}, table#Tabela:not(.pjip-table)${nativePopupTableGuard},
+            .Tabela table:not(.pjip-table)${nativePopupTableGuard}, .divTabela table:not(.pjip-table)${nativePopupTableGuard},
+            #TabelaArquivos:not(.pjip-table)${nativePopupTableGuard}, table.lista:not(.pjip-table)${nativePopupTableGuard},
+            table.listagem:not(.pjip-table)${nativePopupTableGuard} {
                 overflow: ${settings.stickyTableHeadersEnabled ? "visible" : "hidden"} !important;
                 border: 1px solid #d7e1ec !important;
                 border-collapse: separate !important;
@@ -3912,12 +4021,12 @@
                 background: #fff !important;
                 box-shadow: 0 3px 12px rgba(15, 45, 78, .07) !important;
             }
-            table.Tabela:not(.pjip-table) th, table#Tabela:not(.pjip-table) th,
-            .Tabela table:not(.pjip-table) th, .divTabela table:not(.pjip-table) th,
-            #TabelaArquivos:not(.pjip-table) th, table.lista:not(.pjip-table) th,
-            table.listagem:not(.pjip-table) th,
-            table:not(.pjip-table) tr.fundoCabecalhoTabela > td,
-            table:not(.pjip-table) tr.tituloTabela > td {
+            table.Tabela:not(.pjip-table)${nativePopupTableGuard} th, table#Tabela:not(.pjip-table)${nativePopupTableGuard} th,
+            .Tabela table:not(.pjip-table)${nativePopupTableGuard} th, .divTabela table:not(.pjip-table)${nativePopupTableGuard} th,
+            #TabelaArquivos:not(.pjip-table)${nativePopupTableGuard} th, table.lista:not(.pjip-table)${nativePopupTableGuard} th,
+            table.listagem:not(.pjip-table)${nativePopupTableGuard} th,
+            table:not(.pjip-table)${nativePopupTableGuard} tr.fundoCabecalhoTabela > td,
+            table:not(.pjip-table)${nativePopupTableGuard} tr.tituloTabela > td {
                 padding: 8px 9px !important;
                 border-color: #c9d8e8 !important;
                 background: #e8f1fa !important;
@@ -3927,48 +4036,48 @@
                 height: auto !important;
                 vertical-align: middle !important;
             }
-            table:not(.pjip-table) th[align="center"],
-            table:not(.pjip-table) tr.fundoCabecalhoTabela > td[align="center"],
-            table:not(.pjip-table) tr.tituloTabela > td[align="center"] {
+            table:not(.pjip-table)${nativePopupTableGuard} th[align="center"],
+            table:not(.pjip-table)${nativePopupTableGuard} tr.fundoCabecalhoTabela > td[align="center"],
+            table:not(.pjip-table)${nativePopupTableGuard} tr.tituloTabela > td[align="center"] {
                 text-align: center !important;
             }
-            table:not(.pjip-table) th[align="right"],
-            table:not(.pjip-table) tr.fundoCabecalhoTabela > td[align="right"],
-            table:not(.pjip-table) tr.tituloTabela > td[align="right"] {
+            table:not(.pjip-table)${nativePopupTableGuard} th[align="right"],
+            table:not(.pjip-table)${nativePopupTableGuard} tr.fundoCabecalhoTabela > td[align="right"],
+            table:not(.pjip-table)${nativePopupTableGuard} tr.tituloTabela > td[align="right"] {
                 text-align: right !important;
             }
-            table :is(th, td)[data-pjc-column-kind="quantity"] {
+            table${nativePopupTableGuard} :is(th, td)[data-pjc-column-kind="quantity"] {
                 text-align: center !important;
             }
-            table.Tabela:not(.pjip-table) td, table#Tabela:not(.pjip-table) td,
-            .Tabela table:not(.pjip-table) td, .divTabela table:not(.pjip-table) td,
-            #TabelaArquivos:not(.pjip-table) td, table.lista:not(.pjip-table) td,
-            table.listagem:not(.pjip-table) td {
+            table.Tabela:not(.pjip-table)${nativePopupTableGuard} td, table#Tabela:not(.pjip-table)${nativePopupTableGuard} td,
+            .Tabela table:not(.pjip-table)${nativePopupTableGuard} td, .divTabela table:not(.pjip-table)${nativePopupTableGuard} td,
+            #TabelaArquivos:not(.pjip-table)${nativePopupTableGuard} td, table.lista:not(.pjip-table)${nativePopupTableGuard} td,
+            table.listagem:not(.pjip-table)${nativePopupTableGuard} td {
                 padding: 7px 9px !important;
                 border-color: #e3eaf2 !important;
                 transition: background-color .12s ease !important;
             }
-            table.Tabela:not(.pjip-table) > thead:first-child > tr:first-child > :first-child,
-            table#Tabela:not(.pjip-table) > thead:first-child > tr:first-child > :first-child,
-            table:not(.pjip-table) > tbody:first-child > tr.fundoCabecalhoTabela:first-child > :first-child {
+            table.Tabela:not(.pjip-table)${nativePopupTableGuard} > thead:first-child > tr:first-child > :first-child,
+            table#Tabela:not(.pjip-table)${nativePopupTableGuard} > thead:first-child > tr:first-child > :first-child,
+            table:not(.pjip-table)${nativePopupTableGuard} > tbody:first-child > tr.fundoCabecalhoTabela:first-child > :first-child {
                 border-top-left-radius: 8px !important;
             }
-            table.Tabela:not(.pjip-table) > thead:first-child > tr:first-child > :last-child,
-            table#Tabela:not(.pjip-table) > thead:first-child > tr:first-child > :last-child,
-            table:not(.pjip-table) > tbody:first-child > tr.fundoCabecalhoTabela:first-child > :last-child {
+            table.Tabela:not(.pjip-table)${nativePopupTableGuard} > thead:first-child > tr:first-child > :last-child,
+            table#Tabela:not(.pjip-table)${nativePopupTableGuard} > thead:first-child > tr:first-child > :last-child,
+            table:not(.pjip-table)${nativePopupTableGuard} > tbody:first-child > tr.fundoCabecalhoTabela:first-child > :last-child {
                 border-top-right-radius: 8px !important;
             }
-            table.Tabela:not(.pjip-table) > tbody:last-child > tr:last-child > :first-child,
-            table#Tabela:not(.pjip-table) > tbody:last-child > tr:last-child > :first-child { border-bottom-left-radius: 8px !important; }
-            table.Tabela:not(.pjip-table) > tbody:last-child > tr:last-child > :last-child,
-            table#Tabela:not(.pjip-table) > tbody:last-child > tr:last-child > :last-child { border-bottom-right-radius: 8px !important; }
-            table.Tabela:not(.pjip-table) tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td,
-            table#Tabela:not(.pjip-table) tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td,
-            .Tabela table:not(.pjip-table) tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td,
-            .divTabela table:not(.pjip-table) tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td,
-            #TabelaArquivos:not(.pjip-table) tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td,
-            table.lista:not(.pjip-table) tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td,
-            table.listagem:not(.pjip-table) tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td {
+            table.Tabela:not(.pjip-table)${nativePopupTableGuard} > tbody:last-child > tr:last-child > :first-child,
+            table#Tabela:not(.pjip-table)${nativePopupTableGuard} > tbody:last-child > tr:last-child > :first-child { border-bottom-left-radius: 8px !important; }
+            table.Tabela:not(.pjip-table)${nativePopupTableGuard} > tbody:last-child > tr:last-child > :last-child,
+            table#Tabela:not(.pjip-table)${nativePopupTableGuard} > tbody:last-child > tr:last-child > :last-child { border-bottom-right-radius: 8px !important; }
+            table.Tabela:not(.pjip-table)${nativePopupTableGuard} tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td,
+            table#Tabela:not(.pjip-table)${nativePopupTableGuard} tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td,
+            .Tabela table:not(.pjip-table)${nativePopupTableGuard} tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td,
+            .divTabela table:not(.pjip-table)${nativePopupTableGuard} tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td,
+            #TabelaArquivos:not(.pjip-table)${nativePopupTableGuard} tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td,
+            table.lista:not(.pjip-table)${nativePopupTableGuard} tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td,
+            table.listagem:not(.pjip-table)${nativePopupTableGuard} tbody tr:nth-child(even):not([data-phm-styled]):not([style*="background"]) > td {
                 background-color: #f8fafc !important;
             }
         ` : "";
@@ -4017,22 +4126,22 @@
         ` : "";
 
         const stickyTableHeadersCss = settings.stickyTableHeadersEnabled ? `
-            table.Tabela:not(.pjip-table) > thead > tr > th,
-            table.Tabela:not(.pjip-table) > thead > tr > td,
-            table#Tabela:not(.pjip-table) > thead > tr > th,
-            table#Tabela:not(.pjip-table) > thead > tr > td,
-            #TabelaArquivos:not(.pjip-table) > thead > tr > th,
-            #TabelaArquivos:not(.pjip-table) > thead > tr > td,
-            #tabListaProcesso:not(.pjip-table) > thead > tr > th,
-            #tabListaProcesso:not(.pjip-table) > thead > tr > td,
-            .Tabela table:not(.pjip-table) > thead > tr > th,
-            .Tabela table:not(.pjip-table) > thead > tr > td,
-            .divTabela table:not(.pjip-table) > thead > tr > th,
-            .divTabela table:not(.pjip-table) > thead > tr > td,
-            table.lista:not(.pjip-table) > thead > tr > th,
-            table.lista:not(.pjip-table) > thead > tr > td,
-            table.listagem:not(.pjip-table) > thead > tr > th,
-            table.listagem:not(.pjip-table) > thead > tr > td {
+            table.Tabela:not(.pjip-table)${nativePopupTableGuard} > thead > tr > th,
+            table.Tabela:not(.pjip-table)${nativePopupTableGuard} > thead > tr > td,
+            table#Tabela:not(.pjip-table)${nativePopupTableGuard} > thead > tr > th,
+            table#Tabela:not(.pjip-table)${nativePopupTableGuard} > thead > tr > td,
+            #TabelaArquivos:not(.pjip-table)${nativePopupTableGuard} > thead > tr > th,
+            #TabelaArquivos:not(.pjip-table)${nativePopupTableGuard} > thead > tr > td,
+            #tabListaProcesso:not(.pjip-table)${nativePopupTableGuard} > thead > tr > th,
+            #tabListaProcesso:not(.pjip-table)${nativePopupTableGuard} > thead > tr > td,
+            .Tabela table:not(.pjip-table)${nativePopupTableGuard} > thead > tr > th,
+            .Tabela table:not(.pjip-table)${nativePopupTableGuard} > thead > tr > td,
+            .divTabela table:not(.pjip-table)${nativePopupTableGuard} > thead > tr > th,
+            .divTabela table:not(.pjip-table)${nativePopupTableGuard} > thead > tr > td,
+            table.lista:not(.pjip-table)${nativePopupTableGuard} > thead > tr > th,
+            table.lista:not(.pjip-table)${nativePopupTableGuard} > thead > tr > td,
+            table.listagem:not(.pjip-table)${nativePopupTableGuard} > thead > tr > th,
+            table.listagem:not(.pjip-table)${nativePopupTableGuard} > thead > tr > td {
                 position: sticky !important;
                 top: ${settings.stickyActionsEnabled ? "44px" : "0"} !important;
                 z-index: 850 !important;
@@ -4041,17 +4150,17 @@
         ` : "";
 
         const highlightHoveredRowCss = settings.highlightHoveredRowEnabled ? `
-            table.Tabela:not(.pjip-table) > tbody > tr:hover,
-            table#Tabela:not(.pjip-table) > tbody > tr:hover,
-            #TabelaArquivos:not(.pjip-table) > tbody > tr:hover,
-            #tabListaProcesso:not(.pjip-table) > tbody > tr:hover {
+            table.Tabela:not(.pjip-table)${nativePopupTableGuard} > tbody > tr:hover,
+            table#Tabela:not(.pjip-table)${nativePopupTableGuard} > tbody > tr:hover,
+            #TabelaArquivos:not(.pjip-table)${nativePopupTableGuard} > tbody > tr:hover,
+            #tabListaProcesso:not(.pjip-table)${nativePopupTableGuard} > tbody > tr:hover {
                 outline: 1px solid rgba(23, 79, 134, .34) !important;
                 outline-offset: -1px !important;
             }
-            table.Tabela:not(.pjip-table) > tbody > tr:hover > td:first-child,
-            table#Tabela:not(.pjip-table) > tbody > tr:hover > td:first-child,
-            #TabelaArquivos:not(.pjip-table) > tbody > tr:hover > td:first-child,
-            #tabListaProcesso:not(.pjip-table) > tbody > tr:hover > td:first-child {
+            table.Tabela:not(.pjip-table)${nativePopupTableGuard} > tbody > tr:hover > td:first-child,
+            table#Tabela:not(.pjip-table)${nativePopupTableGuard} > tbody > tr:hover > td:first-child,
+            #TabelaArquivos:not(.pjip-table)${nativePopupTableGuard} > tbody > tr:hover > td:first-child,
+            #tabListaProcesso:not(.pjip-table)${nativePopupTableGuard} > tbody > tr:hover > td:first-child {
                 box-shadow: inset 3px 0 0 #1f67a6 !important;
             }
         ` : "";
@@ -4190,6 +4299,7 @@
         const iframeDoc = iframe.contentDocument;
         if (!shouldManageIframeFeatures()) {
             removeStyleFromDoc(iframeDoc, "projudi-ajuste-largura");
+            teardownNativePopupTableObserver(iframeDoc);
             syncGoogleFont(iframeDoc);
             removeNoScrollbarStyle(iframeDoc);
             teardownProcessMirrorPdfFeature(iframeDoc);
@@ -6397,6 +6507,7 @@
         }
         removeStyleFromDoc(document, "projudi-top-header-style");
         removeStyleFromDoc(document, "projudi-ajuste-largura");
+        teardownNativePopupTableObserver(document);
         restoreCustomHeaderStructure();
         if (movimentacoesModule) movimentacoesModule.setEnabled(false);
         if (popupHookCleanup) popupHookCleanup();
@@ -6412,6 +6523,7 @@
             try {
                 if (iframe.contentDocument) {
                     removeStyleFromDoc(iframe.contentDocument, "projudi-ajuste-largura");
+                    teardownNativePopupTableObserver(iframe.contentDocument);
                     removeNoScrollbarStyle(iframe.contentDocument);
                     teardownProcessMirrorPdfFeature(iframe.contentDocument);
                 }
@@ -6423,7 +6535,10 @@
         if (!isTopWindow()) {
             safeRun("Falha ao aplicar configurações no iframe.", () => {
                 if (settings.enabled) injectWidthCSS(document);
-                else removeStyleFromDoc(document, "projudi-ajuste-largura");
+                else {
+                    removeStyleFromDoc(document, "projudi-ajuste-largura");
+                    teardownNativePopupTableObserver(document);
+                }
                 syncNoScrollbarForDoc(document);
                 if (settings.enabled && settings.enableProcessMirrorPdf) initProcessMirrorPdfFeature(document);
                 else teardownProcessMirrorPdfFeature(document);
