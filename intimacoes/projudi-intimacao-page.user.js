@@ -1426,8 +1426,8 @@
         right: 16px;
         bottom: 16px;
         z-index: 2147483647;
-        width: 52px;
-        height: 52px;
+        width: 46px;
+        height: 46px;
         pointer-events: none;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
@@ -1439,17 +1439,17 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 52px;
-        height: 52px;
+        width: 46px;
+        height: 46px;
         padding: 0;
-        border: 1px solid #a84020;
+        border: 1px solid #174d7d;
         border-radius: 999px;
-        background: linear-gradient(135deg, #b94c25, #dd782d);
+        background: linear-gradient(135deg, #175a9d, #2b78bd);
         color: #fff;
         cursor: pointer;
-        font-size: 21px;
+        font-size: 18px;
         line-height: 1;
-        box-shadow: 0 5px 15px rgba(108, 42, 18, .28);
+        box-shadow: 0 4px 12px rgba(15, 36, 62, .24);
         transition: transform .15s ease, filter .15s ease;
       }
       .pjip-today-deadline-fab:hover {
@@ -1471,7 +1471,7 @@
         padding: 0 5px;
         border: 2px solid #fff;
         border-radius: 999px;
-        background: #b42318;
+        background: #174d7d;
         color: #fff;
         font-size: 11px;
         font-weight: 800;
