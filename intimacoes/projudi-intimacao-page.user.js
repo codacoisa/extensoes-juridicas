@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.08.03-23:46
+// @version      2026.08.04-09:58
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       lourencosv
@@ -1132,7 +1132,8 @@
     } catch (error) {
       logError('Falha ao salvar dados locais.', error);
     }
-    renderTodayDeadlineFab();
+    if (state.pageContext) updateTodayDeadlineFabVisibility(state.pageContext);
+    else renderTodayDeadlineFab();
     scheduleAutoBackup();
   }
 
@@ -1425,9 +1426,9 @@
         position: fixed;
         right: 16px;
         bottom: 16px;
-        z-index: 2147483647;
-        width: 46px;
-        height: 46px;
+        z-index: 2147483645;
+        width: 40px;
+        height: 40px;
         pointer-events: none;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
@@ -1439,8 +1440,8 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 46px;
-        height: 46px;
+        width: 40px;
+        height: 40px;
         padding: 0;
         border: 1px solid #174d7d;
         border-radius: 999px;
@@ -2522,7 +2523,8 @@
     root.appendChild(fab);
     document.body.appendChild(root);
     renderFontAwesome(root);
-    renderTodayDeadlineFab();
+    if (state.pageContext) updateTodayDeadlineFabVisibility(state.pageContext);
+    else renderTodayDeadlineFab();
   }
 
   /**
@@ -2532,19 +2534,20 @@
   function updateTodayDeadlineFabVisibility(context) {
     const root = document.getElementById(IDS.todayDeadlineRoot);
     if (!root) return;
-    const shouldShow = Boolean(context?.isHomePage);
+    const count = getTodayDeadlineProcessCount();
+    const shouldShow = Boolean(context?.isHomePage) && count > 0;
     root.classList.toggle('pjip-hidden', !shouldShow);
-    if (shouldShow) renderTodayDeadlineFab();
+    if (shouldShow) renderTodayDeadlineFab(count);
   }
 
   /**
    * Atualiza o número e a acessibilidade do balão.
+   * @param {number=} count
    */
-  function renderTodayDeadlineFab() {
+  function renderTodayDeadlineFab(count = getTodayDeadlineProcessCount()) {
     const fab = document.getElementById(IDS.todayDeadlineFab);
     const countNode = document.getElementById(IDS.todayDeadlineCount);
     if (!fab || !countNode) return;
-    const count = getTodayDeadlineProcessCount();
     const visibleCount = count > 99 ? '99+' : String(count);
     const label = `Abrir intimações vencendo: ${count} ${count === 1 ? 'processo' : 'processos'} com prazo hoje`;
     countNode.textContent = visibleCount;
@@ -4089,7 +4092,8 @@
     if (next.todayYmd === previous.todayYmd && next.settingsSnapshot === previous.settingsSnapshot) return;
     state.deadlineState = next;
     state.deadlineCellAnalysisCache = new WeakMap();
-    renderTodayDeadlineFab();
+    if (state.pageContext) updateTodayDeadlineFabVisibility(state.pageContext);
+    else renderTodayDeadlineFab();
     if (!state.frameDoc) return;
     resetDeadlineFilterRows(state.frameDoc);
     processDeadlineRoot(state.frameDoc);
