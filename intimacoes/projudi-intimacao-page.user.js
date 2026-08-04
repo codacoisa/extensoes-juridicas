@@ -1,10 +1,12 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.07.20-2328
+// @version      2026.07.20-23:30
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
-// @author       louencosv (GPT)
+// @author       lourencosv
+// @contributor  Codex <codex@openai.com>
+// @contributor  Claude <noreply@anthropic.com>
 // @license      CC BY-NC 4.0
 // @updateURL    https://raw.githubusercontent.com/codacoisa/extensoes-juridicas/refs/heads/main/intimacoes/projudi-intimacao-page.user.js
 // @downloadURL  https://raw.githubusercontent.com/codacoisa/extensoes-juridicas/refs/heads/main/intimacoes/projudi-intimacao-page.user.js
@@ -115,6 +117,9 @@
     hostRoot: 'pjip-root',
     actionsPanel: 'pjip-actions-panel',
     actionsFab: 'pjip-actions-fab',
+    todayDeadlineRoot: 'pjip-today-deadline-root',
+    todayDeadlineFab: 'pjip-today-deadline-fab',
+    todayDeadlineCount: 'pjip-today-deadline-count',
     toast: 'pjip-toast',
     modalOverlay: 'pjip-modal-overlay',
     modalPanel: 'pjip-modal-panel'
@@ -282,6 +287,7 @@
       openModal();
     });
     ensureActionMenu();
+    ensureTodayDeadlineFab();
     updateActionPanelState();
     bindMainFrame();
   }
@@ -567,9 +573,11 @@
   function refreshFrameContext() {
     bindMainFrame();
     ensureActionMenu();
+    ensureTodayDeadlineFab();
     const hasCurrentDocument = state.frame ? syncFrameDocument(state.frame) : false;
     if (!state.frame || !hasCurrentDocument || !state.frameDoc) {
       updateActionMenuVisibility({ isIntimationPage: false, showActionMenu: false });
+      updateTodayDeadlineFabVisibility({ isHomePage: false });
       if (state.modalOpen) renderModal();
       return;
     }
@@ -577,6 +585,7 @@
     const nextContext = analyzeFrameContext(state.frame, state.frameDoc);
     state.pageContext = nextContext;
     safeRun('Falha ao atualizar o menu de intimações.', () => updateActionMenuVisibility(nextContext));
+    safeRun('Falha ao atualizar o balão de prazos do dia.', () => updateTodayDeadlineFabVisibility(nextContext));
     safeRun('Falha ao atualizar os filtros de prazo.', () => syncDeadlineState());
 
     if (!nextContext.isIntimationPage) {
@@ -606,6 +615,7 @@
    *   doc: Document,
    *   url: string,
    *   title: string,
+   *   isHomePage: boolean,
    *   isIntimationPage: boolean,
    *   showActionMenu: boolean,
    *   mainTable: HTMLTableElement | null,
@@ -615,6 +625,7 @@
   function analyzeFrameContext(frame, doc) {
     const title = normalizeSpaces(doc.querySelector(SELECTORS.title)?.textContent || '');
     const url = safeRun('Falha ao ler URL do iframe.', () => frame.contentWindow?.location?.href || doc.location.href, '') || '';
+    const isHomePage = isHomeDashboardFrameScreen(url);
     const isIntimationScreen = isIntimationFrameScreen(doc, url, title);
     const relevantTables = Array.from(doc.querySelectorAll(SELECTORS.relevantTable));
     const tables = relevantTables.length ? relevantTables : Array.from(doc.querySelectorAll(SELECTORS.table));
@@ -647,11 +658,22 @@
       doc,
       url,
       title,
+      isHomePage,
       isIntimationPage,
       showActionMenu,
       mainTable,
       markTables
     };
+  }
+
+  /**
+   * Confirma se o iframe atual e a tela inicial do Projudi.
+   * O Projudi usa PaginaAtual=-10 para o painel inicial do usuario.
+   * @param {string} url
+   * @returns {boolean}
+   */
+  function isHomeDashboardFrameScreen(url) {
+    return /[?&]PaginaAtual=-?10(?:[&#]|$)/i.test(String(url || ''));
   }
 
   /**
@@ -1110,6 +1132,7 @@
     } catch (error) {
       logError('Falha ao salvar dados locais.', error);
     }
+    renderTodayDeadlineFab();
     scheduleAutoBackup();
   }
 
@@ -1397,6 +1420,62 @@
       }
       .pjip-hidden {
         display: none !important;
+      }
+      #${IDS.todayDeadlineRoot} {
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        z-index: 2147483647;
+        width: 52px;
+        height: 52px;
+        pointer-events: none;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      #${IDS.todayDeadlineRoot} > * {
+        pointer-events: auto;
+      }
+      .pjip-today-deadline-fab {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 52px;
+        height: 52px;
+        padding: 0;
+        border: 1px solid #a84020;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #b94c25, #dd782d);
+        color: #fff;
+        cursor: pointer;
+        font-size: 21px;
+        line-height: 1;
+        box-shadow: 0 5px 15px rgba(108, 42, 18, .28);
+        transition: transform .15s ease, filter .15s ease;
+      }
+      .pjip-today-deadline-fab:hover {
+        filter: brightness(1.06);
+        transform: translateY(-1px);
+      }
+      .pjip-today-deadline-fab:active {
+        transform: translateY(0);
+      }
+      .pjip-today-deadline-count {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 23px;
+        height: 23px;
+        padding: 0 5px;
+        border: 2px solid #fff;
+        border-radius: 999px;
+        background: #b42318;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 800;
+        line-height: 1;
       }
       .pjip-actions-panel {
         position: absolute;
@@ -2415,6 +2494,72 @@
     root.append(panel, fab);
     document.body.appendChild(root);
     renderFontAwesome(root);
+  }
+
+  /**
+   * Garante o balão de prazos do dia, usado exclusivamente na tela inicial.
+   */
+  function ensureTodayDeadlineFab() {
+    if (document.getElementById(IDS.todayDeadlineRoot)) return;
+
+    const root = document.createElement('div');
+    root.id = IDS.todayDeadlineRoot;
+    root.classList.add('pjip-hidden');
+
+    const fab = document.createElement('button');
+    fab.id = IDS.todayDeadlineFab;
+    fab.className = 'pjip-today-deadline-fab';
+    fab.type = 'button';
+    fab.innerHTML = '<i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>';
+    fab.addEventListener('click', () => openTodayDeadlinePanel());
+
+    const count = document.createElement('span');
+    count.id = IDS.todayDeadlineCount;
+    count.className = 'pjip-today-deadline-count';
+    count.setAttribute('aria-hidden', 'true');
+
+    fab.appendChild(count);
+    root.appendChild(fab);
+    document.body.appendChild(root);
+    renderFontAwesome(root);
+    renderTodayDeadlineFab();
+  }
+
+  /**
+   * Atualiza o balão conforme a página do iframe principal.
+   * @param {{isHomePage?: boolean}} context
+   */
+  function updateTodayDeadlineFabVisibility(context) {
+    const root = document.getElementById(IDS.todayDeadlineRoot);
+    if (!root) return;
+    const shouldShow = Boolean(context?.isHomePage);
+    root.classList.toggle('pjip-hidden', !shouldShow);
+    if (shouldShow) renderTodayDeadlineFab();
+  }
+
+  /**
+   * Atualiza o número e a acessibilidade do balão.
+   */
+  function renderTodayDeadlineFab() {
+    const fab = document.getElementById(IDS.todayDeadlineFab);
+    const countNode = document.getElementById(IDS.todayDeadlineCount);
+    if (!fab || !countNode) return;
+    const count = getTodayDeadlineProcessCount();
+    const visibleCount = count > 99 ? '99+' : String(count);
+    const label = `Abrir intimações vencendo: ${count} ${count === 1 ? 'processo' : 'processos'} com prazo hoje`;
+    countNode.textContent = visibleCount;
+    fab.title = label;
+    fab.setAttribute('aria-label', label);
+  }
+
+  /**
+   * Abre o painel já selecionando o filtro local "Vencendo".
+   */
+  function openTodayDeadlinePanel() {
+    state.store.ui.statusFilter = 'soon';
+    state.store.ui.sortBy = 'deadline-asc';
+    state.store.ui.query = '';
+    openModal();
   }
 
   /**
@@ -3596,6 +3741,26 @@
   }
 
   /**
+   * Conta processos distintos com prazo no dia corrente.
+   * A fonte e o indice local de intimações marcadas pelo usuario.
+   * @returns {number}
+   */
+  function getTodayDeadlineProcessCount() {
+    const todayYmd = toYmd(new Date());
+    const processNumbers = new Set();
+
+    for (const item of Object.values(state.store.items)) {
+      if (!item || item.done) continue;
+      const hasTodayDeadline = extractDeadlineDatesFromText(item.deadline)
+        .some(date => toYmd(date) === todayYmd);
+      const processNumber = normalizeSpaces(item.processNumber || '');
+      if (hasTodayDeadline && processNumber) processNumbers.add(processNumber);
+    }
+
+    return processNumbers.size;
+  }
+
+  /**
    * Define se um status pertence ao filtro selecionado.
    * @param {string} status
    * @param {string} filter
@@ -3614,12 +3779,23 @@
    */
   function resolveItemStatusKey(item) {
     if (item.done) return 'done';
+    const deadlineDate = extractDeadlineDatesFromText(item.deadline)[0] || null;
+    if (deadlineDate) {
+      const dayDistance = getLocalDayNumber(deadlineDate) - getLocalDayNumber(new Date());
+      if (dayDistance < 0) return 'late';
+      if (dayDistance <= 2) return 'soon';
+      return 'open';
+    }
     const time = parseBrazilianDateTime(item.deadline);
     if (!time) return 'open';
     const now = Date.now();
     if (time < now) return 'late';
     if (time - now <= 2 * 24 * 60 * 60 * 1000) return 'soon';
     return 'open';
+  }
+
+  function getLocalDayNumber(date) {
+    return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / (24 * 60 * 60 * 1000);
   }
 
   /**
@@ -3913,6 +4089,7 @@
     if (next.todayYmd === previous.todayYmd && next.settingsSnapshot === previous.settingsSnapshot) return;
     state.deadlineState = next;
     state.deadlineCellAnalysisCache = new WeakMap();
+    renderTodayDeadlineFab();
     if (!state.frameDoc) return;
     resetDeadlineFilterRows(state.frameDoc);
     processDeadlineRoot(state.frameDoc);
