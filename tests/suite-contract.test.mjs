@@ -124,6 +124,14 @@ test('atalhos do processo e filtros de intimações mantêm o comportamento atua
   assert.doesNotMatch(intimacoes, /DEADLINE_WEEKDAY_PALETTE|DEADLINE_WEEKEND_COLOR|applyDeadlineHighlightToCell|tm-hl7d/, 'o destaque obsoleto por célula foi reintroduzido');
 });
 
+test('painel de intimações mantém rolagem e navegação em larguras intermediárias', () => {
+  const intimacoes = sources.intimacoes;
+  assert.match(intimacoes, /\.pjip-modal-body\s*\{[\s\S]{0,500}?grid-template-rows: minmax\(0, 1fr\);[\s\S]{0,500}?container: pjip-modal-body \/ inline-size;/, 'o corpo do modal não limita sua altura nem expõe um container ancestral');
+  assert.match(intimacoes, /@container pjip-modal-body \(max-width: 1240px\)\s*\{[\s\S]{0,240}?\.pjip-dashboard-workspace \{ grid-template-columns: minmax\(0, 1fr\); \}[\s\S]{0,120}?\.pjip-detail \{ display: none; \}/, 'a fila ainda reserva largura para o detalhe oculto');
+  assert.match(intimacoes, /grid-template-areas: "nav" "workspace";/, 'a navegação móvel não permanece em uma linha própria');
+  assert.doesNotMatch(intimacoes, /pjip-dashboard-nav__backup|data-role="backup-toggle"|data-role="backup-pill"/, 'o backup remoto ainda tem acesso duplicado na navegação');
+});
+
 test('abas da visão geral de tarefas ficam isoladas dos botões do Projudi', () => {
   const tarefas = sources.tarefas;
   assert.doesNotMatch(tarefas, /el\('button',\s*\{\s*className:\s*'pj-home-tab/, 'as abas ainda herdam os estilos globais de button do Projudi');

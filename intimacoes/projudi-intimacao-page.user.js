@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.08.05-22:45
+// @version      2026.08.05-22:52
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       lourencosv
@@ -279,11 +279,14 @@
     .pjip-modal-body {
       display: grid;
       grid-template-columns: 196px minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
       grid-template-areas: "nav workspace";
       gap: 0;
+      min-height: 0;
       padding: 0;
       overflow: hidden;
       background: #f8fafc;
+      container: pjip-modal-body / inline-size;
     }
     .pjip-dashboard-nav {
       grid-area: nav;
@@ -344,7 +347,6 @@
       padding: 24px;
       overflow-x: hidden;
       overflow-y: auto;
-      container: pjip-workspace / inline-size;
     }
     .pjip-dashboard-content { display: grid; grid-template-columns: minmax(0, 1fr); grid-auto-flow: row; align-content: start; gap: 20px; min-width: 0; width: 100%; }
     .pjip-dashboard-context { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
@@ -502,11 +504,11 @@
     .pjip-actions-head { background: #1e3a5f; }
     .pjip-fab, .pjip-today-deadline-fab { border-color: #1e3a5f; background: #1e3a5f; }
     #${IDS.toast} { border-color: #1e3a5f; background: #1e3a5f; }
-    @container pjip-workspace (max-width: 1000px) {
+    @container pjip-modal-body (max-width: 1240px) {
       .pjip-dashboard-workspace { grid-template-columns: minmax(0, 1fr); }
       .pjip-detail { display: none; }
     }
-    @container pjip-workspace (max-width: 760px) {
+    @container pjip-modal-body (max-width: 760px) {
       .pjip-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .pjip-dashboard-context { display: grid; }
       .pjip-dashboard-header-tools { min-width: 0; width: 100%; }
@@ -521,7 +523,11 @@
       #${IDS.modalOverlay} { padding: 8px; }
       #${IDS.modalPanel} { width: calc(100vw - 12px); height: calc(100vh - 16px); max-height: none; border-radius: 14px; }
       .pjip-modal-head { padding: 13px 16px; }
-      .pjip-modal-body { grid-template-columns: 1fr; grid-template-areas: "workspace"; }
+      .pjip-modal-body {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(0, 1fr);
+        grid-template-areas: "nav" "workspace";
+      }
       .pjip-dashboard-nav { display: flex; flex-direction: row; align-items: center; gap: 4px; overflow-x: auto; padding: 8px 12px; border-right: 0; border-bottom: 1px solid #e2e8f0; }
       .pjip-dashboard-nav__label, .pjip-dashboard-nav__footer { display: none; }
       .pjip-dashboard-nav__items { display: flex; flex: 1 1 auto; gap: 4px; }
