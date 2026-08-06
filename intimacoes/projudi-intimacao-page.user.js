@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.08.05-23:25
+// @version      2026.08.05-23:27
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       lourencosv
@@ -4381,7 +4381,7 @@
     const dayDistance = getItemDeadlineDistance(item);
     if (filter === 'active') return dayDistance !== null && dayDistance <= 7;
     if (filter === 'today') return dayDistance === 0;
-    if (filter === 'next7') return dayDistance !== null && dayDistance >= 0 && dayDistance <= 7;
+    if (filter === 'next7') return dayDistance !== null && dayDistance > 0 && dayDistance <= 7;
     if (filter === 'missing') return dayDistance === null;
     return status === filter;
   }
