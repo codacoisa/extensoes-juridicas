@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.08.05-22:15
+// @version      2026.08.05-22:30
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       lourencosv
@@ -352,14 +352,16 @@
     .pjip-dashboard-workspace {
       grid-area: workspace;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 286px;
-      gap: 24px;
+      grid-template-columns: minmax(0, 1fr) minmax(250px, 286px);
+      gap: 20px;
       min-width: 0;
       min-height: 0;
-      padding: 28px;
-      overflow: auto;
+      padding: 24px;
+      overflow-x: hidden;
+      overflow-y: auto;
+      container: pjip-workspace / inline-size;
     }
-    .pjip-dashboard-content { display: grid; align-content: start; gap: 20px; min-width: 0; }
+    .pjip-dashboard-content { display: grid; align-content: start; gap: 20px; min-width: 0; width: 100%; }
     .pjip-dashboard-context { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
     .pjip-dashboard-eyebrow { margin: 0 0 7px; color: #64748b; font-size: 12px; font-weight: 700; }
     .pjip-dashboard-heading { margin: 0; color: #172033; font-size: 25px; font-weight: 800; letter-spacing: -.03em; line-height: 1.12; }
@@ -369,10 +371,11 @@
     .pjip-dashboard-header-search i { position: absolute; top: 50%; left: 13px; color: #94a3b8; pointer-events: none; transform: translateY(-50%); }
     .pjip-dashboard-header-search input { width: 100%; min-height: 40px; padding: 9px 12px 9px 36px; border: 1px solid #e2e8f0; border-radius: 9px; background: #fff; color: #172033; font: 500 12px/1.2 inherit; }
     .pjip-dashboard-export { min-height: 40px; white-space: nowrap; }
-    .pjip-summary, .pjip-overview { display: contents; }
+    .pjip-summary { display: grid; grid-area: auto; gap: 20px; min-width: 0; }
+    .pjip-overview { display: contents; }
     .pjip-summary-head, .pjip-summary-actions, .pjip-toolbar-meta { display: none; }
     .pjip-summary-grid { grid-area: auto; display: contents; }
-    .pjip-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .pjip-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; min-width: 0; }
     .pjip-stat {
       display: grid;
       grid-template-columns: 38px minmax(0, 1fr);
@@ -385,12 +388,14 @@
       border-radius: 12px;
       background: #fff;
       box-shadow: 0 1px 2px rgba(15, 23, 42, .03);
+      min-width: 0;
+      overflow: hidden;
     }
     .pjip-stat:hover { border-color: #bfdbfe; box-shadow: 0 5px 16px rgba(37, 99, 235, .08); }
     .pjip-stat[data-active="true"] { border-color: #93c5fd; box-shadow: inset 0 0 0 1px #2563eb; }
     .pjip-stat-icon { grid-row: 1 / span 2; display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: 16px; }
     .pjip-stat-value { color: #172033; font-size: 25px; font-weight: 800; line-height: 1; }
-    .pjip-stat-label { color: #64748b; font-size: 11px; font-weight: 700; letter-spacing: .01em; }
+    .pjip-stat-label { overflow: hidden; color: #64748b; font-size: 11px; font-weight: 700; letter-spacing: .01em; text-overflow: ellipsis; white-space: nowrap; }
     .pjip-stat--late .pjip-stat-icon { background: #fef2f2; color: #dc2626; }
     .pjip-stat--late .pjip-stat-value { color: #dc2626; }
     .pjip-stat--soon .pjip-stat-icon { background: #fff7ed; color: #d97706; }
@@ -443,9 +448,10 @@
     .pjip-list-head .pjip-section-title { margin: 0; color: #172033; font-size: 15px; letter-spacing: -.01em; text-transform: none; }
     .pjip-list-head .pjip-section-title :is(i, .pj-suite-fa) { color: #2563eb; }
     .pjip-list-meta { margin-top: 4px; color: #64748b; font-size: 11px; }
-    .pjip-table-head, .pjip-item { display: grid; grid-template-columns: 72px minmax(136px, 1.1fr) 94px minmax(180px, 1.65fr) 100px 86px 84px; gap: 12px; align-items: center; }
+    .pjip-table-scroll { min-width: 0; overflow-x: auto; overflow-y: hidden; overscroll-behavior-inline: contain; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; scrollbar-color: #cbd5e1 transparent; }
+    .pjip-table-head, .pjip-item { display: grid; grid-template-columns: 72px minmax(136px, 1.1fr) 94px minmax(180px, 1.65fr) 100px 86px 84px; gap: 12px; align-items: center; min-width: 860px; }
     .pjip-table-head { padding: 0 12px 8px; border-bottom: 1px solid #e2e8f0; color: #94a3b8; font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
-    .pjip-list { display: grid; gap: 0; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; }
+    .pjip-list { display: grid; gap: 0; min-width: 860px; overflow: visible; background: #fff; }
     .pjip-item { position: relative; min-height: 76px; padding: 12px; border: 0; border-bottom: 1px solid #eef2f7; border-radius: 0; background: #fff; box-shadow: none; cursor: pointer; }
     .pjip-item:last-child { border-bottom: 0; }
     .pjip-item:hover { background: #fbfdff; border-color: #eef2f7; box-shadow: none; }
@@ -507,6 +513,18 @@
     .pjip-actions-head { background: #1e3a5f; }
     .pjip-fab, .pjip-today-deadline-fab { border-color: #1e3a5f; background: #1e3a5f; }
     #${IDS.toast} { border-color: #1e3a5f; background: #1e3a5f; }
+    @container pjip-workspace (max-width: 1180px) {
+      .pjip-dashboard-workspace { grid-template-columns: minmax(0, 1fr); }
+      .pjip-detail { display: none; }
+      .pjip-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .pjip-dashboard-context { display: grid; }
+      .pjip-dashboard-header-tools { min-width: 0; width: 100%; }
+    }
+    @container pjip-workspace (max-width: 760px) {
+      .pjip-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .pjip-toolbar-grid { grid-template-columns: minmax(0, 1fr) 1fr; }
+      .pjip-toolbar-grid > .pjip-field:first-child { grid-column: 1 / -1; }
+    }
     @media (max-width: 1180px) {
       .pjip-dashboard-workspace { grid-template-columns: minmax(0, 1fr); }
       .pjip-detail { display: none; }
@@ -528,7 +546,9 @@
       .pjip-toolbar-grid > .pjip-field:first-child { grid-column: 1 / -1; }
       .pjip-deadline-grid { grid-template-columns: 1fr; }
       .pjip-table-head { display: none; }
-      .pjip-item { grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px; }
+      .pjip-table-scroll { overflow-x: visible; border: 0; border-radius: 0; }
+      .pjip-list { min-width: 0; }
+      .pjip-item { grid-template-columns: 1fr 1fr; min-width: 0; gap: 10px; padding: 14px; }
       .pjip-item-priority { grid-column: 1 / -1; }
       .pjip-item-movement { grid-column: 1 / -1; }
       .pjip-item-actions { grid-column: 1 / -1; justify-content: flex-start; }
@@ -3501,11 +3521,10 @@
       <nav class="pjip-dashboard-nav" aria-label="Navegação das intimações">
         <div class="pjip-dashboard-nav__label">Workspace</div>
         <div class="pjip-dashboard-nav__items">
-          <button type="button" class="pjip-dashboard-nav__button" data-role="nav-filter" data-nav="overview" data-status="all"><i class="fa-solid fa-house" aria-hidden="true"></i><span>Visão geral</span></button>
           <button type="button" class="pjip-dashboard-nav__button" data-role="nav-filter" data-nav="focus" data-status="active" data-active="true"><i class="fa-solid fa-bell" aria-hidden="true"></i><span>Em foco</span></button>
           <button type="button" class="pjip-dashboard-nav__button" data-role="nav-filter" data-nav="all" data-status="all"><i class="fa-solid fa-folder" aria-hidden="true"></i><span>Todas</span></button>
           <button type="button" class="pjip-dashboard-nav__button" data-role="nav-filter" data-nav="done" data-status="done"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span>Concluídas</span></button>
-          <button type="button" class="pjip-dashboard-nav__button" data-role="nav-settings"><i class="fa-solid fa-gear" aria-hidden="true"></i><span>Configurações</span></button>
+          <button type="button" class="pjip-dashboard-nav__button" data-role="nav-settings"><i class="fa-solid fa-cloud" aria-hidden="true"></i><span>Backup remoto</span></button>
         </div>
         <div class="pjip-dashboard-nav__footer">
           <p class="pjip-dashboard-nav__hint">Os dados ficam salvos localmente neste navegador.</p>
@@ -3628,8 +3647,10 @@
                 <div class="pjip-list-meta" data-role="list-meta"></div>
               </div>
             </div>
-            <div class="pjip-table-head" aria-hidden="true"><span>Prioridade</span><span>Processo</span><span>Intimação</span><span>Movimentação</span><span>Prazo</span><span>Status</span><span>Ações</span></div>
-            <section class="pjip-list" data-role="list"></section>
+            <div class="pjip-table-scroll" data-role="table-scroll" aria-label="Fila de atenção com rolagem horizontal">
+              <div class="pjip-table-head" aria-hidden="true"><span>Prioridade</span><span>Processo</span><span>Intimação</span><span>Movimentação</span><span>Prazo</span><span>Status</span><span>Ações</span></div>
+              <section class="pjip-list" data-role="list"></section>
+            </div>
           </section>
         </div>
         <aside class="pjip-detail pjip-detail--empty" data-role="detail" aria-live="polite">
