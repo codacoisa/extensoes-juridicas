@@ -145,6 +145,18 @@ test('prioridades e polimento visual das intimações preservam a hierarquia', (
   assert.match(intimacoes, /\.pjip-deadline-grid \{[^}]*gap: 12px;/, 'os cards de prazo não mantêm separação visual');
 });
 
+test('visão de foco, indicadores e navegação lateral mantêm contratos de interação', () => {
+  const intimacoes = sources.intimacoes;
+  assert.doesNotMatch(intimacoes, /Os dados ficam salvos localmente neste navegador\./, 'a sidebar ainda exibe o texto removido');
+  assert.match(intimacoes, /subtitle\.textContent = 'Triagem com atualização sob demanda\.'/, 'o subtítulo ainda menciona triagem local');
+  for (const status of ['late', 'today', 'next7', 'missing']) {
+    assert.match(intimacoes, new RegExp(`data-role="quick-status" data-status="${status}"`), `o indicador ${status} não é clicável`);
+  }
+  assert.match(intimacoes, /if \(filter === 'active'\) return dayDistance !== null && dayDistance <= 7;/, 'Em foco ainda inclui itens fora dos próximos sete dias');
+  assert.match(intimacoes, /if \(filter === 'today'\) return dayDistance === 0;/, 'o card Vencem hoje não possui filtro próprio');
+  assert.match(intimacoes, /if \(filter === 'missing'\) return dayDistance === null;/, 'o card Sem prazo não possui filtro próprio');
+});
+
 test('abas da visão geral de tarefas ficam isoladas dos botões do Projudi', () => {
   const tarefas = sources.tarefas;
   assert.doesNotMatch(tarefas, /el\('button',\s*\{\s*className:\s*'pj-home-tab/, 'as abas ainda herdam os estilos globais de button do Projudi');

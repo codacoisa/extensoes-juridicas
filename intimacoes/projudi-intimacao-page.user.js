@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.08.05-23:18
+// @version      2026.08.05-23:25
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       lourencosv
@@ -297,6 +297,8 @@
       display: flex;
       flex-direction: column;
       min-width: 0;
+      height: 100%;
+      box-sizing: border-box;
       padding: 24px 14px 18px;
       border-right: 1px solid #e2e8f0;
       background: #fff;
@@ -340,7 +342,7 @@
       padding-top: 18px;
       border-top: 1px solid #eef2f7;
     }
-    .pjip-dashboard-nav__hint { margin: 0 10px; color: #94a3b8; font-size: 11px; line-height: 1.45; }
+    .pjip-dashboard-nav__footer::after { width: 42px; height: 4px; border-radius: 999px; background: #dbeafe; content: ''; }
     .pjip-dashboard-workspace {
       grid-area: workspace;
       display: grid;
@@ -367,9 +369,9 @@
     .pjip-dashboard-heading { margin: 0; color: #172033; font-size: 25px; font-weight: 800; letter-spacing: -.03em; line-height: 1.12; }
     .pjip-dashboard-description { margin: 7px 0 0; color: #64748b; font-size: 13px; }
     .pjip-dashboard-header-tools { display: flex; align-items: center; gap: 10px; min-width: 300px; }
-    .pjip-dashboard-header-search { position: relative; flex: 1 1 auto; min-width: 0; }
-    .pjip-dashboard-header-search i { position: absolute; top: 50%; left: 13px; color: #94a3b8; pointer-events: none; transform: translateY(-50%); }
-    .pjip-dashboard-header-search input { width: 100%; min-height: 40px; padding: 9px 12px 9px 36px; border: 1px solid #e2e8f0; border-radius: 9px; background: #fff; color: #172033; font: 500 12px/1.2 inherit; }
+    .pjip-dashboard-header-search { position: relative; display: block; flex: 1 1 auto; min-width: 0; height: 40px; }
+    .pjip-dashboard-header-search i { position: absolute; top: 50%; left: 13px; z-index: 1; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; color: #64748b; line-height: 1; pointer-events: none; transform: translateY(-50%); }
+    .pjip-dashboard-header-search input { display: block; width: 100%; height: 40px; min-height: 40px; box-sizing: border-box; padding: 9px 12px 9px 36px; border: 1px solid #e2e8f0; border-radius: 9px; background: #fff; color: #172033; font: 500 12px/1.2 inherit; }
     .pjip-dashboard-export { min-height: 40px; white-space: nowrap; }
     .pjip-summary { display: grid; grid-area: auto; grid-template-columns: minmax(0, 1fr); gap: 20px; min-width: 0; }
     .pjip-dashboard-content > .pjip-summary,
@@ -393,7 +395,12 @@
       background: #fff;
       box-shadow: 0 1px 2px rgba(15, 23, 42, .03);
       min-width: 0;
+      width: 100%;
+      box-sizing: border-box;
       overflow: hidden;
+      cursor: pointer;
+      font: inherit;
+      text-align: left;
     }
     .pjip-stat:hover { border-color: #bfdbfe; box-shadow: 0 5px 16px rgba(37, 99, 235, .08); }
     .pjip-stat[data-active="true"] { border-color: #93c5fd; box-shadow: inset 0 0 0 1px #2563eb; }
@@ -3546,7 +3553,7 @@
     title.textContent = 'Intimações';
     const subtitle = document.createElement('div');
     subtitle.className = 'pjip-modal-subtitle';
-    subtitle.textContent = 'Triagem local com atualização sob demanda.';
+    subtitle.textContent = 'Triagem com atualização sob demanda.';
     brandText.append(title, subtitle);
     headText.append(brandIcon, brandText);
 
@@ -3571,7 +3578,6 @@
           <button type="button" class="pjip-dashboard-nav__button" data-role="nav-settings"><i class="fa-solid fa-cloud" aria-hidden="true"></i><span>Backup remoto</span></button>
         </div>
         <div class="pjip-dashboard-nav__footer">
-          <p class="pjip-dashboard-nav__hint">Os dados ficam salvos localmente neste navegador.</p>
         </div>
       </nav>
       <main class="pjip-dashboard-workspace">
@@ -3597,21 +3603,21 @@
                 <div class="pjip-stat-value" data-role="stat-late">0</div>
                 <div class="pjip-stat-label">Vencidas</div>
               </button>
-              <div class="pjip-stat pjip-stat--soon">
+              <button type="button" class="pjip-stat pjip-stat--soon" data-role="quick-status" data-status="today">
                 <i class="fa-solid fa-calendar-day pjip-stat-icon" aria-hidden="true"></i>
                 <div class="pjip-stat-value" data-role="stat-today">0</div>
                 <div class="pjip-stat-label">Vencem hoje</div>
-              </div>
-              <div class="pjip-stat pjip-stat--open">
+              </button>
+              <button type="button" class="pjip-stat pjip-stat--open" data-role="quick-status" data-status="next7">
                 <i class="fa-solid fa-calendar-week pjip-stat-icon" aria-hidden="true"></i>
                 <div class="pjip-stat-value" data-role="stat-next7">0</div>
                 <div class="pjip-stat-label">Próximos 7 dias</div>
-              </div>
-              <div class="pjip-stat pjip-stat--done">
+              </button>
+              <button type="button" class="pjip-stat pjip-stat--done" data-role="quick-status" data-status="missing">
                 <i class="fa-solid fa-infinity pjip-stat-icon" aria-hidden="true"></i>
                 <div class="pjip-stat-value" data-role="stat-missing">0</div>
                 <div class="pjip-stat-label">Sem prazo</div>
-              </div>
+              </button>
             </div>
           </section>
           <section class="pjip-toolbar">
@@ -3629,7 +3635,10 @@
                     <option value="soon">Vencendo</option>
                     <option value="open">Abertas</option>
                     <option value="done">Concluídas</option>
-                    <option value="active">Em andamento</option>
+                    <option value="active">Em foco</option>
+                    <option value="today">Vencem hoje</option>
+                    <option value="next7">Próximos 7 dias</option>
+                    <option value="missing">Sem prazo</option>
                   </select>
                 </div>
                 <div class="pjip-field">
@@ -4009,7 +4018,7 @@
       if (!(button instanceof HTMLElement)) return;
       const nav = button.dataset.nav;
       const active = nav === 'focus'
-        ? state.store.ui.statusFilter === 'active' || ['late', 'soon', 'open'].includes(state.store.ui.statusFilter)
+        ? ['active', 'late', 'soon', 'today', 'next7'].includes(state.store.ui.statusFilter)
         : nav === 'done'
           ? state.store.ui.statusFilter === 'done'
           : nav === 'all'
@@ -4266,7 +4275,7 @@
     const items = Object.values(state.store.items).filter((item) => {
       const status = resolveItemStatusKey(item);
       if (state.store.ui.hideDone && item.done && state.store.ui.statusFilter !== 'done') return false;
-      if (!matchesStatusFilter(status, state.store.ui.statusFilter)) return false;
+      if (!matchesStatusFilter(status, state.store.ui.statusFilter, item)) return false;
       if (!query) return true;
       const haystack = normalizeText([item.id, item.processNumber, item.deadline, item.movement, item.sourceLegend].join(' '));
       return haystack.includes(query);
@@ -4364,11 +4373,16 @@
    * Define se um status pertence ao filtro selecionado.
    * @param {string} status
    * @param {string} filter
+   * @param {any} item
    * @returns {boolean}
    */
-  function matchesStatusFilter(status, filter) {
+  function matchesStatusFilter(status, filter, item) {
     if (filter === 'all') return true;
-    if (filter === 'active') return status === 'late' || status === 'soon' || status === 'open';
+    const dayDistance = getItemDeadlineDistance(item);
+    if (filter === 'active') return dayDistance !== null && dayDistance <= 7;
+    if (filter === 'today') return dayDistance === 0;
+    if (filter === 'next7') return dayDistance !== null && dayDistance >= 0 && dayDistance <= 7;
+    if (filter === 'missing') return dayDistance === null;
     return status === filter;
   }
 
@@ -4447,8 +4461,14 @@
             ? 'somente abertas'
             : statusFilter === 'done'
               ? 'somente concluídas'
-              : statusFilter === 'active'
-                ? 'abertas em andamento'
+        : statusFilter === 'active'
+                ? 'vencidas, hoje e próximos 7 dias'
+                : statusFilter === 'today'
+                  ? 'somente vencendo hoje'
+                  : statusFilter === 'next7'
+                    ? 'somente próximos 7 dias'
+                    : statusFilter === 'missing'
+                      ? 'somente sem prazo'
                 : 'todos os status';
     return `${formatCount(visible, 'item exibido', 'itens exibidos')} de ${formatCount(total, 'monitorado', 'monitorados')} • filtro: ${scope}.`;
   }
