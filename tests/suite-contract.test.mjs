@@ -144,6 +144,7 @@ test('prioridades e polimento visual das intimações preservam a hierarquia', (
   assert.match(intimacoes, /\.pjip-item-actions \{[^}]*flex-wrap: nowrap;/, 'as ações da linha ainda podem quebrar e desalinharem os ícones');
   assert.match(intimacoes, /\.pjip-deadline-grid \{[^}]*gap: 12px;/, 'os cards de prazo não mantêm separação visual');
   assert.match(intimacoes, /\.pjip-dashboard-header-search > :is\(i, \.pj-suite-fa\) \{[^}]*top: 50%;[^}]*transform: translateY\(-50%\);/, 'a lupa convertida em SVG pode perder o alinhamento no campo de busca');
+  assert.match(intimacoes, /\.pjip-deadline-head \.pjip-section-title \{[^}]*white-space: nowrap;/, 'o título dos filtros de prazo ainda pode quebrar em duas linhas');
 });
 
 test('visão de foco, indicadores e navegação lateral mantêm contratos de interação', () => {

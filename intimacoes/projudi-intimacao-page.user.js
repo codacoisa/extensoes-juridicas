@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.08.05-23:29
+// @version      2026.08.05-23:31
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       lourencosv
@@ -437,6 +437,7 @@
     .pjip-checks label { min-height: 30px; padding: 7px 9px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; color: #64748b; font-size: 11px; }
     .pjip-deadline { display: grid; gap: 14px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; box-shadow: 0 1px 2px rgba(15, 23, 42, .03); }
     .pjip-deadline-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .pjip-deadline-head .pjip-section-title { flex: 0 0 auto; width: max-content; max-width: 100%; white-space: nowrap; }
     .pjip-deadline .pjip-section-title { margin: 0; color: #172033; font-size: 13px; letter-spacing: 0; text-transform: none; }
     .pjip-deadline .pjip-section-title :is(i, .pj-suite-fa) { color: #2563eb; }
     .pjip-deadline-status { color: #64748b; font-size: 11px; font-weight: 600; text-align: right; }
