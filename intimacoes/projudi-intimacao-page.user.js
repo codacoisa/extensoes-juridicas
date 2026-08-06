@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.08.05-23:27
+// @version      2026.08.05-23:29
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       lourencosv
@@ -370,7 +370,7 @@
     .pjip-dashboard-description { margin: 7px 0 0; color: #64748b; font-size: 13px; }
     .pjip-dashboard-header-tools { display: flex; align-items: center; gap: 10px; min-width: 300px; }
     .pjip-dashboard-header-search { position: relative; display: block; flex: 1 1 auto; min-width: 0; height: 40px; }
-    .pjip-dashboard-header-search i { position: absolute; top: 50%; left: 13px; z-index: 1; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; color: #64748b; line-height: 1; pointer-events: none; transform: translateY(-50%); }
+    .pjip-dashboard-header-search > :is(i, .pj-suite-fa) { position: absolute; top: 50%; left: 13px; z-index: 1; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; color: #64748b; line-height: 1; pointer-events: none; transform: translateY(-50%); }
     .pjip-dashboard-header-search input { display: block; width: 100%; height: 40px; min-height: 40px; box-sizing: border-box; padding: 9px 12px 9px 36px; border: 1px solid #e2e8f0; border-radius: 9px; background: #fff; color: #172033; font: 500 12px/1.2 inherit; }
     .pjip-dashboard-export { min-height: 40px; white-space: nowrap; }
     .pjip-summary { display: grid; grid-area: auto; grid-template-columns: minmax(0, 1fr); gap: 20px; min-width: 0; }
