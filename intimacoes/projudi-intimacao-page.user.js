@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.08.05-22:37
+// @version      2026.08.05-22:45
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       lourencosv
@@ -334,21 +334,6 @@
       border-top: 1px solid #eef2f7;
     }
     .pjip-dashboard-nav__hint { margin: 0 10px; color: #94a3b8; font-size: 11px; line-height: 1.45; }
-    .pjip-dashboard-nav__backup {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      padding: 9px 10px;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      background: #fff;
-      color: #475569;
-      cursor: pointer;
-      font: 700 12px/1.2 inherit;
-      text-align: left;
-    }
-    .pjip-dashboard-nav__backup:hover { border-color: #bfdbfe; background: #f8fbff; color: #1d4ed8; }
-    .pjip-dashboard-nav__backup i { color: #2563eb; }
     .pjip-dashboard-workspace {
       grid-area: workspace;
       display: grid;
@@ -517,19 +502,18 @@
     .pjip-actions-head { background: #1e3a5f; }
     .pjip-fab, .pjip-today-deadline-fab { border-color: #1e3a5f; background: #1e3a5f; }
     #${IDS.toast} { border-color: #1e3a5f; background: #1e3a5f; }
-    @container pjip-workspace (max-width: 1180px) {
+    @container pjip-workspace (max-width: 1000px) {
       .pjip-dashboard-workspace { grid-template-columns: minmax(0, 1fr); }
       .pjip-detail { display: none; }
-      .pjip-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .pjip-dashboard-context { display: grid; }
-      .pjip-dashboard-header-tools { min-width: 0; width: 100%; }
     }
     @container pjip-workspace (max-width: 760px) {
       .pjip-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .pjip-dashboard-context { display: grid; }
+      .pjip-dashboard-header-tools { min-width: 0; width: 100%; }
       .pjip-toolbar-grid { grid-template-columns: minmax(0, 1fr) 1fr; }
       .pjip-toolbar-grid > .pjip-field:first-child { grid-column: 1 / -1; }
     }
-    @media (max-width: 1180px) {
+    @media (max-width: 1024px) {
       .pjip-dashboard-workspace { grid-template-columns: minmax(0, 1fr); }
       .pjip-detail { display: none; }
     }
@@ -3532,8 +3516,6 @@
         </div>
         <div class="pjip-dashboard-nav__footer">
           <p class="pjip-dashboard-nav__hint">Os dados ficam salvos localmente neste navegador.</p>
-          <button type="button" class="pjip-dashboard-nav__backup" data-role="backup-toggle"><i class="fa-solid fa-cloud" aria-hidden="true"></i><span>Backup remoto</span></button>
-          <span class="pjip-dashboard-nav__hint" data-role="backup-pill">Backup desativado</span>
         </div>
       </nav>
       <main class="pjip-dashboard-workspace">
@@ -3784,12 +3766,6 @@
       button.addEventListener('click', () => applyQuickDeadlineFilter(button.dataset.mode || 'clear'));
     });
 
-    body.querySelector('[data-role="backup-toggle"]')?.addEventListener('click', () => {
-      state.store.ui.backupExpanded = true;
-      persistStore();
-      renderModal();
-    });
-
     body.querySelectorAll('[data-role="backup-close"]').forEach(button => button.addEventListener('click', () => {
       state.store.ui.backupExpanded = false;
       persistStore();
@@ -3988,7 +3964,6 @@
       root.querySelector('[data-role="meta"]'),
       `${formatCount(visibleItems.length, 'item visível', 'itens visíveis')} • ${formatCount(summary.total, 'intimação marcada', 'intimações marcadas')} • ordenação: ${resolveSortLabel(state.store.ui.sortBy)}.`
     );
-    setNodeText(root.querySelector('[data-role="backup-pill"]'), backupSettings.enabled ? 'Backup ativo' : 'Backup desativado');
     const backupPopover = root.querySelector('[data-role="backup-popover"]');
     if (backupPopover instanceof HTMLElement) {
       backupPopover.dataset.open = state.store.ui.backupExpanded ? 'true' : 'false';
