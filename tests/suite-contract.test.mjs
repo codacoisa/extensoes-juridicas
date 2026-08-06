@@ -16,6 +16,26 @@ const scripts = {
 const sources = Object.fromEntries(
   await Promise.all(Object.entries(scripts).map(async ([id, path]) => [id, await readFile(resolve(root, path), 'utf8')]))
 );
+const tarefasMeta = await readFile(resolve(root, 'tarefas/projudi-tarefas-locais.meta.js'), 'utf8');
+const intimacoesMeta = await readFile(resolve(root, 'intimacoes/projudi-intimacao-page.meta.js'), 'utf8');
+
+test('Tarefas separa o documento de atualização do código instalável', () => {
+  assert.match(sources.tarefas, /^\/\/ @updateURL\s+https:\/\/raw\.githubusercontent\.com\/codacoisa\/extensoes-juridicas\/refs\/heads\/main\/tarefas\/projudi-tarefas-locais\.meta\.js$/m, 'user.js não aponta para a meta de atualização');
+  assert.match(sources.tarefas, /^\/\/ @downloadURL\s+https:\/\/raw\.githubusercontent\.com\/codacoisa\/extensoes-juridicas\/refs\/heads\/main\/tarefas\/projudi-tarefas-locais\.user\.js$/m, 'user.js não aponta para o download instalável');
+  assert.match(tarefasMeta, /^\/\/ ==UserScript==$/m, 'meta.js não possui cabeçalho de userscript');
+  assert.match(tarefasMeta, /^\/\/ @updateURL\s+https:\/\/raw\.githubusercontent\.com\/codacoisa\/extensoes-juridicas\/refs\/heads\/main\/tarefas\/projudi-tarefas-locais\.meta\.js$/m, 'meta.js não aponta para a própria atualização');
+  assert.match(tarefasMeta, /^\/\/ @downloadURL\s+https:\/\/raw\.githubusercontent\.com\/codacoisa\/extensoes-juridicas\/refs\/heads\/main\/tarefas\/projudi-tarefas-locais\.user\.js$/m, 'meta.js não aponta para o código instalável');
+  assert.doesNotMatch(tarefasMeta, /^\(function \(\)/m, 'meta.js não deve conter código de execução');
+});
+
+test('Intimações separa o documento de atualização do código instalável', () => {
+  assert.match(sources.intimacoes, /^\/\/ @updateURL\s+https:\/\/raw\.githubusercontent\.com\/codacoisa\/extensoes-juridicas\/refs\/heads\/main\/intimacoes\/projudi-intimacao-page\.meta\.js$/m, 'user.js não aponta para a meta de atualização');
+  assert.match(sources.intimacoes, /^\/\/ @downloadURL\s+https:\/\/raw\.githubusercontent\.com\/codacoisa\/extensoes-juridicas\/refs\/heads\/main\/intimacoes\/projudi-intimacao-page\.user\.js$/m, 'user.js não aponta para o download instalável');
+  assert.match(intimacoesMeta, /^\/\/ ==UserScript==$/m, 'meta.js não possui cabeçalho de userscript');
+  assert.match(intimacoesMeta, /^\/\/ @updateURL\s+https:\/\/raw\.githubusercontent\.com\/codacoisa\/extensoes-juridicas\/refs\/heads\/main\/intimacoes\/projudi-intimacao-page\.meta\.js$/m, 'meta.js não aponta para a própria atualização');
+  assert.match(intimacoesMeta, /^\/\/ @downloadURL\s+https:\/\/raw\.githubusercontent\.com\/codacoisa\/extensoes-juridicas\/refs\/heads\/main\/intimacoes\/projudi-intimacao-page\.user\.js$/m, 'meta.js não aponta para o código instalável');
+  assert.doesNotMatch(intimacoesMeta, /^\(\(\) => \{/m, 'meta.js não deve conter código de execução');
+});
 
 test('cada extensão usa um documento de dados e outro de Gist', () => {
   for (const [id, source] of Object.entries(sources)) {
