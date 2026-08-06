@@ -1,10 +1,12 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2026.08.06-00:21
+// @version      2026.08.06-00:40
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
-// @author       louencosv (GPT)
+// @author       lourencosv
+// @contributor  Codex <codex@openai.com>
+// @contributor  Claude <noreply@anthropic.com>
 // @license      CC BY-NC 4.0
 // @updateURL    https://raw.githubusercontent.com/codacoisa/extensoes-juridicas/refs/heads/main/tarefas/projudi-tarefas-locais.user.js
 // @downloadURL  https://raw.githubusercontent.com/codacoisa/extensoes-juridicas/refs/heads/main/tarefas/projudi-tarefas-locais.user.js
@@ -2755,6 +2757,124 @@
         #${ID_MANAGER_OVERLAY} .pjm-table td:nth-child(4), #${ID_MANAGER_OVERLAY} .pjm-table td:nth-child(5) { grid-column: 1 / -1; }
         #${ID_MANAGER_OVERLAY} .pjm-table .pjm-row-title { max-width: none; white-space: normal; overflow-wrap: anywhere; }
         #${ID_MANAGER_OVERLAY} .pjm-table .pjm-row-actions { justify-content: flex-start; }
+      }
+      /* Painel flutuante: mesma linguagem clean do dashboard principal. */
+      #pj-todo.pj-todo-modern {
+        width: min(520px, calc(100vw - 24px));
+        height: min(740px, calc(100vh - 24px));
+        max-height: calc(100vh - 24px);
+        border: 1px solid #dbe3ef;
+        border-radius: 14px;
+        background: #f8fafc;
+        box-shadow: 0 28px 80px rgba(15, 23, 42, .30);
+        overflow: hidden;
+      }
+      #pj-todo.pj-todo-modern #pj-todo-header {
+        min-height: 64px;
+        padding: 12px 14px;
+        border-bottom: 1px solid #e2e8f0;
+        background: #fff;
+        color: #172033;
+      }
+      #pj-todo.pj-todo-modern .pj-home-header-brand { gap: 10px; }
+      #pj-todo.pj-todo-modern .pj-home-header-icon {
+        width: 36px;
+        height: 36px;
+        border: 1px solid #dbeafe;
+        border-radius: 10px;
+        background: #eff6ff;
+        box-shadow: none;
+        color: #2563eb;
+      }
+      #pj-todo.pj-todo-modern .pj-home-header-title { color: #172033; font-size: 15px; font-weight: 800; }
+      #pj-todo.pj-todo-modern .pj-home-header-subtitle { color: #64748b; font-size: 11px; font-weight: 600; }
+      #pj-todo.pj-todo-modern #pj-todo-actions { gap: 6px; }
+      #pj-todo.pj-todo-modern .pj-todo-close-btn {
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #475569;
+        font-size: 15px;
+      }
+      #pj-todo.pj-todo-modern .pj-todo-close-btn:hover { background: #f8fafc; color: #1e3a5f; }
+      #pj-todo.pj-todo-modern #pj-todo-body {
+        min-height: 0;
+        padding: 14px;
+        gap: 12px;
+        background: #f8fafc;
+        overflow: hidden;
+      }
+      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) {
+        min-height: 0;
+        height: 100%;
+      }
+      #pj-todo.pj-todo-modern .pj-home-tabs {
+        flex: 0 0 auto;
+        border-color: #e2e8f0;
+        border-radius: 10px;
+        background: #fff;
+      }
+      #pj-todo.pj-todo-modern .pj-home-tab { color: #64748b; }
+      #pj-todo.pj-todo-modern .pj-home-tab.active { border-color: #bfdbfe; color: #1d4ed8; box-shadow: 0 2px 8px rgba(37, 99, 235, .08); }
+      #pj-todo.pj-todo-modern .pj-home-stack { overflow: hidden; }
+      #pj-todo.pj-todo-modern .pj-home-panel .pj-section,
+      #pj-todo.pj-todo-modern .pj-process-layout .pj-section {
+        min-height: 0;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        background: #fff;
+      }
+      #pj-todo.pj-todo-modern .pj-home-panel .pj-section { overflow: hidden; }
+      #pj-todo.pj-todo-modern .pj-process-layout .pj-section { overflow: hidden; }
+      #pj-todo.pj-todo-modern .pj-home-composer {
+        margin: 12px;
+        border-color: #dbe7f2;
+        border-radius: 10px;
+        background: #fbfdff;
+      }
+      #pj-todo.pj-todo-modern .pj-home-composer-label { color: #334155; }
+      #pj-todo.pj-todo-modern .pj-home-composer-label :is(i, .pj-suite-fa) { color: #2563eb; }
+      #pj-todo.pj-todo-modern .pj-home-composer .pj-add,
+      #pj-todo.pj-todo-modern .pj-add { border-color: #2563eb; background: #2563eb; }
+      #pj-todo.pj-todo-modern .pj-home-composer .pj-add:hover,
+      #pj-todo.pj-todo-modern .pj-add:hover { background: #1d4ed8; }
+      #pj-todo.pj-todo-modern .pj-home-toolbar { padding: 0 12px; }
+      #pj-todo.pj-todo-modern .pj-home-list-title { color: #334155; }
+      #pj-todo.pj-todo-modern .pj-home-search {
+        border-color: #cbd5e1;
+        border-radius: 7px;
+        background: #fff;
+        color: #172033;
+      }
+      #pj-todo.pj-todo-modern .pj-list {
+        scrollbar-gutter: stable;
+        scrollbar-color: #cbd5e1 transparent;
+      }
+      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) .pj-item {
+        margin-bottom: 8px;
+        border-color: #e2e8f0;
+        border-radius: 9px;
+        box-shadow: none;
+      }
+      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) .pj-item:hover {
+        border-color: #bfdbfe;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, .06);
+        transform: none;
+      }
+      #pj-todo.pj-todo-modern .pj-proc-row { border-color: #e2e8f0; border-radius: 9px; }
+      #pj-todo.pj-todo-modern .pj-proc-head { background: #f8fafc; }
+      @media (max-width: 560px) {
+        #pj-todo.pj-todo-modern {
+          right: 12px !important;
+          left: 12px;
+          top: 12px !important;
+          width: auto;
+          height: calc(100vh - 24px);
+          max-height: calc(100vh - 24px);
+        }
+        #pj-todo.pj-todo-modern .pj-home-header-subtitle { display: none; }
       }
       ${BACKUP_UI_CSS}
     `;
