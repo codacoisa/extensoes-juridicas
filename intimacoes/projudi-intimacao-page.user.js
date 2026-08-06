@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.08.06-02:37
+// @version      2026.08.06-09:53
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       lourencosv
@@ -363,6 +363,7 @@
       overflow-y: auto;
       overscroll-behavior: contain;
       scrollbar-gutter: stable;
+      overflow-anchor: none;
       touch-action: pan-y;
       -webkit-overflow-scrolling: touch;
     }
@@ -4053,6 +4054,8 @@
 
     const listNode = root.querySelector('[data-role="list"]');
     if (!listNode) return;
+    const workspace = root.querySelector('.pjip-dashboard-workspace');
+    const scrollTop = workspace instanceof HTMLElement ? workspace.scrollTop : 0;
     listNode.replaceChildren();
 
     if (!visibleItems.length) {
@@ -4062,6 +4065,7 @@
       listNode.appendChild(empty);
       state.selectedItemId = null;
       renderDetail(root, null);
+      if (workspace instanceof HTMLElement) workspace.scrollTop = scrollTop;
       return;
     }
 
@@ -4074,6 +4078,23 @@
     const selectedItem = visibleItems.find(item => String(item.id) === String(state.selectedItemId)) || visibleItems[0] || null;
     state.selectedItemId = selectedItem ? String(selectedItem.id) : null;
     renderDetail(root, selectedItem);
+    if (workspace instanceof HTMLElement) workspace.scrollTop = scrollTop;
+  }
+
+  /**
+   * Atualiza a seleção sem reconstruir a fila, preservando o foco e a rolagem.
+   * @param {HTMLElement} root
+   * @param {string} itemId
+   * @returns {void}
+   */
+  function selectModalItem(root, itemId) {
+    const selectedItem = getFilteredItems().find(item => String(item.id) === String(itemId)) || null;
+    if (!selectedItem) return;
+    state.selectedItemId = String(selectedItem.id);
+    root.querySelectorAll('[data-role="list"] .pjip-item').forEach(card => {
+      if (card instanceof HTMLElement) card.dataset.selected = card.dataset.itemId === state.selectedItemId ? 'true' : 'false';
+    });
+    renderDetail(root, selectedItem);
   }
 
   /**
@@ -4084,6 +4105,7 @@
   function buildModalItem(item) {
     const card = document.createElement('article');
     card.className = `pjip-item${item.done ? ' pjip-item--done' : ''}`;
+    card.dataset.itemId = String(item.id);
     card.dataset.selected = String(item.id) === String(state.selectedItemId) ? 'true' : 'false';
     card.setAttribute('tabindex', '0');
     card.setAttribute('role', 'group');
@@ -4187,14 +4209,12 @@
     actions.append(doneButton, openProcessButton, removeButton);
     card.append(priority, process, intimation, movement, deadline, statusNode, actions);
     card.addEventListener('click', () => {
-      state.selectedItemId = String(item.id);
-      renderModal();
+      if (state.modalRoot) selectModalItem(state.modalRoot, String(item.id));
     });
     card.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
       event.preventDefault();
-      state.selectedItemId = String(item.id);
-      renderModal();
+      if (state.modalRoot) selectModalItem(state.modalRoot, String(item.id));
     });
     return card;
   }

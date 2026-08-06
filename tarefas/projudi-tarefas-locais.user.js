@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2026.08.06-02:36
+// @version      2026.08.06-09:54
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       lourencosv
@@ -1948,37 +1948,6 @@
         min-height: 0;
         flex: 1;
       }
-      .pj-home-summary {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 14px;
-        padding: 2px 4px 0;
-      }
-      .pj-home-summary-copy {
-        flex: 1;
-        min-width: 0;
-      }
-      .pj-home-eyebrow {
-        margin-bottom: 2px;
-        color: #64748b;
-        font-size: 10px;
-        font-weight: 800;
-        letter-spacing: .08em;
-        text-transform: uppercase;
-      }
-      .pj-home-summary-title {
-        color: #102a46;
-        font-size: 17px;
-        font-weight: 800;
-        line-height: 1.15;
-      }
-      .pj-home-summary-sub {
-        margin-top: 3px;
-        color: #64748b;
-        font-size: 11px;
-        line-height: 1.35;
-      }
       #pj-todo.pj-todo-home .pj-home-tabs {
         display: flex;
         align-items: stretch;
@@ -2355,7 +2324,6 @@
       #pj-todo.pj-todo-modern .pj-home-layout .pj-list-inline { padding: 7px; }
       #pj-todo.pj-todo-modern .pj-home-layout .pj-list-inline .pj-item:last-child { margin-bottom: 0; }
       @media (max-width: 480px) {
-        .pj-home-summary-sub { display: none; }
         .pj-home-composer-footer { grid-template-columns: 1fr; }
         .pj-home-composer .pj-add { height: 36px; }
         .pj-home-toolbar { align-items: stretch; flex-direction: column; }
@@ -3404,8 +3372,7 @@
       #pj-todo.pj-todo-modern .pj-home-header-title { font-size: 17px; }
       #pj-todo.pj-todo-modern .pj-home-header-subtitle { margin-top: 3px; }
       #pj-todo.pj-todo-modern #pj-todo-body { padding: 16px; gap: 14px; }
-      #pj-todo.pj-todo-modern .pj-home-summary, #pj-todo.pj-todo-modern .pj-home-tabs, #pj-todo.pj-todo-modern .pj-home-panel .pj-section, #pj-todo.pj-todo-modern .pj-process-layout .pj-section { border: 1px solid #dfe8f2; border-radius: 14px; background: #fff; }
-      #pj-todo.pj-todo-modern .pj-home-summary { padding: 14px; }
+      #pj-todo.pj-todo-modern .pj-home-tabs, #pj-todo.pj-todo-modern .pj-home-panel .pj-section, #pj-todo.pj-todo-modern .pj-process-layout .pj-section { border: 1px solid #dfe8f2; border-radius: 14px; background: #fff; }
       #pj-todo.pj-todo-modern .pj-home-tabs { padding: 4px; }
       #pj-todo.pj-todo-modern .pj-home-composer { margin: 12px; border-radius: 12px; }
       #pj-todo.pj-todo-modern .pj-home-toolbar { padding: 0 12px 10px; }
@@ -3423,11 +3390,6 @@
       #pj-todo.pj-todo-modern .pj-home-header-title { font-size: 16px; }
       #pj-todo.pj-todo-modern #pj-todo-body { padding: 12px; gap: 10px; }
       #pj-todo.pj-todo-modern .pj-home-layout { gap: 9px; }
-      #pj-todo.pj-todo-modern .pj-home-summary {
-        min-height: 74px;
-        padding: 10px 12px;
-      }
-      #pj-todo.pj-todo-modern .pj-home-summary-title { font-size: 16px; }
       #pj-todo.pj-todo-modern .pj-home-tabs {
         height: 40px;
         min-height: 40px;
@@ -3563,6 +3525,58 @@
         }
         #pj-todo.pj-todo-modern .pj-home-header-subtitle { display: none; }
       }
+      /* Contratos de leitura: rolagem, largura da fila e tags não podem ser ocultadas. */
+      #${ID_MANAGER_OVERLAY} .pjm-workspace,
+      #pj-todo.pj-todo-modern .pj-list {
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 #f1f5f9;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-workspace::-webkit-scrollbar,
+      #pj-todo.pj-todo-modern .pj-list::-webkit-scrollbar { width: 10px; height: 10px; }
+      #${ID_MANAGER_OVERLAY} .pjm-workspace::-webkit-scrollbar-track,
+      #pj-todo.pj-todo-modern .pj-list::-webkit-scrollbar-track { background: #f1f5f9; }
+      #${ID_MANAGER_OVERLAY} .pjm-workspace::-webkit-scrollbar-thumb,
+      #pj-todo.pj-todo-modern .pj-list::-webkit-scrollbar-thumb { border: 2px solid #f1f5f9; border-radius: 999px; background: #cbd5e1; }
+      #${ID_MANAGER_OVERLAY} .pjm-workspace::-webkit-scrollbar-thumb:hover,
+      #pj-todo.pj-todo-modern .pj-list::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      #${ID_MANAGER_OVERLAY} .pjm-workspace-grid { grid-template-columns: minmax(0, 1fr) 286px; }
+      #${ID_MANAGER_OVERLAY} .pjm-queue-card,
+      #${ID_MANAGER_OVERLAY} .pjm-queue-card .pjm-queue { overflow: visible; }
+      #${ID_MANAGER_OVERLAY} .pjm-table-wrap { overflow-x: auto; overflow-y: visible; overscroll-behavior-x: contain; }
+      #${ID_MANAGER_OVERLAY} .pjm-task-list { min-width: 860px; }
+      #${ID_MANAGER_OVERLAY} .pjm-task-row { min-width: 860px; grid-template-columns: minmax(240px, 1.7fr) minmax(155px, 1fr) minmax(100px, .7fr) minmax(150px, 1fr) 76px; }
+      #${ID_MANAGER_OVERLAY} .pjm-badge-row { max-width: 100%; flex-wrap: wrap; overflow: visible; }
+      #${ID_MANAGER_OVERLAY} .pjm-badge { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+      #${ID_MANAGER_OVERLAY} .pjm-badge--cnj { display: flex; min-width: 0; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
+      #${ID_MANAGER_OVERLAY} .pjm-stat { grid-template-columns: 38px minmax(0, 1fr); }
+      #${ID_MANAGER_OVERLAY} .pjm-stat-icon {
+        grid-row: 1 / span 2;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        border-radius: 999px;
+        background: #f1f5f9;
+        color: #475569;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-stat-icon :is(i, .pj-suite-fa) { width: 16px; height: 16px; font-size: 16px; }
+      #${ID_MANAGER_OVERLAY} .pjm-stat--active .pjm-stat-icon { background: #eff6ff; color: #2563eb; }
+      #${ID_MANAGER_OVERLAY} .pjm-stat--global .pjm-stat-icon { background: #f5f3ff; color: #7c3aed; }
+      #${ID_MANAGER_OVERLAY} .pjm-stat--done .pjm-stat-icon { background: #f0fdf4; color: #15803d; }
+      @container pjm-manager (max-width: 1040px) {
+        #${ID_MANAGER_OVERLAY} .pjm-workspace-grid { grid-template-columns: minmax(0, 1fr); }
+        #${ID_MANAGER_OVERLAY} .pjm-detail { display: none; }
+      }
+      /* Painel compacto da página inicial: somente abas e listas, com tags sempre legíveis. */
+      #pj-todo.pj-todo-modern.pj-todo-home {
+        width: min(460px, calc(100vw - 24px));
+        height: min(660px, calc(100vh - 24px));
+        max-height: calc(100vh - 24px);
+      }
+      #pj-todo.pj-todo-modern.pj-todo-home .pj-home-layout { gap: 10px; }
+      #pj-todo.pj-todo-modern.pj-todo-home .pj-tags { display: flex; flex-wrap: wrap; max-width: 100%; overflow: visible; }
+      #pj-todo.pj-todo-modern.pj-todo-home .pj-tag { white-space: normal; overflow-wrap: anywhere; }
       ${BACKUP_UI_CSS}
     `;
     document.head.appendChild(style);
@@ -4095,10 +4109,10 @@
           <div class="pjm-workspace">
             <div class="pjm-context"><div><div class="pjm-context-kicker">Visão operacional</div><div class="pjm-summary-title" id="pjm-summary-title">Tarefas</div><div class="pjm-summary-sub" id="pjm-summary-sub">Carregando tarefas locais.</div></div><div class="pjm-context-actions"><div class="pjm-search-wrap"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input class="pjm-input" id="pjm-search" placeholder="Buscar por tarefa, tag ou processo" aria-label="Buscar tarefas" /></div><button class="pjm-btn" id="pjm-export" type="button"><i class="fa-solid fa-download" aria-hidden="true"></i><span>Exportar</span></button></div></div>
             <div class="pjm-stat-grid">
-              <button type="button" class="pjm-stat pjm-stat--active" data-pjm-filter="active"><i class="fa-solid fa-inbox" aria-hidden="true"></i><span class="pjm-stat-value" id="pjm-stat-active">0</span><span class="pjm-stat-label">Em aberto</span></button>
-              <button type="button" class="pjm-stat" data-pjm-filter="all"><i class="fa-solid fa-list" aria-hidden="true"></i><span class="pjm-stat-value" id="pjm-stat-all">0</span><span class="pjm-stat-label">Todas</span></button>
-              <button type="button" class="pjm-stat pjm-stat--global" data-pjm-filter="global"><i class="fa-solid fa-layer-group" aria-hidden="true"></i><span class="pjm-stat-value" id="pjm-stat-global">0</span><span class="pjm-stat-label">Globais</span></button>
-              <button type="button" class="pjm-stat pjm-stat--done" data-pjm-filter="done"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span class="pjm-stat-value" id="pjm-stat-done">0</span><span class="pjm-stat-label">Concluídas</span></button>
+              <button type="button" class="pjm-stat pjm-stat--active" data-pjm-filter="active"><span class="pjm-stat-icon"><i class="fa-solid fa-inbox" aria-hidden="true"></i></span><span class="pjm-stat-value" id="pjm-stat-active">0</span><span class="pjm-stat-label">Em aberto</span></button>
+              <button type="button" class="pjm-stat" data-pjm-filter="all"><span class="pjm-stat-icon"><i class="fa-solid fa-list" aria-hidden="true"></i></span><span class="pjm-stat-value" id="pjm-stat-all">0</span><span class="pjm-stat-label">Todas</span></button>
+              <button type="button" class="pjm-stat pjm-stat--global" data-pjm-filter="global"><span class="pjm-stat-icon"><i class="fa-solid fa-layer-group" aria-hidden="true"></i></span><span class="pjm-stat-value" id="pjm-stat-global">0</span><span class="pjm-stat-label">Globais</span></button>
+              <button type="button" class="pjm-stat pjm-stat--done" data-pjm-filter="done"><span class="pjm-stat-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span><span class="pjm-stat-value" id="pjm-stat-done">0</span><span class="pjm-stat-label">Concluídas</span></button>
             </div>
             <section class="pjm-filter-card" aria-label="Filtros de tarefas"><div class="pjm-filterbar">
               <select class="pjm-select" id="pjm-filter-state" aria-label="Filtrar por status"><option value="active">Em aberto</option><option value="all">Todas</option><option value="global">Globais</option><option value="done">Concluídas</option></select>
@@ -4822,19 +4836,10 @@
     const tabGlobal = el('div', { className: 'pj-home-tab active', role: 'tab', tabIndex: 0, ariaSelected: 'true' }, [faIcon('fa-solid fa-layer-group'), 'Globais', globalCount]);
     const tabProcess = el('div', { className: 'pj-home-tab', role: 'tab', tabIndex: 0, ariaSelected: 'false' }, [faIcon('fa-solid fa-scale-balanced'), 'Processos', processCount]);
     const tabs = el('div', { className: 'pj-home-tabs', role: 'tablist', 'aria-label': 'Escopo das tarefas' }, [tabGlobal, tabProcess]);
-    const summaryTitle = el('div', { className: 'pj-home-summary-title' }, ['Seu dia em ordem']);
-    const summarySub = el('div', { className: 'pj-home-summary-sub' }, ['Carregando suas pendências...']);
-    const summary = el('div', { className: 'pj-home-summary' }, [
-      el('div', { className: 'pj-home-summary-copy' }, [
-        el('div', { className: 'pj-home-eyebrow' }, ['Agora']),
-        summaryTitle,
-        summarySub
-      ])
-    ]);
     const globalPanel = el('div', { className: 'pj-home-panel active' }, [globalSection]);
     const processPanel = el('div', { className: 'pj-home-panel' }, [procSection]);
     const stack = el('div', { className: 'pj-home-stack' }, [globalPanel, processPanel]);
-    const homeLayout = el('div', { className: 'pj-home-layout' }, [summary, tabs, stack]);
+    const homeLayout = el('div', { className: 'pj-home-layout' }, [tabs, stack]);
 
     const body = el('div', { id: 'pj-todo-body' }, [homeLayout]);
     const panel = el('div', { id: 'pj-todo', className: 'pj-todo-modern pj-todo-home' }, [header, body]);
@@ -4866,13 +4871,8 @@
       const globalActive = loadGlobalItems().filter(x => !x.done).length;
       const processRows = collectProcessPendingRows();
       const processActive = processRows.reduce((sum, row) => sum + row.pending.length, 0);
-      const total = globalActive + processActive;
       globalCount.textContent = String(globalActive);
       processCount.textContent = String(processRows.length);
-      summaryTitle.textContent = total ? `${formatCount(total, 'pendência', 'pendências')} em aberto` : 'Seu dia está em ordem';
-      summarySub.textContent = total
-        ? `${formatCount(globalActive, 'global', 'globais')} e ${formatCount(processActive, 'vinculada a processo', 'vinculadas a processos')}.`
-        : 'Nenhuma tarefa aguardando providência.';
     }
 
     /**

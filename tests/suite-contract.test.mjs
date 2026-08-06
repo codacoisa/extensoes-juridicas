@@ -157,6 +157,23 @@ test('painel de intimações mantém rolagem e navegação em larguras intermedi
   assert.doesNotMatch(intimacoes, /pjip-dashboard-nav__backup|data-role="backup-toggle"|data-role="backup-pill"/, 'o backup remoto ainda tem acesso duplicado na navegação');
 });
 
+test('seleção de intimações e fila de tarefas preservam os contratos de leitura', () => {
+  const intimacoes = sources.intimacoes;
+  const tarefas = sources.tarefas;
+  assert.match(intimacoes, /function selectModalItem\(root, itemId\)[\s\S]{0,900}?state\.selectedItemId = String\(selectedItem\.id\);[\s\S]{0,900}?renderDetail\(root, selectedItem\);/, 'a seleção de intimações não é incremental');
+  assert.doesNotMatch(intimacoes, /card\.addEventListener\('click',[\s\S]{0,180}?renderModal\(\)/, 'o clique da intimação ainda reconstrói a lista');
+  assert.match(intimacoes, /const scrollTop = workspace instanceof HTMLElement \? workspace\.scrollTop : 0;[\s\S]{0,1800}?workspace\.scrollTop = scrollTop;/, 'a reconstrução da fila não restaura a rolagem');
+  assert.match(intimacoes, /\.pjip-dashboard-workspace\s*\{[\s\S]{0,500}?overflow-anchor: none;/, 'o workspace não desabilita a ancoragem que desloca o Safari');
+  assert.match(tarefas, /class="pjm-stat-icon"><i class="fa-solid fa-inbox"/, 'os ícones dos indicadores não têm wrapper próprio');
+  assert.match(tarefas, /\.pjm-stat-icon\s*\{[\s\S]{0,400}?width: 38px;[\s\S]{0,200}?height: 38px;/, 'o wrapper do ícone não possui tamanho estável');
+  assert.match(tarefas, /\.pjm-table-wrap \{ overflow-x: auto; overflow-y: visible;/, 'a fila não permite rolagem horizontal');
+  assert.match(tarefas, /\.pjm-task-list \{ min-width: 860px; \}/, 'a fila não mantém uma largura mínima coerente');
+  assert.match(tarefas, /\.pjm-badge \{ max-width: 100%; white-space: normal; overflow-wrap: anywhere; \}/, 'as tags ainda podem ser cortadas');
+  assert.match(tarefas, /\.pjm-badge--cnj \{[\s\S]{0,300}?white-space: nowrap;[\s\S]{0,160}?text-overflow: ellipsis;/, 'o CNJ não preserva linha única com reticências');
+  assert.doesNotMatch(tarefas, /pj-home-eyebrow|pj-home-summary-title|pj-home-summary-sub/, 'o card Agora ainda existe no painel compacto');
+  assert.match(tarefas, /const homeLayout = el\('div', \{ className: 'pj-home-layout' \}, \[tabs, stack\]\);/, 'o painel compacto ainda inclui conteúdo além de abas e listas');
+});
+
 test('prioridades e polimento visual das intimações preservam a hierarquia', () => {
   const intimacoes = sources.intimacoes;
   assert.match(intimacoes, /function resolveItemPriorityKey\(item\)[\s\S]{0,1000}?if \(dayDistance < 0\) return 'critical';[\s\S]{0,180}?if \(dayDistance === 0\) return 'high';/, 'a prioridade não diferencia prazo crítico de vencimento hoje');
