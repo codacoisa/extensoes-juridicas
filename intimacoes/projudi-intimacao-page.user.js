@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.08.05-22:58
+// @version      2026.08.05-23:06
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       lourencosv
@@ -231,10 +231,13 @@
       -webkit-backdrop-filter: blur(8px);
     }
     #${IDS.modalPanel} {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
       width: min(1440px, calc(100vw - 32px));
       height: min(94vh, 960px);
       max-height: calc(100vh - 28px);
       min-height: 0;
+      overflow: hidden;
       border: 1px solid #e2e8f0;
       border-radius: 20px;
       background: #fff;
@@ -278,12 +281,10 @@
     }
     .pjip-modal-close:hover { background: #f8fafc; color: #172033; }
     .pjip-modal-body {
-      flex: 1 1 0;
       display: grid;
       grid-template-columns: 196px minmax(0, 1fr);
       grid-template-rows: minmax(0, 1fr);
       grid-template-areas: "nav workspace";
-      height: 0;
       gap: 0;
       min-height: 0;
       padding: 0;
@@ -345,14 +346,21 @@
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(250px, 286px);
       gap: 20px;
+      height: 100%;
       min-width: 0;
       min-height: 0;
       padding: 24px;
       overflow-x: hidden;
-      overflow-y: scroll;
+      overflow-y: auto;
       overscroll-behavior: contain;
+      scrollbar-gutter: stable;
+      touch-action: pan-y;
       -webkit-overflow-scrolling: touch;
     }
+    .pjip-dashboard-workspace::-webkit-scrollbar { width: 10px; }
+    .pjip-dashboard-workspace::-webkit-scrollbar-track { background: #f1f5f9; }
+    .pjip-dashboard-workspace::-webkit-scrollbar-thumb { border: 2px solid #f1f5f9; border-radius: 999px; background: #cbd5e1; }
+    .pjip-dashboard-workspace::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     .pjip-dashboard-content { display: grid; grid-template-columns: minmax(0, 1fr); grid-auto-flow: row; align-content: start; gap: 20px; min-width: 0; width: 100%; }
     .pjip-dashboard-context { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
     .pjip-dashboard-eyebrow { margin: 0 0 7px; color: #64748b; font-size: 12px; font-weight: 700; }
@@ -3472,6 +3480,36 @@
   }
 
   /**
+   * Mantém a roda e o gesto vertical do trackpad ligados ao único scroller
+   * do painel, mesmo quando o ponteiro está sobre a navegação ou a tabela.
+   * Gestos horizontais continuam pertencendo ao wrapper da fila.
+   * @param {WheelEvent} event
+   * @param {HTMLElement} body
+   */
+  function routeModalWheel(event, body) {
+    if (event.defaultPrevented || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+    const target = resolveEventElement(event.target);
+    if (!target || !body.contains(target) || target.closest('[data-role="backup-popover"][data-open="true"]')) return;
+
+    const workspace = body.querySelector('.pjip-dashboard-workspace');
+    if (!(workspace instanceof HTMLElement) || workspace.scrollHeight <= workspace.clientHeight) return;
+
+    const multiplier = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+      ? 16
+      : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+        ? workspace.clientHeight
+        : 1;
+    const delta = event.deltaY * multiplier;
+    const canScroll = delta < 0
+      ? workspace.scrollTop > 0
+      : workspace.scrollTop + workspace.clientHeight < workspace.scrollHeight - 1;
+    if (!canScroll) return;
+
+    event.preventDefault();
+    workspace.scrollTop += delta;
+  }
+
+  /**
    * Garante a existencia do modal apenas quando necessario.
    */
   function ensureModal() {
@@ -3699,6 +3737,8 @@
     document.body.appendChild(overlay);
     renderFontAwesome(overlay);
     state.modalRoot = overlay;
+
+    body.addEventListener('wheel', (event) => routeModalWheel(event, body), { passive: false });
 
     overlay.addEventListener('click', (event) => {
       if (event.target === overlay) closeModal();

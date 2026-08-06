@@ -126,9 +126,12 @@ test('atalhos do processo e filtros de intimações mantêm o comportamento atua
 
 test('painel de intimações mantém rolagem e navegação em larguras intermediárias', () => {
   const intimacoes = sources.intimacoes;
-  assert.match(intimacoes, /#\$\{IDS\.modalPanel\}\s*\{[\s\S]{0,260}?height: min\(94vh, 960px\);[\s\S]{0,180}?min-height: 0;/, 'o painel não pode bloquear a contração dos descendentes roláveis');
-  assert.match(intimacoes, /\.pjip-modal-body\s*\{[\s\S]{0,600}?flex: 1 1 0;[\s\S]{0,500}?grid-template-rows: minmax\(0, 1fr\);[\s\S]{0,180}?height: 0;[\s\S]{0,500}?container: pjip-modal-body \/ inline-size;/, 'o corpo do modal não recebe altura finita para a rolagem no Safari');
-  assert.match(intimacoes, /\.pjip-dashboard-workspace\s*\{[\s\S]{0,500}?min-height: 0;[\s\S]{0,500}?overflow-y: scroll;[\s\S]{0,220}?overscroll-behavior: contain;/, 'o workspace deixou de ser o único contêiner de rolagem vertical');
+  assert.match(intimacoes, /#\$\{IDS\.modalPanel\}\s*\{[\s\S]{0,180}?display: grid;[\s\S]{0,180}?grid-template-rows: auto minmax\(0, 1fr\);[\s\S]{0,260}?height: min\(94vh, 960px\);[\s\S]{0,180}?min-height: 0;[\s\S]{0,120}?overflow: hidden;/, 'o painel não limita o corpo rolável em uma linha explícita');
+  assert.match(intimacoes, /\.pjip-modal-body\s*\{[\s\S]{0,500}?grid-template-rows: minmax\(0, 1fr\);[\s\S]{0,500}?min-height: 0;[\s\S]{0,500}?container: pjip-modal-body \/ inline-size;/, 'o corpo do modal não recebe altura finita para a rolagem no Safari');
+  assert.doesNotMatch(intimacoes, /\.pjip-modal-body\s*\{[^}]*\n\s+height: 0;/, 'o corpo do modal voltou a depender do hack de altura zero');
+  assert.match(intimacoes, /\.pjip-dashboard-workspace\s*\{[\s\S]{0,500}?height: 100%;[\s\S]{0,500}?min-height: 0;[\s\S]{0,500}?overflow-y: auto;[\s\S]{0,220}?overscroll-behavior: contain;[\s\S]{0,180}?scrollbar-gutter: stable;/, 'o workspace deixou de ser o único contêiner de rolagem vertical');
+  assert.match(intimacoes, /function routeModalWheel\(event, body\)[\s\S]{0,1200}?Math\.abs\(event\.deltaY\) <= Math\.abs\(event\.deltaX\)[\s\S]{0,1200}?workspace\.scrollTop \+= delta;/, 'a roda vertical não é roteada ao workspace sem capturar o gesto horizontal');
+  assert.match(intimacoes, /body\.addEventListener\('wheel',[\s\S]{0,180}?routeModalWheel\(event, body\)[\s\S]{0,120}?passive: false/, 'o roteamento da roda não está instalado no corpo do modal');
   assert.match(intimacoes, /@container pjip-modal-body \(max-width: 1240px\)\s*\{[\s\S]{0,240}?\.pjip-dashboard-workspace \{ grid-template-columns: minmax\(0, 1fr\); \}[\s\S]{0,120}?\.pjip-detail \{ display: none; \}/, 'a fila ainda reserva largura para o detalhe oculto');
   assert.match(intimacoes, /grid-template-areas: "nav" "workspace";/, 'a navegação móvel não permanece em uma linha própria');
   assert.doesNotMatch(intimacoes, /pjip-dashboard-nav__backup|data-role="backup-toggle"|data-role="backup-pill"/, 'o backup remoto ainda tem acesso duplicado na navegação');
