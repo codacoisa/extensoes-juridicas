@@ -158,6 +158,7 @@ test('visão de foco, indicadores e navegação lateral mantêm contratos de int
   assert.match(intimacoes, /if \(filter === 'today'\) return dayDistance === 0;/, 'o card Vencem hoje não possui filtro próprio');
   assert.match(intimacoes, /if \(filter === 'next7'\) return dayDistance !== null && dayDistance > 0 && dayDistance <= 7;/, 'o card Próximos 7 dias inclui indevidamente os vencimentos de hoje');
   assert.match(intimacoes, /if \(filter === 'missing'\) return dayDistance === null;/, 'o card Sem prazo não possui filtro próprio');
+  assert.match(intimacoes, /function openTodayDeadlinePanel\(\)\s*\{\s*state\.store\.ui\.statusFilter = 'today';/, 'o atalho da tela inicial ainda abre o filtro genérico Vencendo');
 });
 
 test('abas da visão geral de tarefas ficam isoladas dos botões do Projudi', () => {

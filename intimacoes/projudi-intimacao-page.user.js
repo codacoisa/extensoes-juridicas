@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.08.05-23:31
+// @version      2026.08.05-23:43
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       lourencosv
@@ -2929,10 +2929,10 @@
   }
 
   /**
-   * Abre o painel já selecionando o filtro local "Vencendo".
+   * Abre o painel já selecionando o filtro local "Vencem hoje".
    */
   function openTodayDeadlinePanel() {
-    state.store.ui.statusFilter = 'soon';
+    state.store.ui.statusFilter = 'today';
     state.store.ui.sortBy = 'deadline-asc';
     state.store.ui.query = '';
     openModal();
