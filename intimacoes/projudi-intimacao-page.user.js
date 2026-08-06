@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.08.05-22:30
+// @version      2026.08.05-22:37
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       lourencosv
@@ -361,7 +361,7 @@
       overflow-y: auto;
       container: pjip-workspace / inline-size;
     }
-    .pjip-dashboard-content { display: grid; align-content: start; gap: 20px; min-width: 0; width: 100%; }
+    .pjip-dashboard-content { display: grid; grid-template-columns: minmax(0, 1fr); grid-auto-flow: row; align-content: start; gap: 20px; min-width: 0; width: 100%; }
     .pjip-dashboard-context { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
     .pjip-dashboard-eyebrow { margin: 0 0 7px; color: #64748b; font-size: 12px; font-weight: 700; }
     .pjip-dashboard-heading { margin: 0; color: #172033; font-size: 25px; font-weight: 800; letter-spacing: -.03em; line-height: 1.12; }
@@ -371,7 +371,11 @@
     .pjip-dashboard-header-search i { position: absolute; top: 50%; left: 13px; color: #94a3b8; pointer-events: none; transform: translateY(-50%); }
     .pjip-dashboard-header-search input { width: 100%; min-height: 40px; padding: 9px 12px 9px 36px; border: 1px solid #e2e8f0; border-radius: 9px; background: #fff; color: #172033; font: 500 12px/1.2 inherit; }
     .pjip-dashboard-export { min-height: 40px; white-space: nowrap; }
-    .pjip-summary { display: grid; grid-area: auto; gap: 20px; min-width: 0; }
+    .pjip-summary { display: grid; grid-area: auto; grid-template-columns: minmax(0, 1fr); gap: 20px; min-width: 0; }
+    .pjip-dashboard-content > .pjip-summary,
+    .pjip-dashboard-content > .pjip-toolbar,
+    .pjip-dashboard-content > .pjip-deadline,
+    .pjip-dashboard-content > .pjip-list-shell { grid-area: auto; grid-column: 1; min-width: 0; }
     .pjip-overview { display: contents; }
     .pjip-summary-head, .pjip-summary-actions, .pjip-toolbar-meta { display: none; }
     .pjip-summary-grid { grid-area: auto; display: contents; }
