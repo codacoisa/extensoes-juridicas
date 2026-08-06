@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.08.05-23:43
+// @version      2026.08.06-01:09
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       lourencosv
@@ -47,11 +47,19 @@
     var CODE = 'KeyI';
     var isTop = window.top === window.self;
     var leaderUntil = 0;
+    /**
+     * Verifica se o alvo do evento está dentro de um campo editável.
+     * @param {Event} e
+     * @returns {boolean}
+     */
     function inField(e) {
       var t = e && e.target;
       var tag = (t && t.tagName) || '';
       return /^(INPUT|TEXTAREA|SELECT)$/.test(tag) || (t && t.isContentEditable);
     }
+    /**
+     * Abre o painel no topo ou repassa a solicitação via postMessage.
+     */
     function openHere() {
       if (isTop) { try { openModal(); } catch (_) {} }
       else { try { window.top.postMessage({ type: 'pj-open-panel', script: ID }, window.location.origin); } catch (_) {} }
@@ -158,7 +166,6 @@
     tableContext: Symbol('tableContext'),
     frameHooks: Symbol('frameHooks'),
     patchFlag: Symbol('patchFlag'),
-    refreshToken: Symbol('refreshToken'),
     rowSignature: Symbol('rowSignature')
   };
 
@@ -1604,6 +1611,10 @@
     };
   }
 
+  /**
+   * Gera a assinatura estável do conteúdo armazenado.
+   * @returns {string}
+   */
   function buildBackupSignature() {
     const orderedItems = Object.create(null);
     Object.keys(state.store.items || {})
@@ -1690,6 +1701,11 @@
     return { skipped: false, gist: JSON.parse(response.responseText || '{}') };
   }
 
+  /**
+   * Extrai a assinatura de um payload de backup, validando o esquema.
+   * @param {any} payload
+   * @returns {string}
+   */
   function getPayloadBackupSignature(payload) {
     if (!payload || payload.schema !== BACKUP_SCHEMA || payload.scriptId !== SCRIPT_ID || !payload.items || typeof payload.items !== 'object' || Array.isArray(payload.items)) return '';
     if (payload.backupSignature) return String(payload.backupSignature);
@@ -1705,6 +1721,7 @@
   /**
    * Restaura backup a partir de um Gist.
    * @param {typeof BACKUP_DEFAULTS} settings
+   * @param {{missingOk?: boolean, invalidOk?: boolean}} [options]
    * @returns {Promise<any>}
    */
   async function readBackupFromGist(settings, options = {}) {
@@ -2531,14 +2548,6 @@
         flex-wrap: wrap;
         gap: 6px;
       }
-      .pjip-item-pill {
-        padding: 4px 7px;
-        border-radius: 999px;
-        background: #eef4fb;
-        color: #365879;
-        font-size: 11px;
-        font-weight: 700;
-      }
       .pjip-item-grid {
         display: grid;
         gap: 10px;
@@ -2546,19 +2555,6 @@
         color: #20364f;
         font-size: 12px;
         min-width: 0;
-      }
-      .pjip-item-line {
-        display: grid;
-        gap: 2px;
-        min-width: 0;
-      }
-      .pjip-item-line strong {
-        color: #4f6783;
-        font-size: 11px;
-        letter-spacing: .02em;
-      }
-      .pjip-item-line span {
-        overflow-wrap: anywhere;
       }
       .pjip-item-actions {
         justify-content: flex-end;
@@ -2629,6 +2625,11 @@
   const fontAwesomeRoots = new WeakMap();
   const fontAwesomeSprites = new WeakMap();
 
+  /**
+   * Garante o sprite SVG do Font Awesome no documento informado.
+   * @param {Document=} doc
+   * @returns {Promise<Element | null>}
+   */
   function ensureFontAwesome(doc = document) {
     if (!doc) return Promise.resolve(null);
     const styleHost = doc.head || doc.documentElement;
@@ -2685,6 +2686,10 @@
     return promise;
   }
 
+  /**
+   * Converte ícones `i.fa-solid` já montados em SVG que referenciam o sprite.
+   * @param {Element} root
+   */
   function convertFontAwesomeIcons(root) {
     const doc = root.ownerDocument || document;
     const icons = root.matches?.('i.fa-solid') ? [root] : [];
@@ -2709,6 +2714,10 @@
     });
   }
 
+  /**
+   * Prepara uma raiz com o sprite e observa novos ícones inseridos.
+   * @param {Element} root
+   */
   function renderFontAwesome(root) {
     if (!root || root.nodeType !== 1) return;
     const doc = root.ownerDocument || document;
@@ -2938,6 +2947,10 @@
     openModal();
   }
 
+  /**
+   * Aplica um filtro rápido de prazo e re-renderiza o painel.
+   * @param {'today' | 'next7' | 'missing' | 'clear'} mode
+   */
   function applyQuickDeadlineFilter(mode) {
     const today = cloneDay(new Date());
     if (mode === 'today') {
@@ -3003,6 +3016,7 @@
    * Cria botao do menu principal.
    * @param {string} label
    * @param {() => void} onClick
+   * @param {string=} iconClass
    * @returns {HTMLButtonElement}
    */
   function buildMenuButton(label, onClick, iconClass = 'fa-solid fa-bolt') {
@@ -3118,7 +3132,7 @@
   /**
    * Restaura o botao ao estado normal.
    * @param {HTMLButtonElement | null} button
-   * @param {string} originalText
+   * @param {string=} originalMarkup
    */
   function restoreBusyButton(button, originalMarkup) {
     if (!button) return;
@@ -4185,6 +4199,12 @@
     return card;
   }
 
+  /**
+   * Adiciona um par rótulo/valor como elementos primário e secundário.
+   * @param {HTMLElement} container
+   * @param {string} primary
+   * @param {string} secondary
+   */
   function appendTextPair(container, primary, secondary) {
     const primaryNode = document.createElement('strong');
     primaryNode.textContent = primary;
@@ -4193,6 +4213,11 @@
     container.append(primaryNode, secondaryNode);
   }
 
+  /**
+   * Renderiza o painel de detalhes do item selecionado.
+   * @param {HTMLElement} root
+   * @param {any} item
+   */
   function renderDetail(root, item) {
     const detail = root.querySelector('[data-role="detail"]');
     if (!(detail instanceof HTMLElement)) return;
@@ -4224,35 +4249,6 @@
       toggleDone(String(item.id));
       renderModal();
     });
-  }
-
-  /**
-   * Adiciona uma linha com rotulo e valor.
-   * @param {HTMLElement} container
-   * @param {string} label
-   * @param {string} value
-   */
-  function appendLabeledValue(container, label, value) {
-    const line = document.createElement('div');
-    line.className = 'pjip-item-line';
-    const strong = document.createElement('strong');
-    strong.textContent = label;
-    const text = document.createElement('span');
-    text.textContent = value;
-    line.append(strong, text);
-    container.appendChild(line);
-  }
-
-  /**
-   * Cria um selo visual para metadados principais do item.
-   * @param {string} text
-   * @returns {HTMLElement}
-   */
-  function buildItemPill(text) {
-    const pill = document.createElement('div');
-    pill.className = 'pjip-item-pill';
-    pill.textContent = text;
-    return pill;
   }
 
   /**
@@ -4344,6 +4340,11 @@
     };
   }
 
+  /**
+   * Calcula a distância em dias até o prazo do item.
+   * @param {any} item
+   * @returns {number | null}
+   */
   function getItemDeadlineDistance(item) {
     const deadlineDate = extractDeadlineDatesFromText(item?.deadline || '')[0] || null;
     if (!deadlineDate) return null;
@@ -4431,6 +4432,11 @@
     return 'low';
   }
 
+  /**
+   * Retorna o número de dias (UTC) desde a era para a data fornecida.
+   * @param {Date} date
+   * @returns {number}
+   */
   function getLocalDayNumber(date) {
     return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / (24 * 60 * 60 * 1000);
   }
@@ -4796,33 +4802,61 @@
     }
   }
 
+  /**
+   * Lê a data exata configurada para o filtro de prazo.
+   * @returns {string}
+   */
   function getDeadlineFilterDate() {
     return String(getDeadlineStored(DEADLINE.filterDateKey, '') || '');
   }
 
+  /**
+   * Verifica se o filtro de prazo está ativo.
+   * @returns {boolean}
+   */
   function getDeadlineFilterEnabled() {
     const raw = getDeadlineStored(DEADLINE.filterEnabledKey, false);
     return raw === true || raw === 'true' || raw === 1 || raw === '1';
   }
 
+  /**
+   * Define se o filtro de prazo está ativo.
+   * @param {boolean} enabled
+   */
   function setDeadlineFilterEnabled(enabled) {
     setDeadlineStored(DEADLINE.filterEnabledKey, Boolean(enabled));
   }
 
+  /**
+   * Lê o modo do filtro de prazo.
+   * @returns {'exact' | 'range' | 'missing'}
+   */
   function getDeadlineFilterMode() {
     const mode = String(getDeadlineStored(DEADLINE.filterModeKey, 'exact') || 'exact').toLowerCase();
     if (mode === 'range' || mode === 'missing') return mode;
     return 'exact';
   }
 
+  /**
+   * Define o modo do filtro de prazo.
+   * @param {'exact' | 'range' | 'missing'} mode
+   */
   function setDeadlineFilterMode(mode) {
     setDeadlineStored(DEADLINE.filterModeKey, mode === 'range' || mode === 'missing' ? mode : 'exact');
   }
 
+  /**
+   * Lê o início do período configurado para o filtro.
+   * @returns {string}
+   */
   function getDeadlineRangeStart() {
     return String(getDeadlineStored(DEADLINE.filterRangeStartKey, '') || '');
   }
 
+  /**
+   * Lê o fim do período configurado para o filtro.
+   * @returns {string}
+   */
   function getDeadlineRangeEnd() {
     return String(getDeadlineStored(DEADLINE.filterRangeEndKey, '') || '');
   }
@@ -4994,22 +5028,23 @@
     return false;
   }
 
+  /**
+   * Oculta uma linha marcando-a como filtrada pelo módulo de prazos.
+   * @param {HTMLTableRowElement} row
+   */
   function hideDeadlineRow(row) {
     row.style.setProperty('display', 'none', 'important');
     row.setAttribute(DEADLINE.filterHiddenAttr, '1');
   }
 
+  /**
+   * Restaura a exibição de uma linha previamente ocultada.
+   * @param {HTMLTableRowElement} row
+   */
   function showDeadlineRow(row) {
     if (!row.hasAttribute(DEADLINE.filterHiddenAttr)) return;
     row.style.removeProperty('display');
     row.removeAttribute(DEADLINE.filterHiddenAttr);
-  }
-
-  /**
-   * Compatibilidade: atalhos antigos de prazos agora abrem o painel integrado.
-   */
-  function openDeadlinePanel() {
-    openModal();
   }
 
   /**
@@ -5053,12 +5088,22 @@
     return exact ? `Filtro ativo: ${formatDay(exact)}.` : 'Filtro por data incompleto.';
   }
 
+  /**
+   * Retorna uma cópia da data zerada para o início do dia.
+   * @param {Date} date
+   * @returns {Date}
+   */
   function cloneDay(date) {
     const copy = new Date(date.getTime());
     copy.setHours(0, 0, 0, 0);
     return copy;
   }
 
+  /**
+   * Converte uma data no formato YYYY-MM-DD em Date, validando o valor.
+   * @param {string} ymd
+   * @returns {Date | null}
+   */
   function ymdToDate(ymd) {
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
     if (!match) return null;
@@ -5071,6 +5116,13 @@
     return date;
   }
 
+  /**
+   * Constrói e valida uma Date a partir de dia, mês e ano.
+   * @param {string | number} dayValue
+   * @param {string | number} monthValue
+   * @param {string | number} yearValue
+   * @returns {Date | null}
+   */
   function parseDeadlineDateToken(dayValue, monthValue, yearValue) {
     const day = Number(dayValue);
     const month = Number(monthValue);
@@ -5083,6 +5135,11 @@
     return date;
   }
 
+  /**
+   * Extrai datas brasileiras presentes em um texto.
+   * @param {string} text
+   * @returns {Date[]}
+   */
   function extractDeadlineDatesFromText(text) {
     const dates = [];
     const regexp = /\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2}|\d{4})\b/g;
@@ -5094,15 +5151,30 @@
     return dates;
   }
 
+  /**
+   * Verifica se o texto do prazo está ausente ou vazio.
+   * @param {string} text
+   * @returns {boolean}
+   */
   function isMissingDeadlineText(text) {
     const normalized = String(text || '').trim();
     return normalized === '' || /^[-–—]+$/.test(normalized);
   }
 
+  /**
+   * Formata uma Date como YYYY-MM-DD.
+   * @param {Date} date
+   * @returns {string}
+   */
   function toYmd(date) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   }
 
+  /**
+   * Formata uma Date como DD/MM/YYYY.
+   * @param {Date} date
+   * @returns {string}
+   */
   function formatDay(date) {
     return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
   }
@@ -5200,20 +5272,6 @@
   }
 
   /**
-   * Formata a data observada/atualizada para exibicao amigavel.
-   * @param {string} value
-   * @returns {string}
-   */
-  function formatObservedAt(value) {
-    if (!value) return '—';
-    const brazilianTime = parseBrazilianDateTime(value);
-    if (brazilianTime) return new Date(brazilianTime).toLocaleString('pt-BR');
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return value;
-    return parsed.toLocaleString('pt-BR');
-  }
-
-  /**
    * Atualiza o valor de um input.
    * @param {Element | null} element
    * @param {string} value
@@ -5261,22 +5319,6 @@
       .replaceAll('>', '&gt;')
       .replaceAll('"', '&quot;')
       .replaceAll("'", '&#39;');
-  }
-
-  /**
-   * Atualiza conteudo de botao com icone FontAwesome.
-   * @param {Element | null} element
-   * @param {string} iconClass
-   * @param {string} label
-   */
-  function setIconButton(element, iconClass, label) {
-    if (!(element instanceof HTMLElement)) return;
-    const icon = document.createElement('i');
-    icon.className = `fa-solid ${iconClass}`;
-    icon.setAttribute('aria-hidden', 'true');
-    const text = document.createElement('span');
-    text.textContent = label;
-    element.replaceChildren(icon, text);
   }
 
   /**

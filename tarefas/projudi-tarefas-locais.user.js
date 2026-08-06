@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2026.08.06-01:12
+// @version      2026.08.06-01:39
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       lourencosv
@@ -49,11 +49,20 @@
     var CODE = 'KeyT';
     var isTop = window.top === window.self;
     var leaderUntil = 0;
+    /**
+     * Verifica se o alvo do evento está dentro de um campo editável.
+     * @param {Event} e - Evento de teclado.
+     * @returns {boolean} true quando o foco está em um campo de entrada.
+     */
     function inField(e) {
       var t = e && e.target;
       var tag = (t && t.tagName) || '';
       return /^(INPUT|TEXTAREA|SELECT)$/.test(tag) || (t && t.isContentEditable);
     }
+    /**
+     * Abre o gerenciador de tarefas no próprio frame ou delega ao topo via postMessage.
+     * @returns {void}
+     */
     function openHere() {
       if (isTop) { try { openManagerPanel(); } catch (_) {} }
       else { try { window.top.postMessage({ type: 'pj-open-panel', script: ID }, window.location.origin); } catch (_) {} }
@@ -203,10 +212,15 @@
     mode: null,
     ctxKey: null,
     panelCleanup: null,
-    menuRegistered: false,
-    lastCnj: null
+    menuRegistered: false
   };
 
+  /**
+   * Registra um aviso no console, com prefixo do script e metadados opcionais.
+   * @param {string} message - Mensagem do aviso.
+   * @param {*} [meta] - Detalhe adicional opcional associado ao aviso.
+   * @returns {void}
+   */
   function logWarn(message, meta) {
     if (meta === undefined) {
       console.warn(LOG_PREFIX, message);
@@ -215,10 +229,23 @@
     console.warn(LOG_PREFIX, message, meta);
   }
 
+  /**
+   * Registra um erro no console com o prefixo do script.
+   * @param {string} message - Mensagem do erro.
+   * @param {*} error - Objeto ou detalhe do erro.
+   * @returns {void}
+   */
   function logError(message, error) {
     console.error(LOG_PREFIX, message, error);
   }
 
+  /**
+   * Executa uma tarefa protegendo contra exceções, devolvendo um valor padrão em caso de falha.
+   * @param {string} label - Rótulo usado na mensagem de erro em caso de exceção.
+   * @param {Function} task - Função a ser executada.
+   * @param {*} [fallbackValue] - Valor de retorno quando a tarefa lança uma exceção.
+   * @returns {*} Resultado da tarefa ou `fallbackValue` em caso de erro.
+   */
   function safeRun(label, task, fallbackValue) {
     try {
       return task();
@@ -228,6 +255,11 @@
     }
   }
 
+  /**
+   * Converte uma string de tags separadas por vírgula ou ponto e vírgula em uma lista única e limitada.
+   * @param {string} raw - Texto bruto com as tags.
+   * @returns {string[]} Lista de até 5 tags únicas, ignorando maiúsculas/minúsculas para duplicados.
+   */
   function parseTags(raw) {
     const text = String(raw || '').trim();
     if (!text) return [];
@@ -243,6 +275,11 @@
     return out.slice(0, 5);
   }
 
+  /**
+   * Normaliza um item de tarefa, preenchendo campos ausentes com valores padrão.
+   * @param {object} item - Item bruto a ser normalizado.
+   * @returns {object} Item de tarefa normalizado com id, text, done, createdAt, completedAt e tags.
+   */
   function normalizeTodoItem(item) {
     const src = item && typeof item === 'object' ? item : {};
     const id = src.id ? String(src.id) : uid();
@@ -254,11 +291,21 @@
     return { id, text, done, createdAt, completedAt, tags };
   }
 
+  /**
+   * Normaliza uma lista de itens de tarefa, descartando entradas sem texto.
+   * @param {Array} items - Lista de itens brutos.
+   * @returns {Array} Lista de itens normalizados e válidos.
+   */
   function normalizeTodoItems(items) {
     const list = Array.isArray(items) ? items : [];
     return list.map(normalizeTodoItem).filter(x => x.text);
   }
 
+  /**
+   * Formata um timestamp como data e hora no padrão pt-BR.
+   * @param {number|string} ts - Timestamp em milissegundos desde a época Unix.
+   * @returns {string} Data/hora formatada, ou '--' para valores inválidos.
+   */
   function formatDateTime(ts) {
     const n = Number(ts);
     if (!Number.isFinite(n) || n <= 0) return '--';
@@ -272,10 +319,21 @@
     });
   }
 
+  /**
+   * Formata uma quantidade com o substantivo no singular ou plural.
+   * @param {number} count - Quantidade de elementos.
+   * @param {string} singular - Substantivo no singular.
+   * @param {string} plural - Substantivo no plural.
+   * @returns {string} Texto formatado, ex.: "1 pendência" ou "3 pendências".
+   */
   function formatCount(count, singular, plural) {
     return `${count} ${count === 1 ? singular : plural}`;
   }
 
+  /**
+   * Executa e descarta a função de limpeza do painel atualmente ativo.
+   * @returns {void}
+   */
   function runPanelCleanup() {
     if (typeof state.panelCleanup !== 'function') return;
     try {
@@ -286,11 +344,21 @@
     state.panelCleanup = null;
   }
 
+  /**
+   * Define a função de limpeza do painel, removendo a anterior se houver.
+   * @param {Function|null} fn - Nova função de limpeza, ou null para nenhuma.
+   * @returns {void}
+   */
   function setPanelCleanup(fn) {
     runPanelCleanup();
     state.panelCleanup = typeof fn === 'function' ? fn : null;
   }
 
+  /**
+   * Combina várias funções de limpeza em uma única, executando cada uma protegidamente.
+   * @param {...Function} fns - Funções de limpeza a serem compostas.
+   * @returns {Function|null} Função composta, ou null se nenhuma função válida for fornecida.
+   */
   function composeCleanups(...fns) {
     const list = fns.filter(fn => typeof fn === 'function');
     if (!list.length) return null;
@@ -305,6 +373,14 @@
     };
   }
 
+  /**
+   * Abre um painel de forma segura, removendo o launcher e disparando o callback,
+   * reagendando uma avaliação caso algo falhe.
+   * @param {object} options - Opções de abertura.
+   * @param {Function} [options.removeLauncher] - Função que remove o launcher da tela.
+   * @param {Function} options.onOpen - Função executada para abrir o painel.
+   * @returns {void}
+   */
   function openLauncherSafely({ removeLauncher, onOpen }) {
     try {
       if (typeof removeLauncher === 'function') removeLauncher();
@@ -315,6 +391,11 @@
     }
   }
 
+  /**
+   * Agenda uma reavaliação da página após um atraso, cancelando qualquer agendamento pendente.
+   * @param {number} [delay] - Atraso em milissegundos antes de executar a avaliação.
+   * @returns {void}
+   */
   function scheduleEvaluate(delay = 0) {
     clearTimeout(state.timer);
     state.timer = setTimeout(() => {
@@ -323,10 +404,18 @@
     }, Math.max(0, delay | 0));
   }
 
+  /**
+   * Verifica se a página atual é o cabeçalho principal do Projudi no topo.
+   * @returns {boolean} true quando está no topo e contém os elementos principais de interface.
+   */
   function isTopHeaderPage() {
     return window.top === window.self && !!document.getElementById('Principal') && !!document.getElementById('menuPrinciapl');
   }
 
+  /**
+   * Decide se o script deve executar dentro do frame atual, ignorando frames ocultos, invisíveis ou pequenos.
+   * @returns {boolean} true quando o frame é relevante e deve ser processado.
+   */
   function shouldRunInThisFrame() {
     if (document.visibilityState !== 'visible' && !isProcessPage(document) && !isHomeDashboardIframe()) return false;
     const frame = window.frameElement;
@@ -340,6 +429,12 @@
     return true;
   }
 
+  /**
+   * Lê um valor bruto da storage, priorizando GM_getValue e espelhando no localStorage.
+   * @param {string} key - Chave do valor a ser lido.
+   * @param {*} fallback - Valor retornado quando a chave não existe.
+   * @returns {*} Valor armazenado, ou `fallback` quando ausente ou inválido.
+   */
   function rawStorageGet(key, fallback) {
       try {
         if (typeof GM_getValue === 'function') {
@@ -362,6 +457,12 @@
       }
   }
 
+  /**
+   * Salva um valor bruto na storage via GM_setValue e no localStorage.
+   * @param {string} key - Chave do valor a ser salvo.
+   * @param {*} value - Valor a ser persistido.
+   * @returns {void}
+   */
   function rawStorageSet(key, value) {
       try {
         if (typeof GM_setValue === 'function') GM_setValue(key, value);
@@ -373,6 +474,11 @@
       });
   }
 
+  /**
+   * Remove um valor bruto da storage via GM_deleteValue e do localStorage.
+   * @param {string} key - Chave do valor a ser removido.
+   * @returns {void}
+   */
   function rawStorageDelete(key) {
       try {
         if (typeof GM_deleteValue === 'function') GM_deleteValue(key);
@@ -386,6 +492,11 @@
 
   let taskDataCache = null;
 
+  /**
+   * Normaliza o envelope de dados de tarefas, garantindo schema, versão, revisão e valores.
+   * @param {*} value - Envelope bruto a ser normalizado.
+   * @returns {object} Envelope normalizado de dados de tarefas.
+   */
   function normalizeTaskDataEnvelope(value) {
     const source = value && typeof value === 'object' ? value : {};
     return {
@@ -397,12 +508,20 @@
     };
   }
 
+  /**
+   * Carrega o envelope de dados de tarefas, usando o cache em memória quando disponível.
+   * @returns {object} Envelope de dados de tarefas carregado.
+   */
   function loadTaskDataEnvelope() {
     if (taskDataCache) return taskDataCache;
     taskDataCache = normalizeTaskDataEnvelope(rawStorageGet(DATA_KEY, null));
     return taskDataCache;
   }
 
+  /**
+   * Persiste o envelope de dados de tarefas, incrementando a revisão e atualizando o timestamp.
+   * @returns {void}
+   */
   function saveTaskDataEnvelope() {
     const next = normalizeTaskDataEnvelope(taskDataCache);
     next.revision += 1;
@@ -411,17 +530,38 @@
     rawStorageSet(DATA_KEY, next);
   }
 
+  /**
+   * Objeto de acesso à storage com espelhamento entre GM e localStorage.
+   * @type {object}
+   */
   const storage = {
+    /**
+     * Lê um valor da storage, resolvendo chaves especiais diretamente.
+     * @param {string} key - Chave do valor.
+     * @param {*} fallback - Valor de retorno quando a chave não existe.
+     * @returns {*} Valor armazenado ou fallback.
+     */
     get(key, fallback) {
       if (key === KEY_BACKUP || key === DATA_KEY) return rawStorageGet(key, fallback);
       const envelope = loadTaskDataEnvelope();
       return Object.prototype.hasOwnProperty.call(envelope.values, key) ? envelope.values[key] : fallback;
     },
+    /**
+     * Persiste um valor na storage.
+     * @param {string} key - Chave do valor.
+     * @param {*} value - Valor a ser salvo.
+     * @returns {void}
+     */
     set(key, value) {
       if (key === KEY_BACKUP || key === DATA_KEY) return rawStorageSet(key, value);
       loadTaskDataEnvelope().values[key] = value;
       saveTaskDataEnvelope();
     },
+    /**
+     * Remove um valor da storage.
+     * @param {string} key - Chave do valor a ser removido.
+     * @returns {void}
+     */
     del(key) {
       if (key === KEY_BACKUP || key === DATA_KEY) return rawStorageDelete(key);
       const envelope = loadTaskDataEnvelope();
@@ -430,6 +570,11 @@
     }
   };
 
+  /**
+   * Normaliza as configurações de backup remoto, preenchendo valores padrão e restringindo tipos.
+   * @param {*} value - Configurações brutas a serem normalizadas.
+   * @returns {object} Configurações de backup normalizadas.
+   */
   function normalizeBackupSettings(value) {
     const next = { ...DEFAULT_BACKUP_SETTINGS, ...(value || {}) };
     next.enabled = !!next.enabled;
@@ -442,6 +587,11 @@
     return next;
   }
 
+  /**
+   * Formata o rótulo de último backup a partir de um timestamp ISO.
+   * @param {string} value - Timestamp ISO do último backup, ou vazio quando nunca enviado.
+   * @returns {string} Rótulo de último backup legível.
+   */
   function formatLastBackupLabel(value) {
     if (!value) return 'Último backup: ainda não enviado.';
     const date = new Date(value);
@@ -449,16 +599,34 @@
     return `Último backup: ${date.toLocaleString('pt-BR')}.`;
   }
 
+  /**
+   * Carrega e normaliza as configurações de backup salvas.
+   * @returns {object} Configurações de backup atuais.
+   */
   function loadBackupSettings() {
     return normalizeBackupSettings(storage.get(KEY_BACKUP, DEFAULT_BACKUP_SETTINGS));
   }
 
+  /**
+   * Salva as configurações de backup normalizadas e as devolve.
+   * @param {object} next - Configurações a serem persistidas.
+   * @returns {object} Configurações de backup salvas e normalizadas.
+   */
   function saveBackupSettings(next) {
     const normalized = normalizeBackupSettings(next);
     storage.set(KEY_BACKUP, normalized);
     return normalized;
   }
 
+  /**
+   * Executa uma requisição ao GitHub via GM_xmlhttpRequest, retornando uma Promise.
+   * @param {object} options - Opções da requisição.
+   * @param {string} [options.method] - Método HTTP (padrão GET).
+   * @param {string} options.url - URL de destino.
+   * @param {object} [options.headers] - Cabeçalhos HTTP.
+   * @param {*} [options.data] - Corpo da requisição.
+   * @returns {Promise<object>} Promise resolvida com a resposta ou rejeitada em erro de rede.
+   */
   function githubRequest(options) {
     return new Promise((resolve, reject) => {
       if (typeof gmXmlHttpRequest !== 'function') {
@@ -477,6 +645,11 @@
     });
   }
 
+  /**
+   * Extrai a mensagem de erro a partir de uma resposta do GitHub.
+   * @param {object} response - Resposta bruta da requisição.
+   * @returns {string} Mensagem de erro legível.
+   */
   function parseGithubError(response) {
     try {
       const parsed = JSON.parse(response.responseText || '{}');
@@ -485,6 +658,12 @@
     return `GitHub respondeu com status ${response.status}.`;
   }
 
+  /**
+   * Envia o payload de backup para o Gist, pulando quando o conteúdo remoto já é idêntico.
+   * @param {object} backupSettings - Configurações de backup com gistId e token.
+   * @param {object} payload - Payload de backup a ser persistido.
+   * @returns {Promise<object>} Resultado com `skipped` indicando se houve envio, e `gist` quando enviado.
+   */
   async function pushBackupToGist(backupSettings, payload) {
     if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
     if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
@@ -513,6 +692,11 @@
     return { skipped: false, gist: JSON.parse(response.responseText || '{}') };
   }
 
+  /**
+   * Calcula a assinatura de um payload de backup para comparação de conteúdo.
+   * @param {object} payload - Payload de backup.
+   * @returns {string} Assinatura canônica, ou string vazia para payloads incompatíveis.
+   */
   function getPayloadBackupSignature(payload) {
     if (!payload || payload.schema !== EXPORT_SCHEMA || payload.scriptId !== SCRIPT_META.id || !payload.data || typeof payload.data !== 'object') return '';
     if (payload.backupSignature) return String(payload.backupSignature);
@@ -523,6 +707,14 @@
     return JSON.stringify({ schema: EXPORT_SCHEMA, data: ordered });
   }
 
+  /**
+   * Lê o payload de backup a partir do Gist, tolerando conteúdo ausente ou inválido conforme as opções.
+   * @param {object} backupSettings - Configurações de backup com gistId e token.
+   * @param {object} [options] - Opções de tolerância.
+   * @param {boolean} [options.missingOk] - Retorna null quando o arquivo não existe.
+   * @param {boolean} [options.invalidOk] - Retorna null quando o conteúdo está vazio ou inválido.
+   * @returns {Promise<object|null>} Payload lido, ou null quando tolerado e indisponível.
+   */
   async function readBackupFromGist(backupSettings, options = {}) {
     if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
     if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
@@ -570,6 +762,11 @@
     }
   }
 
+  /**
+   * Extrai o número CNJ do documento, buscando em elementos conhecidos e no corpo.
+   * @param {Document} doc - Documento a ser inspecionado.
+   * @returns {string|null} CNJ encontrado, ou null quando ausente.
+   */
   function getCNJFromDocument(doc) {
     if (!doc) return null;
     const direct = doc.querySelector('#span_proc_numero');
@@ -595,6 +792,11 @@
     return null;
   }
 
+  /**
+   * Obtém a URL atual do processo a partir do documento ou elementos de link.
+   * @param {Document} doc - Documento a ser inspecionado.
+   * @returns {string} URL do processo, ou string vazia quando não encontrada.
+   */
   function getCurrentProcessUrl(doc) {
     const href = String(doc?.location?.href || location.href || '');
     if (/\/BuscaProcesso\b/i.test(href) && /Id_Processo=/i.test(href)) return href;
@@ -602,6 +804,12 @@
     return extractProcessUrlFromElement(link, href);
   }
 
+  /**
+   * Extrai uma URL de processo de um elemento a partir de href ou onclick.
+   * @param {Element|null} element - Elemento que pode conter a URL do processo.
+   * @param {string} baseUrl - URL base para resolver endereços relativos.
+   * @returns {string} URL resolvida do processo, ou string vazia.
+   */
   function extractProcessUrlFromElement(element, baseUrl) {
     if (!element) return '';
     const href = element.getAttribute('href');
@@ -610,6 +818,11 @@
     return resolveAllowedUrl(raw, baseUrl || location.href);
   }
 
+  /**
+   * Extrai um href de processo a partir do valor de um atributo onclick.
+   * @param {string} onclickValue - Conteúdo do atributo onclick.
+   * @returns {string} URL extraída, ou string vazia quando não localizada.
+   */
   function extractProcessHrefFromOnclick(onclickValue) {
     if (!onclickValue) return '';
     const locationMatch = onclickValue.match(/(?:window\.)?location\.href\s*=\s*['"]([^'"]+)['"]/i);
@@ -618,6 +831,12 @@
     return processMatch ? processMatch[1].replace(/&amp;/g, '&') : '';
   }
 
+  /**
+   * Resolve e valida uma URL permitida, garantindo protocolo http(s).
+   * @param {string} href - URL bruta a ser resolvida.
+   * @param {string} baseUrl - URL base para endereços relativos.
+   * @returns {string} URL absoluta válida, ou string vazia quando inválida.
+   */
   function resolveAllowedUrl(href, baseUrl) {
     if (!href) return '';
     try {
@@ -630,6 +849,11 @@
     }
   }
 
+  /**
+   * Navega para uma URL de processo resolvida e validada.
+   * @param {string} href - URL de destino do processo.
+   * @returns {boolean} true quando a navegação foi iniciada.
+   */
   function navigateToProcessUrl(href) {
     const resolved = resolveAllowedUrl(href, location.href);
     if (!resolved) return false;
@@ -637,12 +861,22 @@
     return true;
   }
 
+  /**
+   * Monta a URL de busca de processo pelo número CNJ.
+   * @param {string} processNumber - Número do processo (CNJ).
+   * @returns {string} URL de busca, ou string vazia para números inválidos.
+   */
   function buildProcessLookupUrl(processNumber) {
     const normalized = String(processNumber || '').trim().replace(/\s+/g, ' ');
     if (!normalized || normalized.length > 80 || !/\d/.test(normalized)) return '';
     return `BuscaProcesso?PaginaAtual=2&TipoConsultaProcesso=24&ProcessoNumero=${encodeURIComponent(normalized)}`;
   }
 
+  /**
+   * Localiza o campo de busca de processo mais provável no documento.
+   * @param {Document} doc - Documento a ser inspecionado.
+   * @returns {HTMLInputElement|null} Campo de busca, ou null quando não encontrado.
+   */
   function findProcessSearchInput(doc) {
     const inputs = Array.from(doc.querySelectorAll('input:not([type]), input[type="text"], input[type="search"], input[type="tel"]'))
       .filter(input => !input.closest(`#pj-todo, #${ID_MANAGER_OVERLAY}, #${ID_PROC_BTN}`));
@@ -667,6 +901,11 @@
     return scored[0] ? scored[0].input : null;
   }
 
+  /**
+   * Submete uma busca de processo a partir do campo informado.
+   * @param {HTMLInputElement} input - Campo com o número do processo preenchido.
+   * @returns {boolean} true quando a submissão foi disparada.
+   */
   function submitProcessSearch(input) {
     const form = input.closest('form');
     const root = form || document;
@@ -685,6 +924,11 @@
     return true;
   }
 
+  /**
+   * Busca um processo pelo CNJ, preenchendo e submetendo o formulário de busca.
+   * @param {string} cnj - Número do processo a ser pesquisado.
+   * @returns {boolean} true quando a busca pôde ser iniciada.
+   */
   function searchProcessByCnj(cnj) {
     const input = findProcessSearchInput(document);
     if (!input) return false;
@@ -695,6 +939,12 @@
     return submitProcessSearch(input);
   }
 
+  /**
+   * Abre um processo pelo CNJ, priorizando a busca estável pelo número e depois o link salvo.
+   * @param {string} cnj - Número do processo.
+   * @param {string} [processUrl] - URL legada do processo salva localmente.
+   * @returns {boolean} true quando a abertura foi iniciada.
+   */
   function openProcessFromCnj(cnj, processUrl = '') {
     // URLs armazenadas de uma pendência podem conter um ID contextual que
     // expira no Projudi. A consulta pelo número do processo é estável e deve
@@ -705,15 +955,28 @@
     return searchProcessByCnj(cnj);
   }
 
+  /**
+   * Verifica se o documento representa uma página de processo.
+   * @param {Document} doc - Documento a ser inspecionado.
+   * @returns {boolean} true quando um CNJ é encontrado no documento.
+   */
   function isProcessPage(doc) {
     return !!getCNJFromDocument(doc);
   }
 
+  /**
+   * Verifica se o frame atual é o iframe do dashboard inicial do Projudi.
+   * @returns {boolean} true quando a URL corresponde ao painel inicial.
+   */
   function isHomeDashboardIframe() {
     const href = String(location.href || '');
     return /\/Usuario\?(?:[^#]*&)?PaginaAtual=-?10\b/.test(href) || /\/Usuario\?PaginaAtual=-?10\b/.test(href);
   }
 
+  /**
+   * Abre o painel de tarefas adequado à página atual (home ou processo).
+   * @returns {boolean} true quando um painel foi aberto ou já está visível.
+   */
   function openTodoPanelForCurrentPage() {
     if (isIntimacoesPage()) return false;
 
@@ -743,6 +1006,10 @@
     return false;
   }
 
+  /**
+   * Garante a presença do item "Tarefas" no menu principal do cabeçalho do Projudi.
+   * @returns {void}
+   */
   function ensureHeaderMenuEntry() {
     if (!isTopHeaderPage()) return;
     if (document.getElementById(ID_HEADER_MENU)) return;
@@ -781,6 +1048,10 @@
     else menu.appendChild(ul);
   }
 
+  /**
+   * Verifica se a página atual é uma tela de intimações, onde o script não deve atuar.
+   * @returns {boolean} true quando a página é de intimações.
+   */
   function isIntimacoesPage() {
     const titleEl = document.querySelector('h1,h2,.Titulo,.titulo');
     const titleText = String(titleEl && titleEl.textContent ? titleEl.textContent : '').trim();
@@ -788,29 +1059,59 @@
     return /intima(ç|c)(a|ã)o|intima(ç|c)ões/i.test(titleText) || /intimac/i.test(url);
   }
 
+  /**
+   * Constrói o contexto de um processo a partir do CNJ.
+   * @param {string} cnj - Número do processo (CNJ).
+   * @param {string} [processUrl] - URL do processo.
+   * @returns {object|null} Contexto do processo, ou null quando o CNJ é vazio.
+   */
   function processCtxFromCnj(cnj, processUrl = '') {
     if (!cnj) return null;
     const shortCnj = String(cnj).split('.')[0] || cnj;
     return { type: 'process', cnj, shortCnj, key: `cnj_${cnj}`, processUrl };
   }
 
+  /**
+   * Monta a chave de armazenamento dos itens de tarefa de um contexto.
+   * @param {string} ctxKey - Identificador do contexto (ex.: cnj_...).
+   * @returns {string} Chave completa de armazenamento.
+   */
   function todosKey(ctxKey) {
     return `${KEY_PREFIX}${ctxKey}::items`;
   }
 
+  /**
+   * Monta a chave de armazenamento da posição/painel de um contexto.
+   * @param {string} ctxKey - Identificador do contexto.
+   * @returns {string} Chave completa de armazenamento da UI.
+   */
   function uiKey(ctxKey) {
     return `${KEY_PREFIX}${ctxKey}::ui`;
   }
 
+  /**
+   * Carrega o índice de processos conhecidos.
+   * @returns {Array} Lista de entradas do índice.
+   */
   function loadIndex() {
     const idx = storage.get(KEY_INDEX, []);
     return Array.isArray(idx) ? idx : [];
   }
 
+  /**
+   * Persiste o índice de processos conhecidos.
+   * @param {Array} idx - Lista de entradas do índice a ser salva.
+   * @returns {void}
+   */
   function saveIndex(idx) {
     storage.set(KEY_INDEX, idx);
   }
 
+  /**
+   * Garante que um contexto exista no índice, adicionando-o quando ausente.
+   * @param {object} ctx - Contexto do processo a ser garantido no índice.
+   * @returns {void}
+   */
   function ensureIndexHas(ctx) {
     const idx = loadIndex();
     if (!idx.some(x => x && x.key === ctx.key)) {
@@ -819,6 +1120,11 @@
     }
   }
 
+  /**
+   * Atualiza o timestamp e metadados de um contexto no índice, criando a entrada se necessário.
+   * @param {object} ctx - Contexto do processo a ser tocado.
+   * @returns {void}
+   */
   function touchIndex(ctx) {
     const idx = loadIndex();
     const i = idx.findIndex(x => x && x.key === ctx.key);
@@ -832,26 +1138,51 @@
     }
   }
 
+  /**
+   * Remove um contexto do índice quando ele não possui mais itens.
+   * @param {object} ctx - Contexto do processo a ser verificado.
+   * @returns {void}
+   */
   function maybeRemoveFromIndexIfEmpty(ctx) {
     const items = loadItemsByKey(ctx.key);
     if (items && items.length > 0) return;
     saveIndex(loadIndex().filter(x => x && x.key !== ctx.key));
   }
 
+  /**
+   * Gera um identificador único para uma tarefa.
+   * @returns {string} Identificador aleatório baseado no tempo e em um número aleatório.
+   */
   function uid() {
     return 't_' + Math.random().toString(16).slice(2) + Date.now().toString(16);
   }
 
+  /**
+   * Carrega os itens de tarefa de um contexto, normalizando a lista.
+   * @param {string} ctxKey - Identificador do contexto.
+   * @returns {Array} Lista de itens de tarefa normalizados.
+   */
   function loadItemsByKey(ctxKey) {
     const items = storage.get(todosKey(ctxKey), []);
     return normalizeTodoItems(items);
   }
 
+  /**
+   * Salva os itens de tarefa de um contexto e agenda um possível backup automático.
+   * @param {string} ctxKey - Identificador do contexto.
+   * @param {Array} items - Lista de itens a serem persistidos.
+   * @returns {void}
+   */
   function saveItemsByKey(ctxKey, items) {
     storage.set(todosKey(ctxKey), normalizeTodoItems(items));
     scheduleTodoAutoBackup();
   }
 
+  /**
+   * Normaliza a posição da janela do painel, limitando a valores válidos.
+   * @param {*} value - Valores brutos de posição.
+   * @returns {object} Posição normalizada com `right` e `top`.
+   */
   function normalizePanelUI(value) {
     const source = value && typeof value === 'object' ? value : {};
     const rawRight = Number(source.right);
@@ -866,32 +1197,65 @@
     };
   }
 
+  /**
+   * Carrega a posição do painel de um contexto.
+   * @param {string} ctxKey - Identificador do contexto.
+   * @returns {object} Posição normalizada do painel.
+   */
   function loadUIByKey(ctxKey) {
     return normalizePanelUI(storage.get(uiKey(ctxKey), DEFAULT_UI));
   }
 
+  /**
+   * Salva a posição do painel de um contexto.
+   * @param {string} ctxKey - Identificador do contexto.
+   * @param {object} ui - Posição a ser persistida.
+   * @returns {void}
+   */
   function saveUIByKey(ctxKey, ui) {
     storage.set(uiKey(ctxKey), normalizePanelUI(ui));
   }
 
+  /**
+   * Carrega os itens de tarefa globais, normalizando a lista.
+   * @returns {Array} Lista de itens globais normalizados.
+   */
   function loadGlobalItems() {
     const items = storage.get(KEY_GLOBAL_ITEMS, []);
     return normalizeTodoItems(items);
   }
 
+  /**
+   * Salva os itens de tarefa globais e agenda um possível backup automático.
+   * @param {Array} items - Lista de itens globais a serem persistidos.
+   * @returns {void}
+   */
   function saveGlobalItems(items) {
     storage.set(KEY_GLOBAL_ITEMS, normalizeTodoItems(items));
     scheduleTodoAutoBackup();
   }
 
+  /**
+   * Carrega a posição do painel global.
+   * @returns {object} Posição normalizada do painel global.
+   */
   function loadGlobalUI() {
     return normalizePanelUI(storage.get(KEY_GLOBAL_UI, DEFAULT_UI));
   }
 
+  /**
+   * Salva a posição do painel global.
+   * @param {object} ui - Posição a ser persistida.
+   * @returns {void}
+   */
   function saveGlobalUI(ui) {
     storage.set(KEY_GLOBAL_UI, normalizePanelUI(ui));
   }
 
+  /**
+   * Lista as chaves de tarefas conhecidas a partir do índice de processos.
+   * @returns {string[]} Chaves de tarefas globais e por contexto derivadas do índice.
+   */
   function getKnownTodoKeysFromIndex() {
     const idx = loadIndex();
     const keys = [KEY_INDEX, KEY_GLOBAL_ITEMS, KEY_GLOBAL_UI];
@@ -903,11 +1267,19 @@
     return keys;
   }
 
+  /**
+   * Lista todas as chaves de tarefas conhecidas, unindo índice e envelope de dados.
+   * @returns {string[]} Conjunto único de chaves de tarefas.
+   */
   function listTodoKeys() {
     const envelopeKeys = Object.keys(loadTaskDataEnvelope().values || {}).filter(key => key.startsWith(KEY_PREFIX));
     return [...new Set([...getKnownTodoKeysFromIndex(), ...envelopeKeys])];
   }
 
+  /**
+   * Monta o payload de exportação de todas as tarefas, excluindo chaves sensíveis e de UI.
+   * @returns {object} Payload de exportação com schema, scriptId, exportedAt e dados.
+   */
   function exportTodoPayload() {
     const data = {};
     const keys = listTodoKeys();
@@ -926,6 +1298,10 @@
     };
   }
 
+  /**
+   * Monta o payload completo de backup remoto com assinatura.
+   * @returns {object} Payload de backup com metadados do script e dados exportados.
+   */
   function buildTodoBackupPayload() {
     const exported = exportTodoPayload();
     return {
@@ -940,6 +1316,10 @@
     };
   }
 
+  /**
+   * Gera a assinatura canônica dos dados exportados para comparar conteúdo de backup.
+   * @returns {string} Assinatura stringificada e ordenada dos dados exportados.
+   */
   function buildTodoBackupSignature() {
     const payload = exportTodoPayload();
     const ordered = {};
@@ -949,6 +1329,10 @@
     return JSON.stringify({ schema: EXPORT_SCHEMA, data: ordered });
   }
 
+  /**
+   * Exporta os dados de tarefas como download de arquivo JSON.
+   * @returns {void}
+   */
   function exportTodoData() {
     const payload = exportTodoPayload();
 
@@ -964,6 +1348,10 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  /**
+   * Importa os dados de tarefas a partir de um arquivo JSON selecionado pelo usuário.
+   * @returns {Promise<void>} Promise que resolve após a importação ser concluída ou cancelada.
+   */
   async function importTodoData() {
     const fileInput = el('input', { type: 'file', accept: 'application/json' });
 
@@ -1006,6 +1394,12 @@
     }
   }
 
+  /**
+   * Importa um payload de backup validado, substituindo os dados atuais de tarefas.
+   * @param {object} parsed - Payload de backup já parseado.
+   * @param {string} expectedSchema - Schema esperado para validar o payload.
+   * @returns {number} Quantidade de chaves importadas.
+   */
   function importTodoPayloadObject(parsed, expectedSchema) {
     if (!parsed || typeof parsed !== 'object' || parsed.schema !== expectedSchema || parsed.scriptId !== SCRIPT_META.id || !parsed.data || typeof parsed.data !== 'object') {
       throw new Error('Backup incompatível com Tarefas.');
@@ -1031,6 +1425,10 @@
 
   let backupTimer = null;
 
+  /**
+   * Agenda um backup automático tardio quando habilitado e há mudanças pendentes.
+   * @returns {void}
+   */
   function scheduleTodoAutoBackup() {
     const backupSettings = loadBackupSettings();
     if (!backupSettings.enabled || !backupSettings.autoBackupOnSave) return;
@@ -1052,20 +1450,43 @@
     }, delay);
   }
 
+  /**
+   * Alterna o estado de conclusão de um item, atualizando seu timestamp de conclusão.
+   * @param {object} item - Item de tarefa a ser atualizado.
+   * @param {boolean} done - Novo estado de conclusão.
+   * @returns {void}
+   */
   function toggleDoneState(item, done) {
     item.done = !!done;
     if (item.done) item.completedAt = Date.now();
     else item.completedAt = null;
   }
 
+  /**
+   * Atualiza o texto de um item de tarefa.
+   * @param {object} item - Item de tarefa a ser atualizado.
+   * @param {string} text - Novo texto da tarefa.
+   * @returns {void}
+   */
   function updateItemText(item, text) {
     item.text = String(text || '').trim();
   }
 
+  /**
+   * Atualiza as tags de um item de tarefa a partir de texto bruto.
+   * @param {object} item - Item de tarefa a ser atualizado.
+   * @param {string} tagsRaw - Texto bruto das tags.
+   * @returns {void}
+   */
   function updateItemTags(item, tagsRaw) {
     item.tags = parseTags(tagsRaw);
   }
 
+  /**
+   * Interpreta o destino informado em texto bruto, resolvendo "global" ou um CNJ de processo.
+   * @param {string} raw - Texto fornecido para o destino da tarefa.
+   * @returns {object|null} Destino normalizado, ou null quando inválido.
+   */
   function normalizeMoveTarget(raw) {
     const text = String(raw || '').trim();
     if (!text) return null;
@@ -1076,6 +1497,12 @@
     return ctx ? { type: 'process', key: ctx.key, cnj: ctx.cnj, label: `Processo ${ctx.cnj}` } : null;
   }
 
+  /**
+   * Solicita ao usuário o destino de uma tarefa por prompt e valida a resposta.
+   * @param {string} currentLabel - Rótulo da origem atual para exibição.
+   * @param {string} [defaultValue] - Valor inicial sugerido no prompt.
+   * @returns {object|null} Destino escolhido, ou null quando cancelado ou inválido.
+   */
   function promptMoveTarget(currentLabel, defaultValue) {
     const msg = [
       'Mover tarefa para:',
@@ -1095,6 +1522,12 @@
     return target;
   }
 
+  /**
+   * Move uma tarefa entre escopos global e por processo, atualizando o índice.
+   * @param {object} source - Origem da tarefa com scopeType, key, cnj e id.
+   * @param {object} target - Destino com type, key e cnj.
+   * @returns {boolean} true quando a tarefa foi movida com sucesso.
+   */
   function moveTodoItem(source, target) {
     if (!source || !source.id || !target) return false;
     const sameGlobal = source.scopeType === 'global' && target.type === 'global';
@@ -1139,6 +1572,10 @@
     return true;
   }
 
+  /**
+   * Calcula o total de tarefas ativas e concluídas em todos os escopos.
+   * @returns {object} Contadores `active` e `completed`.
+   */
   function buildTaskStats() {
     let active = 0;
     let completed = 0;
@@ -1159,6 +1596,10 @@
     return { active, completed };
   }
 
+  /**
+   * Coleta todas as tarefas em linhas planas com metadados de escopo, ordenadas por criação.
+   * @returns {Array} Lista de linhas de tarefas com escopo, texto, status e timestamps.
+   */
   function collectTaskRows() {
     const rows = [];
     const addRow = (scopeType, scopeLabel, key, cnj, item, processUrl = '') => {
@@ -1188,6 +1629,13 @@
     return rows;
   }
 
+  /**
+   * Cria um elemento DOM com atributos, estilos e filhos especificados.
+   * @param {string} tag - Nome da tag HTML.
+   * @param {object} [props] - Propriedades e atributos a definir no elemento.
+   * @param {Array} [children] - Filhos a anexar (strings viram nós de texto).
+   * @returns {HTMLElement} Elemento criado.
+   */
   function el(tag, props = {}, children = []) {
     const node = document.createElement(tag);
     for (const [key, value] of Object.entries(props)) {
@@ -1209,6 +1657,11 @@
   const fontAwesomeRoots = new WeakMap();
   const fontAwesomeSprites = new WeakMap();
 
+  /**
+   * Garante que o estilo base e o sprite SVG do Font Awesome estejam disponíveis no documento.
+   * @param {Document} [doc] - Documento de destino (padrão: documento atual).
+   * @returns {Promise|null} Promise resolvida com o sprite, ou null em falha/ausência de head.
+   */
   function ensureFontAwesome(doc = document) {
     if (!doc || !doc.head) return null;
     if (!doc.getElementById('pj-suite-core-style')) {
@@ -1263,6 +1716,11 @@
     return promise;
   }
 
+  /**
+   * Substitui ícones `<i class="fa-solid ...">` por SVGs do sprite carregado.
+   * @param {HTMLElement} root - Elemento raiz cujos ícones devem ser convertidos.
+   * @returns {void}
+   */
   function convertFontAwesomeIcons(root) {
     const doc = root.ownerDocument || document;
     const icons = root.matches?.('i.fa-solid') ? [root] : [];
@@ -1287,6 +1745,11 @@
     });
   }
 
+  /**
+   * Prepara um elemento para a conversão de ícones e observa novas inserções.
+   * @param {HTMLElement} root - Elemento raiz a ser inicializado.
+   * @returns {void}
+   */
   function renderFontAwesome(root) {
     if (!root || root.nodeType !== 1) return;
     const doc = root.ownerDocument || document;
@@ -1301,10 +1764,19 @@
     });
   }
 
+  /**
+   * Cria um elemento de ícone Font Awesome com a classe indicada.
+   * @param {string} className - Classes do ícone (ex.: "fa-solid fa-bolt").
+   * @returns {HTMLElement} Elemento `<i>` do ícone.
+   */
   function faIcon(className) {
     return el('i', { className, 'aria-hidden': 'true' });
   }
 
+  /**
+   * Injeta os estilos CSS do script de tarefas no documento, se ainda não presentes.
+   * @returns {void}
+   */
   function injectStyles() {
     if (document.getElementById('pj-todo-style')) return;
     const style = document.createElement('style');
@@ -2937,6 +3409,91 @@
       #pj-todo.pj-todo-modern .pj-home-tabs { padding: 4px; }
       #pj-todo.pj-todo-modern .pj-home-composer { margin: 12px; border-radius: 12px; }
       #pj-todo.pj-todo-modern .pj-home-toolbar { padding: 0 12px 10px; }
+      /* Painel flutuante: mais área útil e menos espaço consumido pelos controles. */
+      #pj-todo.pj-todo-modern {
+        width: min(580px, calc(100vw - 24px));
+        height: min(820px, calc(100vh - 24px));
+        max-height: calc(100vh - 24px);
+      }
+      #pj-todo.pj-todo-modern #pj-todo-header {
+        min-height: 66px;
+        padding: 12px 14px;
+      }
+      #pj-todo.pj-todo-modern .pj-home-header-icon { width: 38px; height: 38px; }
+      #pj-todo.pj-todo-modern .pj-home-header-title { font-size: 16px; }
+      #pj-todo.pj-todo-modern #pj-todo-body { padding: 12px; gap: 10px; }
+      #pj-todo.pj-todo-modern .pj-home-layout { gap: 9px; }
+      #pj-todo.pj-todo-modern .pj-home-summary {
+        min-height: 74px;
+        padding: 10px 12px;
+      }
+      #pj-todo.pj-todo-modern .pj-home-summary-title { font-size: 16px; }
+      #pj-todo.pj-todo-modern .pj-home-tabs {
+        height: 40px;
+        min-height: 40px;
+        padding: 3px;
+      }
+      #pj-todo.pj-todo-modern .pj-home-tab { height: 32px; min-height: 32px; max-height: 32px; }
+      #pj-todo.pj-todo-modern .pj-home-composer {
+        margin-bottom: 8px;
+        padding: 9px;
+      }
+      #pj-todo.pj-todo-modern .pj-home-composer-label { margin-bottom: 6px; }
+      #pj-todo.pj-todo-modern .pj-home-composer .pj-input { height: 34px; }
+      #pj-todo.pj-todo-modern .pj-home-composer-footer { grid-template-columns: minmax(0, 1fr) 112px; gap: 6px; margin-top: 6px; }
+      #pj-todo.pj-todo-modern .pj-home-tag-row,
+      #pj-todo.pj-todo-modern .pj-home-composer .pj-add { height: 32px; }
+      #pj-todo.pj-todo-modern .pj-home-toolbar { min-height: 30px; margin-bottom: 5px; padding: 0 8px 0; }
+      #pj-todo.pj-todo-modern .pj-home-list-title { font-size: 10px; }
+      #pj-todo.pj-todo-modern .pj-home-search { height: 30px; }
+      #pj-todo.pj-todo-modern .pj-home-panel .pj-list { padding: 0 1px 1px; }
+      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) .pj-item { margin-bottom: 5px; padding: 8px 7px; }
+      @media (max-width: 560px) {
+        #pj-todo.pj-todo-modern {
+          right: 12px !important;
+          left: 12px;
+          width: auto;
+          height: calc(100vh - 24px);
+          max-height: calc(100vh - 24px);
+        }
+      }
+      /* Polimento final: a barra lateral segue o mesmo acabamento de Intimações e a fila preserva a leitura dos dados. */
+      #${ID_MANAGER_OVERLAY} .pjm-rail,
+      #${ID_MANAGER_OVERLAY} .pjm-nav { background: #fff !important; }
+      #${ID_MANAGER_OVERLAY} .pjm-nav-item {
+        appearance: none;
+        -webkit-appearance: none;
+        background: transparent !important;
+        box-shadow: none !important;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-nav-item:hover { background: #f8fafc !important; }
+      #${ID_MANAGER_OVERLAY} .pjm-nav-item[data-active="true"] { background: #eff6ff !important; }
+      #${ID_MANAGER_OVERLAY} .pjm-task-row {
+        grid-template-columns: minmax(250px, 1.8fr) minmax(180px, 1.2fr) minmax(105px, .75fr) minmax(130px, .85fr) 76px;
+        column-gap: 18px;
+        min-height: 76px;
+        padding: 16px 18px;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-row-title {
+        max-width: none;
+        overflow: visible;
+        overflow-wrap: anywhere;
+        text-overflow: clip;
+        white-space: normal;
+        line-height: 1.3;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-badge--cnj {
+        max-width: 100%;
+        justify-content: center;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-task-cell:nth-child(2),
+      #${ID_MANAGER_OVERLAY} .pjm-task-cell:nth-child(3),
+      #${ID_MANAGER_OVERLAY} .pjm-task-cell:nth-child(4) { align-self: center; }
+      #${ID_MANAGER_OVERLAY} .pjm-task-cell:nth-child(4) .pjm-badge-row { margin-top: 0; }
       @container pjm-manager (max-width: 1120px) { #${ID_MANAGER_OVERLAY} .pjm-workspace-grid { grid-template-columns: 1fr; } #${ID_MANAGER_OVERLAY} .pjm-detail { display: none; } }
       @container pjm-manager (max-width: 800px) { #${ID_MANAGER_OVERLAY} .pjm-context { align-items: stretch; flex-direction: column; } #${ID_MANAGER_OVERLAY} .pjm-context-actions { min-width: 0; flex-basis: auto; } #${ID_MANAGER_OVERLAY} .pjm-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); grid-template-areas: 'rail' 'main'; } #${ID_MANAGER_OVERLAY} .pjm-rail { padding: 8px; border-right: 0; border-bottom: 1px solid #e2e8f0; } #${ID_MANAGER_OVERLAY} .pjm-rail::after { display: none; } #${ID_MANAGER_OVERLAY} .pjm-nav { display: flex; overflow-x: auto; } #${ID_MANAGER_OVERLAY} .pjm-nav-label, #${ID_MANAGER_OVERLAY} .pjm-nav-separator { display: none; } #${ID_MANAGER_OVERLAY} .pjm-nav-item { flex: 0 0 auto; width: auto; } }
       @container pjm-manager (max-width: 620px) { #${ID_MANAGER_OVERLAY} .pjm-workspace { padding: 14px; } #${ID_MANAGER_OVERLAY} .pjm-context-actions, #${ID_MANAGER_OVERLAY} .pjm-composer-card, #${ID_MANAGER_OVERLAY} .pjm-filterbar { align-items: stretch; flex-direction: column; grid-template-columns: 1fr; } #${ID_MANAGER_OVERLAY} .pjm-context-actions .pjm-btn { width: 100%; } #${ID_MANAGER_OVERLAY} .pjm-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } #${ID_MANAGER_OVERLAY} .pjm-task-row { grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px; } #${ID_MANAGER_OVERLAY} .pjm-task-cell:first-child, #${ID_MANAGER_OVERLAY} .pjm-task-cell:nth-child(4), #${ID_MANAGER_OVERLAY} .pjm-task-cell:nth-child(5) { grid-column: 1 / -1; } #${ID_MANAGER_OVERLAY} .pjm-task-cell::before { display: block; margin-bottom: 3px; color: #94a3b8; font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; content: attr(data-label); } #${ID_MANAGER_OVERLAY} .pjm-row-title { white-space: normal; overflow-wrap: anywhere; } }
@@ -2956,6 +3513,11 @@
     document.head.appendChild(style);
   }
 
+  /**
+   * Trava a rolagem do painel, impedindo que a rolagem vaze para a página quando chega aos limites.
+   * @param {HTMLElement} panel - Elemento do painel a ser protegido.
+   * @returns {Function} Função de limpeza que remove o listener.
+   */
   function bindPanelScrollLock(panel) {
     const onWheel = e => {
       const getScrollable = start => {
@@ -2988,6 +3550,11 @@
     return () => panel.removeEventListener('wheel', onWheel);
   }
 
+  /**
+   * Fecha o painel ao pressionar a tecla Escape.
+   * @param {Function} onClose - Função chamada ao pressionar Escape.
+   * @returns {Function} Função de limpeza que remove o listener.
+   */
   function bindEscapeClose(onClose) {
     const onKeyDown = event => {
       if (event.key !== 'Escape') return;
@@ -2998,6 +3565,11 @@
     return () => document.removeEventListener('keydown', onKeyDown, true);
   }
 
+  /**
+   * Copia um texto para a área de transferência, com fallback via textarea temporária.
+   * @param {string} text - Texto a ser copiado.
+   * @returns {Promise<void>} Promise que resolve após a cópia ser tentada.
+   */
   async function copyToClipboard(text) {
     try {
       await navigator.clipboard.writeText(text);
@@ -3012,6 +3584,20 @@
     }
   }
 
+  /**
+   * Renderiza a lista de itens de tarefa com ações de alternância, edição, tags, movimentação e reordenação.
+   * @param {object} options - Opções de renderização.
+   * @param {HTMLElement} options.listEl - Elemento que recebe a lista.
+   * @param {Array} options.items - Itens de tarefa a exibir.
+   * @param {Function} options.onToggle - Callback ao alternar a conclusão (id, done).
+   * @param {Function} options.onDelete - Callback ao excluir (id).
+   * @param {Function} options.onEdit - Callback ao editar o texto (id, text).
+   * @param {Function} [options.onReorder] - Callback ao reordenar (fromId, toId).
+   * @param {Function} [options.onMove] - Callback ao mover (id).
+   * @param {Function} [options.onEditTags] - Callback ao editar tags (id, tagsRaw).
+   * @param {string} [options.emptyMessage] - Mensagem exibida quando a lista está vazia.
+   * @returns {void}
+   */
   function renderItemsList({ listEl, items, onToggle, onDelete, onEdit, onReorder, onMove, onEditTags, emptyMessage = 'Sem tarefas.' }) {
     listEl.innerHTML = '';
 
@@ -3085,6 +3671,15 @@
     }
   }
 
+  /**
+   * Habilita o arraste da janela do painel, perseguindo a posição salva.
+   * @param {object} options - Opções de arraste.
+   * @param {Function} options.loadUI - Função que carrega a posição atual.
+   * @param {Function} options.saveUI - Função que persiste a posição.
+   * @param {HTMLElement} options.panel - Elemento do painel a ser movido.
+   * @param {HTMLElement} options.handle - Alça que inicia o arraste.
+   * @returns {Function} Função de limpeza que remove os listeners.
+   */
   function enableDragWindow({ loadUI, saveUI, panel, handle }) {
     let dragging = false;
     let startX = 0;
@@ -3092,6 +3687,11 @@
     let startRight = 0;
     let startTop = 0;
 
+    /**
+     * Inicia o arraste da janela ao pressionar o mouse na alça.
+     * @param {MouseEvent} e - Evento de mousedown.
+     * @returns {void}
+     */
     function onDown(e) {
       const t = e.target;
       if (t && (t.classList?.contains('pj-todo-btn') || t.closest?.('.pj-todo-btn'))) return;
@@ -3106,6 +3706,11 @@
       e.preventDefault();
     }
 
+    /**
+     * Atualiza a posição da janela enquanto o mouse se move durante o arraste.
+     * @param {MouseEvent} e - Evento de mousemove.
+     * @returns {void}
+     */
     function onMove(e) {
       if (!dragging) return;
       const dx = e.clientX - startX;
@@ -3120,6 +3725,10 @@
       saveUI(ui);
     }
 
+    /**
+     * Finaliza o arraste da janela ao soltar o mouse.
+     * @returns {void}
+     */
     function onUp() {
       dragging = false;
       document.removeEventListener('mousemove', onMove);
@@ -3135,6 +3744,10 @@
     };
   }
 
+  /**
+   * Desmonta o estado atual, removendo painel, launcher e estado de UI.
+   * @returns {void}
+   */
   function unmount() {
     runPanelCleanup();
     const p = document.getElementById('pj-todo');
@@ -3146,6 +3759,12 @@
     state.ctxKey = null;
   }
 
+  /**
+   * Ajusta o tamanho do botão de launcher para acompanhar o elemento âncora.
+   * @param {HTMLElement} button - Botão do launcher de tarefas.
+   * @param {HTMLElement} anchor - Elemento âncora de referência.
+   * @returns {void}
+   */
   function matchProcessLauncherSize(button, anchor) {
     const anchorStyle = getComputedStyle(anchor);
     const anchorRect = anchor.getBoundingClientRect();
@@ -3162,6 +3781,12 @@
     button.style.setProperty('vertical-align', anchorStyle.verticalAlign || 'middle', 'important');
   }
 
+  /**
+   * Insere o botão de launcher de tarefas próximo ao botão de anotação/post-it do processo.
+   * @param {object} options - Opções de montagem.
+   * @param {Function} options.onOpen - Callback ao abrir o painel.
+   * @returns {boolean} true quando o botão foi montado.
+   */
   function mountProcessInlineButton({ onOpen }) {
     const existing = document.getElementById(ID_PROC_BTN);
     if (existing) return true;
@@ -3225,6 +3850,10 @@
     return true;
   }
 
+  /**
+   * Localiza um elemento âncora adequado no cabeçalho direto do processo.
+   * @returns {HTMLElement|null} Elemento âncora encontrado, ou null.
+   */
   function findDirectProcessHeaderAnchor() {
     const selectors = [
       'i.fa-thumbtack',
@@ -3243,6 +3872,12 @@
     return null;
   }
 
+  /**
+   * Insere o botão de launcher de tarefas no cabeçalho direto do processo.
+   * @param {object} options - Opções de montagem.
+   * @param {Function} options.onOpen - Callback ao abrir o painel.
+   * @returns {boolean} true quando o botão foi montado.
+   */
   function mountProcessHeaderButton({ onOpen }) {
     const existing = document.getElementById(ID_PROC_BTN);
     if (existing) return true;
@@ -3286,6 +3921,11 @@
     return true;
   }
 
+  /**
+   * Sincroniza a presença do launcher de tarefas para o contexto de processo atual.
+   * @param {object} ctx - Contexto do processo.
+   * @returns {void}
+   */
   function syncProcessLauncher(ctx) {
     const onOpen = () => openProcessPanel(ctx);
     if (document.getElementById('pj-todo')) return;
@@ -3295,6 +3935,12 @@
     scheduleEvaluate(350);
   }
 
+  /**
+   * Cria o bloco de ações do cabeçalho do painel (botão de fechar).
+   * @param {object} options - Opções de montagem.
+   * @param {Function} options.onClose - Callback ao fechar o painel.
+   * @returns {HTMLElement} Elemento com as ações do cabeçalho.
+   */
   function createHeaderActions({ onClose }) {
     const closeBtn = el('button', { className: 'pj-todo-btn pj-todo-close-btn', title: 'Fechar' }, [faIcon('fa-solid fa-xmark')]);
 
@@ -3303,6 +3949,16 @@
     return el('div', { id: 'pj-todo-actions' }, [closeBtn]);
   }
 
+  /**
+   * Cria o cabeçalho moderno de um painel de tarefas.
+   * @param {object} options - Opções do cabeçalho.
+   * @param {string} options.title - Título exibido.
+   * @param {string} [options.subtitle] - Subtítulo exibido.
+   * @param {string} options.icon - Classe do ícone do cabeçalho.
+   * @param {string} [options.tooltip] - Texto do tooltip.
+   * @param {Function} options.onClose - Callback ao fechar.
+   * @returns {HTMLElement} Elemento do cabeçalho.
+   */
   function createModernPanelHeader({ title, subtitle, icon, tooltip, onClose }) {
     return el('div', { id: 'pj-todo-header' }, [
       el('div', { className: 'pj-home-header-brand', title: tooltip || title }, [
@@ -3316,6 +3972,15 @@
     ]);
   }
 
+  /**
+   * Cria o compositor de nova tarefa com campos de texto, tags e botão de adicionar.
+   * @param {object} options - Opções do compositor.
+   * @param {string} options.label - Rótulo do compositor.
+   * @param {string} options.inputPlaceholder - Placeholder do campo de texto.
+   * @param {string} options.inputAriaLabel - Rótulo de acessibilidade do campo de texto.
+   * @param {string} options.tagsAriaLabel - Rótulo de acessibilidade do campo de tags.
+   * @returns {object} Objeto com root, input, tagsInput e addBtn.
+   */
   function createTaskComposer({ label, inputPlaceholder, inputAriaLabel, tagsAriaLabel }) {
     const input = el('input', { className: 'pj-input', type: 'text', placeholder: inputPlaceholder, 'aria-label': inputAriaLabel });
     const tagsInput = el('input', {
@@ -3336,6 +4001,10 @@
     return { root, input, tagsInput, addBtn };
   }
 
+  /**
+   * Abre o gerenciador geral de tarefas em um overlay.
+   * @returns {void}
+   */
   function openManagerPanel() {
     const existing = document.getElementById(ID_MANAGER_OVERLAY);
     if (existing) return;
@@ -3467,16 +4136,30 @@
       backupAuto.checked = backupSettings.autoBackupOnSave;
     }
 
+    /**
+     * Exibe a mensagem de status do backup com o tom informado.
+     * @param {string} message - Mensagem a exibir.
+     * @param {string} [tone] - Tom visual (err, ok ou outro).
+     * @returns {void}
+     */
     function showBackupStatus(message, tone) {
       if (!hasBackupUi) return;
       backupStatus.textContent = message || '';
       backupStatus.dataset.state = !message ? 'idle' : tone === 'err' ? 'error' : tone === 'ok' ? 'success' : 'progress';
     }
+    /**
+     * Atualiza o rótulo do último backup exibido no painel.
+     * @returns {void}
+     */
     function updateBackupLast() {
       if (!hasBackupUi) return;
       backupLast.textContent = formatLastBackupLabel(backupSettings.lastBackupAt);
     }
 
+    /**
+     * Lê as configurações de backup dos campos do painel.
+     * @returns {object} Configurações de backup normalizadas vindas da interface.
+     */
     function readBackupSettingsFromPanel() {
       if (!hasBackupUi) return backupSettings;
       return normalizeBackupSettings({
@@ -3488,6 +4171,10 @@
       });
     }
 
+    /**
+     * Envia um backup remoto imediatamente a partir das configurações atuais do painel.
+     * @returns {Promise<void>} Promise que resolve após o envio ser concluído.
+     */
     async function runBackupNow() {
       backupSettings = saveBackupSettings(readBackupSettingsFromPanel());
       showBackupStatus('Enviando backup...', 'muted');
@@ -3501,6 +4188,10 @@
     }
     updateBackupLast();
 
+    /**
+     * Limpa as configurações de backup salvas e sincroniza os campos do painel.
+     * @returns {void}
+     */
     function clearBackupSettingsFromPanel() {
       backupSettings = saveBackupSettings(DEFAULT_BACKUP_SETTINGS);
       backupEnabled.checked = backupSettings.enabled;
@@ -3512,6 +4203,11 @@
       showBackupStatus('Configuração de backup removida.', 'ok');
     }
 
+    /**
+     * Persiste as alterações de uma linha de tarefa no escopo apropriado.
+     * @param {object} row - Linha de tarefa com os dados atualizados.
+     * @returns {void}
+     */
     function persistRow(row) {
       if (row.scopeType === 'global') {
         const items = loadGlobalItems();
@@ -3529,6 +4225,11 @@
       if (row.cnj) touchIndex({ key: row.key, cnj: row.cnj });
     }
 
+    /**
+     * Remove uma linha de tarefa do escopo apropriado, atualizando o índice se necessário.
+     * @param {object} row - Linha de tarefa a ser removida.
+     * @returns {void}
+     */
     function removeRow(row) {
       if (row.scopeType === 'global') {
         saveGlobalItems(loadGlobalItems().filter(x => x.id !== row.id));
@@ -3545,6 +4246,11 @@
       backupClear.addEventListener('click', clearBackupSettingsFromPanel);
     }
 
+    /**
+     * Abre ou fecha o popover de backup remoto.
+     * @param {boolean} open - true para abrir, false para fechar.
+     * @returns {void}
+     */
     function setBackupOpen(open) {
       if (backupPopover instanceof HTMLElement) backupPopover.dataset.open = open ? 'true' : 'false';
     }
@@ -3567,6 +4273,12 @@
     const detailEl = panel.querySelector('#pjm-detail-body');
     let selectedRowId = null;
 
+    /**
+     * Aplica uma ação a uma linha de tarefa com base no tipo da ação.
+     * @param {object} row - Linha de tarefa alvo.
+     * @param {string} action - Tipo de ação (toggle, edit, tags ou delete).
+     * @returns {Promise<void>|void} Promise ou void conforme a ação executada.
+     */
     function applyRowAction(row, action) {
       if (action === 'toggle') {
         toggleDoneState(row, !row.done);
@@ -3593,6 +4305,11 @@
       scheduleEvaluate(50);
     }
 
+    /**
+     * Copia o CNJ e abre o processo de uma linha de tarefa.
+     * @param {object} row - Linha de tarefa com o CNJ e URL do processo.
+     * @returns {void}
+     */
     function openRowProcess(row) {
       copyToClipboard(row.cnj).then(() => {
         if (!openProcessFromCnj(row.cnj, row.processUrl)) {
@@ -3601,6 +4318,11 @@
       });
     }
 
+    /**
+     * Renderiza o painel de detalhes de uma linha de tarefa selecionada.
+     * @param {object} row - Linha de tarefa a exibir, ou null para estado vazio.
+     * @returns {void}
+     */
     function renderDetail(row) {
       if (!detailEl) return;
       detailEl.innerHTML = '';
@@ -3626,6 +4348,10 @@
       detailEl.appendChild(actions);
     }
 
+    /**
+     * Renderiza as linhas do gerenciador aplicando filtros, busca e ordenação.
+     * @returns {void}
+     */
     function renderManagerRows() {
       const allRows = collectTaskRows();
       const filterState = stateFilterEl.value;
@@ -3783,6 +4509,10 @@
     renderManagerRows();
   }
 
+  /**
+   * Registra o comando de menu do gestor de userscript, apenas no frame do topo.
+   * @returns {void}
+   */
   function registerMenuCommand() {
     if (state.menuRegistered) return;
     if (typeof gmRegisterMenuCommand !== 'function') return;
@@ -3796,6 +4526,11 @@
     } catch (_) {}
   }
 
+  /**
+   * Monta o modo de processo, preparando estilos e launcher.
+   * @param {object} ctx - Contexto do processo.
+   * @returns {void}
+   */
   function mountProcess(ctx) {
     injectStyles();
     state.mounted = true;
@@ -3804,6 +4539,11 @@
     syncProcessLauncher(ctx);
   }
 
+  /**
+   * Abre o painel de tarefas específico de um processo.
+   * @param {object} ctx - Contexto do processo.
+   * @returns {void}
+   */
   function openProcessPanel(ctx) {
     const cnjLabel = ctx.shortCnj || ctx.cnj;
     const getUI = () => loadUIByKey(ctx.key);
@@ -3853,6 +4593,10 @@
     panel.style.right = `${ui.right}px`;
     panel.style.top = `${ui.top}px`;
 
+    /**
+     * Re-renderiza a lista de pendências do processo após alterações.
+     * @returns {void}
+     */
     function rerender() {
       const items = loadItemsByKey(ctx.key).filter(x => !x.done);
       pendingCount.textContent = String(items.length);
@@ -3915,6 +4659,10 @@
       });
     }
 
+    /**
+     * Adiciona uma nova tarefa ao processo a partir do compositor.
+     * @returns {void}
+     */
     function addItem() {
       const text = String(input.value || '').trim();
       if (!text) return;
@@ -3953,6 +4701,10 @@
     rerender();
   }
 
+  /**
+   * Monta o modo de dashboard inicial, preparando estilos e estado global.
+   * @returns {void}
+   */
   function mountHomeDashboard() {
     injectStyles();
     state.mounted = true;
@@ -3960,6 +4712,10 @@
     state.ctxKey = 'global';
   }
 
+  /**
+   * Abre o painel de visão geral (home) com tarefas globais e por processo.
+   * @returns {void}
+   */
   function openHomePanel() {
     const getUI = () => loadGlobalUI();
     const setUI = u => saveGlobalUI(u);
@@ -4032,6 +4788,10 @@
     panel.style.right = `${ui.right}px`;
     panel.style.top = `${ui.top}px`;
 
+    /**
+     * Coleta as linhas de processos com pendências ativas.
+     * @returns {Array} Lista de processos com CNJ, chave, URL e pendências.
+     */
     function collectProcessPendingRows() {
       const rows = [];
       for (const entry of loadIndex()) {
@@ -4043,6 +4803,10 @@
       return rows;
     }
 
+    /**
+     * Atualiza os contadores resumidos de pendências globais e por processo.
+     * @returns {void}
+     */
     function updateOverviewCounts() {
       const globalActive = loadGlobalItems().filter(x => !x.done).length;
       const processRows = collectProcessPendingRows();
@@ -4056,6 +4820,10 @@
         : 'Nenhuma tarefa aguardando providência.';
     }
 
+    /**
+     * Renderiza a lista de pendências globais aplicando o filtro de busca.
+     * @returns {void}
+     */
     function renderGlobal() {
       const query = String(globalSearch.value || '').trim().toLowerCase();
       let items = loadGlobalItems().filter(x => !x.done);
@@ -4119,6 +4887,10 @@
       updateOverviewCounts();
     }
 
+    /**
+     * Renderiza as pendências agrupadas por processo, aplicando busca e ordenação.
+     * @returns {void}
+     */
     function renderProcessesPending() {
       procList.innerHTML = '';
       const query = String(processSearch.value || '').trim().toLowerCase();
@@ -4228,6 +5000,10 @@
       updateOverviewCounts();
     }
 
+    /**
+     * Adiciona uma nova tarefa global a partir do compositor.
+     * @returns {void}
+     */
     function addGlobal() {
       const text = String(globalInput.value || '').trim();
       if (!text) return;
@@ -4255,6 +5031,11 @@
       if (e.key === 'Enter') addGlobal();
     });
 
+    /**
+     * Alterna a aba ativa entre escopos global e por processo.
+     * @param {string} which - Escopo a ativar ('global' ou 'process').
+     * @returns {void}
+     */
     function setHomeTab(which) {
       const isGlobal = which === 'global';
       tabGlobal.classList.toggle('active', isGlobal);
@@ -4294,6 +5075,10 @@
     renderProcessesPending();
   }
 
+  /**
+   * Avalia a página atual e monta/desmonta o modo apropriado (home, processo ou inativo).
+   * @returns {void}
+   */
   function evaluate() {
     registerMenuCommand();
     ensureHeaderMenuEntry();
@@ -4319,7 +5104,6 @@
     }
 
     const cnj = getCNJFromDocument(document);
-    state.lastCnj = cnj || null;
     if (cnj) {
       const ctx = processCtxFromCnj(cnj, getCurrentProcessUrl(document));
       if (!ctx) return;
@@ -4336,6 +5120,11 @@
     if (state.mounted) unmount();
   }
 
+  /**
+   * Verifica se um nó pertence à interface do próprio script.
+   * @param {Node} node - Nó a ser verificado.
+   * @returns {boolean} true quando o nó pertence à UI do script.
+   */
   function isOwnUiNode(node) {
     if (!(node instanceof Element)) return false;
     if (node.id === 'pj-todo' || node.id === ID_PROC_BTN) return true;
@@ -4343,6 +5132,11 @@
     return !!node.closest?.(`#pj-todo, #${ID_PROC_BTN}`);
   }
 
+  /**
+   * Decide se um conjunto de mutações pode ser ignorado pelo observador de DOM.
+   * @param {Array} mutations - Lista de mutações observadas.
+   * @returns {boolean} true quando as mutações não exigem reavaliação.
+   */
   function shouldIgnoreMutations(mutations) {
     if (!mutations || !mutations.length) return true;
     for (const m of mutations) {
