@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.08.05-23:06
+// @version      2026.08.05-23:18
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       lourencosv
@@ -428,13 +428,13 @@
     .pjip-toolbar input[type="search"] { padding-left: 12px; }
     .pjip-checks { display: flex; flex-wrap: wrap; gap: 7px; }
     .pjip-checks label { min-height: 30px; padding: 7px 9px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; color: #64748b; font-size: 11px; }
-    .pjip-deadline { display: grid; gap: 12px; padding: 14px 0 0; border-top: 1px solid #e2e8f0; background: transparent; }
+    .pjip-deadline { display: grid; gap: 14px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; box-shadow: 0 1px 2px rgba(15, 23, 42, .03); }
     .pjip-deadline-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .pjip-deadline .pjip-section-title { margin: 0; color: #172033; font-size: 13px; letter-spacing: 0; text-transform: none; }
     .pjip-deadline .pjip-section-title :is(i, .pj-suite-fa) { color: #2563eb; }
     .pjip-deadline-status { color: #64748b; font-size: 11px; font-weight: 600; text-align: right; }
-    .pjip-deadline-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
-    .pjip-deadline-card { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }
+    .pjip-deadline-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .pjip-deadline-card { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 14px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }
     .pjip-deadline-card-title { color: #334155; font-size: 11px; font-weight: 800; letter-spacing: 0; text-transform: none; }
     .pjip-deadline-card-desc { min-height: 31px; color: #94a3b8; font-size: 10px; line-height: 1.35; }
     .pjip-deadline-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; height: auto; }
@@ -453,20 +453,24 @@
     .pjip-list-head .pjip-section-title :is(i, .pj-suite-fa) { color: #2563eb; }
     .pjip-list-meta { margin-top: 4px; color: #64748b; font-size: 11px; }
     .pjip-table-scroll { min-width: 0; overflow-x: auto; overflow-y: hidden; overscroll-behavior-inline: contain; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; scrollbar-color: #cbd5e1 transparent; }
-    .pjip-table-head, .pjip-item { display: grid; grid-template-columns: 72px minmax(136px, 1.1fr) 94px minmax(180px, 1.65fr) 100px 86px 84px; gap: 12px; align-items: center; min-width: 860px; }
+    .pjip-table-head, .pjip-item { display: grid; grid-template-columns: 72px minmax(136px, 1.1fr) 94px minmax(180px, 1.65fr) 100px 86px 110px; gap: 12px; align-items: center; min-width: 886px; }
     .pjip-table-head { padding: 0 12px 8px; border-bottom: 1px solid #e2e8f0; color: #94a3b8; font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
-    .pjip-list { display: grid; gap: 0; min-width: 860px; overflow: visible; background: #fff; }
+    .pjip-list { display: grid; gap: 0; min-width: 886px; overflow: visible; background: #fff; }
     .pjip-item { position: relative; min-height: 76px; padding: 12px; border: 0; border-bottom: 1px solid #eef2f7; border-radius: 0; background: #fff; box-shadow: none; cursor: pointer; }
     .pjip-item:last-child { border-bottom: 0; }
     .pjip-item:hover { background: #fbfdff; border-color: #eef2f7; box-shadow: none; }
     .pjip-item[data-selected="true"] { background: #eff6ff; box-shadow: inset 3px 0 0 #2563eb; }
     .pjip-item--done { opacity: .7; }
     .pjip-item-top { display: contents; }
-    .pjip-item-priority { display: inline-flex; align-items: center; gap: 6px; color: #64748b; font-size: 11px; font-weight: 700; }
+    .pjip-item-priority { display: inline-flex; align-items: center; gap: 7px; color: #64748b; font-size: 11px; font-weight: 700; line-height: 1.2; }
     .pjip-item-priority::before { width: 7px; height: 7px; border-radius: 999px; background: #94a3b8; content: ''; }
-    .pjip-item-priority--late::before { background: #dc2626; }
-    .pjip-item-priority--soon::before { background: #d97706; }
-    .pjip-item-priority--open::before { background: #2563eb; }
+    .pjip-item-priority--critical { color: #b42318; }
+    .pjip-item-priority--critical::before { background: #b42318; }
+    .pjip-item-priority--high { color: #c2410c; }
+    .pjip-item-priority--high::before { background: #dc2626; }
+    .pjip-item-priority--medium { color: #b54708; }
+    .pjip-item-priority--medium::before { background: #d97706; }
+    .pjip-item-priority--low::before { background: #2563eb; }
     .pjip-item-priority--done::before { background: #16a34a; }
     .pjip-item-process, .pjip-item-intimation, .pjip-item-movement, .pjip-item-deadline { min-width: 0; }
     .pjip-item-process strong, .pjip-item-intimation strong { display: block; overflow: hidden; color: #172033; font-size: 11px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
@@ -476,15 +480,18 @@
     .pjip-item-deadline span { display: block; margin-top: 4px; color: #64748b; font-size: 10px; }
     .pjip-item-deadline--late strong, .pjip-item-deadline--late span { color: #b42318; }
     .pjip-item-deadline--soon strong, .pjip-item-deadline--soon span { color: #b54708; }
+    .pjip-item-deadline--critical strong, .pjip-item-deadline--critical span { color: #b42318; }
+    .pjip-item-deadline--today strong, .pjip-item-deadline--today span { color: #c2410c; }
     .pjip-item-status { display: inline-flex; width: fit-content; padding: 5px 8px; border-radius: 6px; background: #f1f5f9; color: #475569; font-size: 10px; font-weight: 800; }
     .pjip-item-status--done { background: #f0fdf4; color: #15803d; }
     .pjip-item-status--late { background: #fef2f2; color: #b42318; }
     .pjip-item-status--soon { background: #fff7ed; color: #b54708; }
-    .pjip-item-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; min-width: 0; }
-    .pjip-item-action { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #64748b; cursor: pointer; }
+    .pjip-item-actions { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: 5px; min-width: 0; }
+    .pjip-item-action { display: inline-flex; flex: 0 0 30px; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #64748b; cursor: pointer; }
     .pjip-item-action:hover { border-color: #dbeafe; background: #fff; color: #2563eb; }
     .pjip-item-action--danger:hover { border-color: #fecaca; color: #b42318; }
     .pjip-item-grid, .pjip-item-meta { display: none; }
+    .pjip-section-title > :is(i, .pj-suite-fa), .pjip-modal-btn > :is(i, .pj-suite-fa), .pjip-item-action > :is(i, .pj-suite-fa) { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 16px; width: 16px; height: 16px; line-height: 1; }
     .pjip-empty { padding: 36px 18px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #fff; color: #64748b; text-align: center; }
     .pjip-detail {
       align-self: start;
@@ -4059,9 +4066,18 @@
     card.setAttribute('aria-label', `Ver detalhes da intimação ${item.id}`);
 
     const status = resolveItemStatusKey(item);
+    const priorityKey = resolveItemPriorityKey(item);
     const priority = document.createElement('div');
-    priority.className = `pjip-item-priority pjip-item-priority--${status}`;
-    priority.textContent = status === 'late' ? 'Alta' : status === 'soon' ? 'Média' : status === 'done' ? 'Concluída' : 'Baixa';
+    priority.className = `pjip-item-priority pjip-item-priority--${priorityKey}`;
+    priority.textContent = priorityKey === 'critical'
+      ? 'Crítica'
+      : priorityKey === 'high'
+        ? 'Alta'
+        : priorityKey === 'medium'
+          ? 'Média'
+          : priorityKey === 'done'
+            ? 'Concluída'
+            : 'Baixa';
 
     const process = document.createElement('div');
     process.className = 'pjip-item-process';
@@ -4076,8 +4092,27 @@
     movement.textContent = item.movement || 'Sem movimentação registrada.';
 
     const deadline = document.createElement('div');
-    deadline.className = `pjip-item-deadline${status === 'late' ? ' pjip-item-deadline--late' : status === 'soon' ? ' pjip-item-deadline--soon' : ''}`;
-    appendTextPair(deadline, formatDeadlinePill(item.deadline).replace(/^Prazo\s*/, ''), status === 'late' ? 'Vencida' : status === 'soon' ? 'Em breve' : item.deadline ? 'Dentro do prazo' : 'Sem prazo');
+    const deadlineTone = priorityKey === 'critical'
+      ? 'critical'
+      : priorityKey === 'high'
+        ? 'today'
+        : priorityKey === 'medium'
+          ? 'soon'
+          : '';
+    deadline.className = `pjip-item-deadline${deadlineTone ? ` pjip-item-deadline--${deadlineTone}` : ''}`;
+    appendTextPair(
+      deadline,
+      formatDeadlinePill(item.deadline).replace(/^Prazo\s*/, ''),
+      priorityKey === 'critical'
+        ? 'Vencida'
+        : priorityKey === 'high'
+          ? 'Hoje'
+          : priorityKey === 'medium'
+            ? 'Em breve'
+            : item.deadline
+              ? 'Dentro do prazo'
+              : 'Sem prazo'
+    );
 
     const statusNode = document.createElement('div');
     statusNode.className = `pjip-item-status ${resolveItemStatusClass(item)}`.trim();
@@ -4357,6 +4392,28 @@
     if (time < now) return 'late';
     if (time - now <= 2 * 24 * 60 * 60 * 1000) return 'soon';
     return 'open';
+  }
+
+  /**
+   * Resolve a prioridade visual sem misturar prioridade com o filtro de status.
+   * Hoje exige prioridade alta; um prazo já perdido é crítico.
+   * @param {any} item
+   * @returns {'done' | 'critical' | 'high' | 'medium' | 'low'}
+   */
+  function resolveItemPriorityKey(item) {
+    if (item.done) return 'done';
+    const deadlineDate = extractDeadlineDatesFromText(item?.deadline || '')[0] || null;
+    const dayDistance = deadlineDate
+      ? getLocalDayNumber(deadlineDate) - getLocalDayNumber(new Date())
+      : (() => {
+          const time = parseBrazilianDateTime(item?.deadline);
+          return time ? getLocalDayNumber(new Date(time)) - getLocalDayNumber(new Date()) : null;
+        })();
+    if (dayDistance === null) return 'low';
+    if (dayDistance < 0) return 'critical';
+    if (dayDistance === 0) return 'high';
+    if (dayDistance <= 2) return 'medium';
+    return 'low';
   }
 
   function getLocalDayNumber(date) {

@@ -137,6 +137,14 @@ test('painel de intimações mantém rolagem e navegação em larguras intermedi
   assert.doesNotMatch(intimacoes, /pjip-dashboard-nav__backup|data-role="backup-toggle"|data-role="backup-pill"/, 'o backup remoto ainda tem acesso duplicado na navegação');
 });
 
+test('prioridades e polimento visual das intimações preservam a hierarquia', () => {
+  const intimacoes = sources.intimacoes;
+  assert.match(intimacoes, /function resolveItemPriorityKey\(item\)[\s\S]{0,1000}?if \(dayDistance < 0\) return 'critical';[\s\S]{0,180}?if \(dayDistance === 0\) return 'high';/, 'a prioridade não diferencia prazo crítico de vencimento hoje');
+  assert.match(intimacoes, /priorityKey === 'critical'[\s\S]{0,220}?'Crítica'[\s\S]{0,220}?'Alta'/, 'os rótulos de prioridade não refletem a urgência');
+  assert.match(intimacoes, /\.pjip-item-actions \{[^}]*flex-wrap: nowrap;/, 'as ações da linha ainda podem quebrar e desalinharem os ícones');
+  assert.match(intimacoes, /\.pjip-deadline-grid \{[^}]*gap: 12px;/, 'os cards de prazo não mantêm separação visual');
+});
+
 test('abas da visão geral de tarefas ficam isoladas dos botões do Projudi', () => {
   const tarefas = sources.tarefas;
   assert.doesNotMatch(tarefas, /el\('button',\s*\{\s*className:\s*'pj-home-tab/, 'as abas ainda herdam os estilos globais de button do Projudi');
