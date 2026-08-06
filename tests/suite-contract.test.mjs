@@ -167,7 +167,12 @@ test('seleção de intimações e fila de tarefas preservam os contratos de leit
   assert.match(tarefas, /class="pjm-stat-icon"><i class="fa-solid fa-inbox"/, 'os ícones dos indicadores não têm wrapper próprio');
   assert.match(tarefas, /\.pjm-stat-icon\s*\{[\s\S]{0,400}?width: 38px;[\s\S]{0,200}?height: 38px;/, 'o wrapper do ícone não possui tamanho estável');
   assert.match(tarefas, /\.pjm-table-wrap \{ overflow-x: auto; overflow-y: visible;/, 'a fila não permite rolagem horizontal');
-  assert.match(tarefas, /\.pjm-task-list \{ min-width: 860px; \}/, 'a fila não mantém uma largura mínima coerente');
+  assert.match(tarefas, /\.pjm-task-list \{ min-width: 0; \}/, 'a fila ainda força uma largura que exige rolagem horizontal');
+  assert.match(tarefas, /\.pjm-workspace-grid \{ display: block; \}/, 'a fila ainda reserva uma coluna lateral de detalhes');
+  assert.doesNotMatch(tarefas, /id="pjm-detail"|function renderDetail\(/, 'o card de detalhes ainda participa do painel principal');
+  assert.doesNotMatch(tarefas, /id="pjm-filter-state"/, 'o filtro duplicado de status ainda ocupa espaço na barra');
+  assert.match(tarefas, /\.pjm-filterbar--compact \{ grid-template-columns: minmax\(0, 1fr\) auto;/, 'a barra compacta de ordenação não foi criada');
+  assert.match(tarefas, /\.pjm-rail \{[\s\S]{0,400}?padding: 24px 14px 18px;/, 'a barra lateral não segue o espaçamento de Intimações');
   assert.match(tarefas, /\.pjm-badge \{ max-width: 100%; white-space: normal; overflow-wrap: anywhere; \}/, 'as tags ainda podem ser cortadas');
   assert.match(tarefas, /\.pjm-badge--cnj \{[\s\S]{0,300}?white-space: nowrap;[\s\S]{0,160}?text-overflow: ellipsis;/, 'o CNJ não preserva linha única com reticências');
   assert.doesNotMatch(tarefas, /pj-home-eyebrow|pj-home-summary-title|pj-home-summary-sub/, 'o card Agora ainda existe no painel compacto');

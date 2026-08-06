@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2026.08.06-09:54
+// @version      2026.08.06-10:31
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       lourencosv
@@ -3577,6 +3577,85 @@
       #pj-todo.pj-todo-modern.pj-todo-home .pj-home-layout { gap: 10px; }
       #pj-todo.pj-todo-modern.pj-todo-home .pj-tags { display: flex; flex-wrap: wrap; max-width: 100%; overflow: visible; }
       #pj-todo.pj-todo-modern.pj-todo-home .pj-tag { white-space: normal; overflow-wrap: anywhere; }
+      /* Acabamento compartilhado com Intimações: lateral, fila e espaçamento. */
+      #${ID_MANAGER_OVERLAY} .pjm-body { grid-template-columns: 196px minmax(0, 1fr); }
+      #${ID_MANAGER_OVERLAY} .pjm-rail {
+        display: flex;
+        flex-direction: column;
+        padding: 24px 14px 18px;
+        border-right: 1px solid #e2e8f0;
+        background: #fff;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-nav-label {
+        margin: 0 10px 12px;
+        padding: 0;
+        color: #94a3b8;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: .1em;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-nav { display: grid; gap: 4px; }
+      #${ID_MANAGER_OVERLAY} .pjm-nav-item {
+        min-height: 42px;
+        padding: 10px 11px;
+        border-radius: 10px;
+        background: transparent !important;
+        color: #64748b;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-nav-item .pj-suite-fa { width: 18px; color: #94a3b8; }
+      #${ID_MANAGER_OVERLAY} .pjm-nav-item:hover { background: #f8fafc !important; color: #172033; }
+      #${ID_MANAGER_OVERLAY} .pjm-nav-item[data-active="true"] { border-color: #dbeafe; background: #eff6ff !important; color: #1d4ed8; }
+      #${ID_MANAGER_OVERLAY} .pjm-nav-item[data-active="true"] .pj-suite-fa { color: #2563eb; }
+      #${ID_MANAGER_OVERLAY} .pjm-nav-separator { margin: 16px 10px; background: #eef2f7; }
+      #${ID_MANAGER_OVERLAY} .pjm-rail::after { width: 42px; height: 4px; margin: auto 10px 0; background: #dbeafe; }
+      #${ID_MANAGER_OVERLAY} .pjm-workspace-grid { display: block; }
+      #${ID_MANAGER_OVERLAY} .pjm-detail { display: none !important; }
+      #${ID_MANAGER_OVERLAY} .pjm-filterbar--compact { grid-template-columns: minmax(0, 1fr) auto; gap: 9px; }
+      #${ID_MANAGER_OVERLAY} .pjm-filterbar--compact .pjm-select { min-width: 0; }
+      #${ID_MANAGER_OVERLAY} .pjm-table-wrap { overflow-x: hidden; overflow-y: visible; }
+      #${ID_MANAGER_OVERLAY} .pjm-task-list { min-width: 0; }
+      #${ID_MANAGER_OVERLAY} .pjm-task-row {
+        min-width: 0;
+        grid-template-columns: minmax(240px, 2fr) minmax(140px, 1fr) minmax(100px, .75fr) minmax(120px, 1fr) 76px;
+        column-gap: 16px;
+      }
+      #${ID_MANAGER_OVERLAY} .pjm-badge-row { min-width: 0; }
+      #${ID_MANAGER_OVERLAY} .pjm-queue-card .pjm-task-row + .pjm-task-row { margin-top: 0; }
+      #pj-todo.pj-todo-modern.pj-todo-home .pj-home-layout { gap: 14px; }
+      #pj-todo.pj-todo-modern.pj-todo-home .pj-home-panel .pj-section { gap: 12px; }
+      #pj-todo.pj-todo-modern.pj-todo-home .pj-home-composer { margin: 12px 12px 0; }
+      #pj-todo.pj-todo-modern.pj-todo-home .pj-home-toolbar { margin-bottom: 10px; }
+      #pj-todo.pj-todo-modern.pj-todo-home .pj-home-panel .pj-list { padding: 0 12px 12px; }
+      #pj-todo.pj-todo-modern.pj-todo-home :is(.pj-home-layout, .pj-process-layout) .pj-item { margin-bottom: 8px; border-radius: 12px; }
+      #pj-todo.pj-todo-modern.pj-todo-home :is(.pj-home-layout, .pj-process-layout) .pj-item:last-child { margin-bottom: 0; }
+      @container pjm-manager (max-width: 880px) {
+        #${ID_MANAGER_OVERLAY} .pjm-table-wrap { overflow-x: hidden; }
+        #${ID_MANAGER_OVERLAY} .pjm-task-row {
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 9px 14px;
+          min-height: 0;
+          padding: 14px;
+        }
+        #${ID_MANAGER_OVERLAY} .pjm-task-cell:first-child,
+        #${ID_MANAGER_OVERLAY} .pjm-task-cell:nth-child(4),
+        #${ID_MANAGER_OVERLAY} .pjm-task-cell:nth-child(5) { grid-column: 1 / -1; }
+        #${ID_MANAGER_OVERLAY} .pjm-task-cell:not(:first-child)::before {
+          display: block;
+          margin-bottom: 3px;
+          color: #94a3b8;
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: .06em;
+          text-transform: uppercase;
+          content: attr(data-label);
+        }
+      }
+      @container pjm-manager (max-width: 620px) {
+        #${ID_MANAGER_OVERLAY} .pjm-filterbar--compact { grid-template-columns: 1fr; }
+        #${ID_MANAGER_OVERLAY} .pjm-filterbar--compact .pjm-btn { width: 100%; }
+      }
       ${BACKUP_UI_CSS}
     `;
     document.head.appendChild(style);
@@ -4114,12 +4193,11 @@
               <button type="button" class="pjm-stat pjm-stat--global" data-pjm-filter="global"><span class="pjm-stat-icon"><i class="fa-solid fa-layer-group" aria-hidden="true"></i></span><span class="pjm-stat-value" id="pjm-stat-global">0</span><span class="pjm-stat-label">Globais</span></button>
               <button type="button" class="pjm-stat pjm-stat--done" data-pjm-filter="done"><span class="pjm-stat-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span><span class="pjm-stat-value" id="pjm-stat-done">0</span><span class="pjm-stat-label">Concluídas</span></button>
             </div>
-            <section class="pjm-filter-card" aria-label="Filtros de tarefas"><div class="pjm-filterbar">
-              <select class="pjm-select" id="pjm-filter-state" aria-label="Filtrar por status"><option value="active">Em aberto</option><option value="all">Todas</option><option value="global">Globais</option><option value="done">Concluídas</option></select>
+            <section class="pjm-filter-card" aria-label="Ordenação e importação de tarefas"><div class="pjm-filterbar pjm-filterbar--compact">
               <select class="pjm-select" id="pjm-sort" aria-label="Ordenar tarefas"><option value="newest">Mais recentes</option><option value="oldest">Mais antigas</option><option value="active">Ativas primeiro</option></select>
               <button class="pjm-btn" id="pjm-import" type="button"><i class="fa-solid fa-upload" aria-hidden="true"></i><span>Importar</span></button>
             </div></section>
-            <div class="pjm-workspace-grid"><div class="pjm-content-column"><section class="pjm-composer-card"><input class="pjm-input" id="pjm-new-text" placeholder="Criar tarefa global rápida" aria-label="Nova tarefa global" /><button class="pjm-btn pjm-btn--primary" id="pjm-new-add" type="button"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>Adicionar</span></button></section><section class="pjm-queue-card"><div class="pjm-list-head"><div><div class="pjm-section-title"><i class="fa-solid fa-list-check" aria-hidden="true"></i><span>Fila de tarefas</span></div><div id="pjm-stats" class="pjm-item-meta"></div></div></div><div class="pjm-queue"><div class="pjm-table-wrap" id="pjm-list"></div></div></section></div><aside class="pjm-card pjm-detail" id="pjm-detail"><div class="pjm-list-head"><div class="pjm-section-title"><i class="fa-solid fa-sidebar" aria-hidden="true"></i><span>Detalhes</span></div></div><div class="pjm-detail-body" id="pjm-detail-body">Selecione uma tarefa para ver os detalhes.</div></aside></div>
+            <div class="pjm-workspace-grid"><div class="pjm-content-column"><section class="pjm-composer-card"><input class="pjm-input" id="pjm-new-text" placeholder="Criar tarefa global rápida" aria-label="Nova tarefa global" /><button class="pjm-btn pjm-btn--primary" id="pjm-new-add" type="button"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>Adicionar</span></button></section><section class="pjm-queue-card"><div class="pjm-list-head"><div><div class="pjm-section-title"><i class="fa-solid fa-list-check" aria-hidden="true"></i><span>Fila de tarefas</span></div><div id="pjm-stats" class="pjm-item-meta"></div></div></div><div class="pjm-queue"><div class="pjm-table-wrap" id="pjm-list"></div></div></section></div></div>
           </div>
         </main>
         <div class="pjm-backup-popover pj-backup-ui__popover" id="pjm-backup-popover">
@@ -4171,7 +4249,6 @@
     const summarySubEl = panel.querySelector('#pjm-summary-sub');
     const statActiveEl = panel.querySelector('#pjm-stat-active');
     const statDoneEl = panel.querySelector('#pjm-stat-done');
-    const stateFilterEl = panel.querySelector('#pjm-filter-state');
     const searchEl = panel.querySelector('#pjm-search');
     const backupOpen = panel.querySelector('#pjm-backup-open');
     const backupPopover = panel.querySelector('#pjm-backup-popover');
@@ -4339,7 +4416,7 @@
     const sortEl = panel.querySelector('#pjm-sort');
     const newTextEl = panel.querySelector('#pjm-new-text');
     const newAddEl = panel.querySelector('#pjm-new-add');
-    const detailEl = panel.querySelector('#pjm-detail-body');
+    let activeFilter = 'active';
     let selectedRowId = null;
 
     /**
@@ -4388,42 +4465,12 @@
     }
 
     /**
-     * Renderiza o painel de detalhes de uma linha de tarefa selecionada.
-     * @param {object} row - Linha de tarefa a exibir, ou null para estado vazio.
-     * @returns {void}
-     */
-    function renderDetail(row) {
-      if (!detailEl) return;
-      detailEl.innerHTML = '';
-      if (!row) {
-        detailEl.appendChild(el('div', { className: 'pjm-item-meta' }, ['Selecione uma tarefa da fila para consultar e editar seus dados.']));
-        return;
-      }
-      detailEl.appendChild(el('div', { className: 'pjm-detail-title' }, [row.text]));
-      detailEl.appendChild(el('span', { className: `pjm-badge ${row.done ? 'pjm-badge--done' : 'pjm-badge--active'}` }, [row.done ? 'Concluída' : 'Em aberto']));
-      detailEl.appendChild(el('div', { className: 'pjm-item-meta' }, [`${row.scopeLabel} • Criada em ${formatDateTime(row.createdAt)}`]));
-      if (row.cnj) {
-        const processButton = el('button', { className: 'pjm-btn', type: 'button' }, [faIcon('fa-solid fa-arrow-up-right-from-square'), row.cnj]);
-        processButton.addEventListener('click', () => openRowProcess(row));
-        detailEl.appendChild(processButton);
-      }
-      if ((row.tags || []).length) detailEl.appendChild(el('div', { className: 'pjm-badge-row' }, row.tags.map(tag => el('span', { className: 'pjm-badge' }, [`#${tag}`]))));
-      const actions = el('div', { className: 'pjm-detail-actions' }, []);
-      [['toggle', row.done ? 'Reabrir' : 'Concluir', row.done ? 'fa-rotate-left' : 'fa-check'], ['edit', 'Editar', 'fa-pen'], ['tags', 'Tags', 'fa-tags'], ['delete', 'Excluir', 'fa-trash-can']].forEach(([action, label, icon]) => {
-        const button = el('button', { className: `pjm-btn${action === 'toggle' ? ' pjm-btn--primary' : action === 'delete' ? ' pjm-btn--danger' : ''}`, type: 'button' }, [faIcon(`fa-solid ${icon}`), label]);
-        button.addEventListener('click', () => applyRowAction(row, action));
-        actions.appendChild(button);
-      });
-      detailEl.appendChild(actions);
-    }
-
-    /**
      * Renderiza as linhas do gerenciador aplicando filtros, busca e ordenação.
      * @returns {void}
      */
     function renderManagerRows() {
       const allRows = collectTaskRows();
-      const filterState = stateFilterEl.value;
+      const filterState = activeFilter;
       const q = String(searchEl.value || '').trim().toLowerCase();
       const stats = buildTaskStats();
       const total = stats.active + stats.completed;
@@ -4455,7 +4502,6 @@
       if (selectedRowId && !rows.some(row => row.id === selectedRowId)) selectedRowId = null;
       const selectedRow = rows.find(row => row.id === selectedRowId) || rows[0] || null;
       if (!selectedRowId && selectedRow) selectedRowId = selectedRow.id;
-      renderDetail(selectedRow);
       listEl.innerHTML = '';
       if (!rows.length) {
         listEl.appendChild(el('div', { className: 'pjm-empty' }, ['Sem tarefas para este filtro.']));
@@ -4463,7 +4509,7 @@
       }
       const taskList = el('div', { className: 'pjm-task-list', role: 'list', 'aria-label': 'Fila de tarefas' });
       rows.forEach(row => {
-        const item = el('div', { className: 'pjm-task-row', role: 'listitem', tabindex: '0', 'data-selected': row.id === selectedRowId ? 'true' : 'false', 'aria-label': `Selecionar detalhes de ${row.text}` });
+        const item = el('div', { className: 'pjm-task-row', role: 'listitem', tabindex: '0', 'data-selected': row.id === selectedRowId ? 'true' : 'false', 'aria-label': `Selecionar tarefa ${row.text}` });
         const taskCell = el('div', { className: 'pjm-task-cell', 'data-label': 'Tarefa' }, [el('div', { className: 'pjm-row-title', title: row.text }, [row.text]), el('div', { className: 'pjm-row-sub' }, [`Criada em ${formatDateTime(row.createdAt)}`])]);
         const destination = el('div', { className: 'pjm-task-cell', 'data-label': 'Destino' }, [row.cnj ? el('button', { className: 'pjm-badge pjm-badge--cnj', type: 'button', title: 'Copiar CNJ e abrir processo' }, [row.cnj]) : el('span', { className: 'pjm-badge' }, ['Global'])]);
         if (row.cnj) destination.firstChild.addEventListener('click', event => { event.stopPropagation(); openRowProcess(row); });
@@ -4516,14 +4562,13 @@
         }
       });
     }
-    stateFilterEl.addEventListener('change', renderManagerRows);
     searchEl.addEventListener('input', renderManagerRows);
     sortEl.addEventListener('change', renderManagerRows);
     panel.querySelectorAll('[data-pjm-filter]').forEach(btn => {
       btn.addEventListener('click', event => {
         const target = event.currentTarget;
         if (!(target instanceof HTMLElement)) return;
-        stateFilterEl.value = target.dataset.pjmFilter || 'active';
+        activeFilter = target.dataset.pjmFilter || 'active';
         renderManagerRows();
       });
     });
@@ -4531,7 +4576,7 @@
       btn.addEventListener('click', event => {
         const target = event.currentTarget;
         if (!(target instanceof HTMLElement)) return;
-        stateFilterEl.value = target.dataset.pjmDestination || 'active';
+        activeFilter = target.dataset.pjmDestination || 'active';
         renderManagerRows();
       });
     });
@@ -4545,7 +4590,7 @@
       items.unshift(normalizeTodoItem({ id: uid(), text, done: false, createdAt: Date.now(), tags: [] }));
       saveGlobalItems(items);
       newTextEl.value = '';
-      stateFilterEl.value = 'active';
+      activeFilter = 'active';
       renderManagerRows();
       scheduleEvaluate(50);
     };
