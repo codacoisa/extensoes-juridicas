@@ -171,7 +171,10 @@ test('seleção de intimações e fila de tarefas preservam os contratos de leit
   assert.match(tarefas, /\.pjm-workspace-grid \{ display: block; \}/, 'a fila ainda reserva uma coluna lateral de detalhes');
   assert.doesNotMatch(tarefas, /id="pjm-detail"|function renderDetail\(/, 'o card de detalhes ainda participa do painel principal');
   assert.doesNotMatch(tarefas, /id="pjm-filter-state"/, 'o filtro duplicado de status ainda ocupa espaço na barra');
-  assert.match(tarefas, /\.pjm-filterbar--compact \{ grid-template-columns: minmax\(0, 1fr\) auto;/, 'a barra compacta de ordenação não foi criada');
+  assert.match(tarefas, /class="pjm-select pjm-sort-select" id="pjm-sort"/, 'a ordenação não foi incorporada ao cabeçalho compacto');
+  assert.doesNotMatch(tarefas, /aria-label="Ordenação e importação de tarefas"/, 'a barra de ordenação ainda ocupa um card separado');
+  assert.doesNotMatch(tarefas, /class="pjm-nav-separator"/, 'a lateral ainda separa o backup dos demais destinos');
+  assert.match(tarefas, /\.pjm-row-actions \{ width: 132px; justify-content: flex-end;/, 'as ações da fila ainda não têm área suficiente para os ícones');
   assert.match(tarefas, /\.pjm-rail \{[\s\S]{0,400}?padding: 24px 14px 18px;/, 'a barra lateral não segue o espaçamento de Intimações');
   assert.match(tarefas, /\.pjm-badge \{ max-width: 100%; white-space: normal; overflow-wrap: anywhere; \}/, 'as tags ainda podem ser cortadas');
   assert.match(tarefas, /\.pjm-badge--cnj \{[\s\S]{0,300}?white-space: nowrap;[\s\S]{0,160}?text-overflow: ellipsis;/, 'o CNJ não preserva linha única com reticências');

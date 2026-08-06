@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2026.08.06-10:31
+// @version      2026.08.06-11:15
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       lourencosv
@@ -3624,6 +3624,15 @@
       #${ID_MANAGER_OVERLAY} .pjm-badge-row { min-width: 0; }
       #${ID_MANAGER_OVERLAY} .pjm-queue-card .pjm-task-row + .pjm-task-row { margin-top: 0; }
       #pj-todo.pj-todo-modern.pj-todo-home .pj-home-layout { gap: 14px; }
+      /* Ajustes finais: a lateral e o cabeçalho seguem a composição de Intimações. */
+      #${ID_MANAGER_OVERLAY} .pjm-nav-separator { display: none; }
+      #${ID_MANAGER_OVERLAY} .pjm-context-actions { flex-basis: 680px; }
+      #${ID_MANAGER_OVERLAY} .pjm-sort-select { flex: 0 0 164px; width: 164px; min-height: 40px; height: 40px; border-radius: 9px; font-size: 12px; }
+      #${ID_MANAGER_OVERLAY} .pjm-task-row { grid-template-columns: minmax(240px, 2fr) minmax(140px, 1fr) minmax(100px, .75fr) minmax(120px, 1fr) 132px; }
+      #${ID_MANAGER_OVERLAY} .pjm-task-cell:last-child { min-width: 132px; overflow: visible; }
+      #${ID_MANAGER_OVERLAY} .pjm-row-actions { width: 132px; justify-content: flex-end; gap: 4px; }
+      #${ID_MANAGER_OVERLAY} .pjm-queue-card .pjm-list-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+      #${ID_MANAGER_OVERLAY} .pjm-queue-card .pjm-list-head .pjm-btn--compact { min-height: 32px; height: 32px; padding: 6px 9px; border-radius: 8px; font-size: 11px; }
       #pj-todo.pj-todo-modern.pj-todo-home .pj-home-panel .pj-section { gap: 12px; }
       #pj-todo.pj-todo-modern.pj-todo-home .pj-home-composer { margin: 12px 12px 0; }
       #pj-todo.pj-todo-modern.pj-todo-home .pj-home-toolbar { margin-bottom: 10px; }
@@ -3653,6 +3662,10 @@
         }
       }
       @container pjm-manager (max-width: 620px) {
+        #${ID_MANAGER_OVERLAY} .pjm-sort-select { flex-basis: auto; width: 100%; }
+        #${ID_MANAGER_OVERLAY} .pjm-context-actions .pjm-btn { width: 100%; }
+        #${ID_MANAGER_OVERLAY} .pjm-task-cell:last-child,
+        #${ID_MANAGER_OVERLAY} .pjm-row-actions { width: 100%; min-width: 0; }
         #${ID_MANAGER_OVERLAY} .pjm-filterbar--compact { grid-template-columns: 1fr; }
         #${ID_MANAGER_OVERLAY} .pjm-filterbar--compact .pjm-btn { width: 100%; }
       }
@@ -4180,24 +4193,19 @@
             <button type="button" class="pjm-nav-item" data-pjm-destination="active"><i class="fa-solid fa-inbox" aria-hidden="true"></i><span>Em aberto</span><span class="pjm-nav-count" id="pjm-nav-active">0</span></button>
             <button type="button" class="pjm-nav-item" data-pjm-destination="all"><i class="fa-solid fa-list" aria-hidden="true"></i><span>Todas</span><span class="pjm-nav-count" id="pjm-nav-all">0</span></button>
             <button type="button" class="pjm-nav-item" data-pjm-destination="done"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span>Concluídas</span><span class="pjm-nav-count" id="pjm-nav-done">0</span></button>
-            <div class="pjm-nav-separator" aria-hidden="true"></div>
             <button type="button" class="pjm-nav-item" id="pjm-backup-open"><i class="fa-solid fa-cloud" aria-hidden="true"></i><span>Backup remoto</span></button>
           </nav>
         </aside>
         <main class="pjm-main">
           <div class="pjm-workspace">
-            <div class="pjm-context"><div><div class="pjm-context-kicker">Visão operacional</div><div class="pjm-summary-title" id="pjm-summary-title">Tarefas</div><div class="pjm-summary-sub" id="pjm-summary-sub">Carregando tarefas locais.</div></div><div class="pjm-context-actions"><div class="pjm-search-wrap"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input class="pjm-input" id="pjm-search" placeholder="Buscar por tarefa, tag ou processo" aria-label="Buscar tarefas" /></div><button class="pjm-btn" id="pjm-export" type="button"><i class="fa-solid fa-download" aria-hidden="true"></i><span>Exportar</span></button></div></div>
+            <div class="pjm-context"><div><div class="pjm-context-kicker">Visão operacional</div><div class="pjm-summary-title" id="pjm-summary-title">Tarefas</div><div class="pjm-summary-sub" id="pjm-summary-sub">Carregando tarefas locais.</div></div><div class="pjm-context-actions"><div class="pjm-search-wrap"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input class="pjm-input" id="pjm-search" placeholder="Buscar por tarefa, tag ou processo" aria-label="Buscar tarefas" /></div><select class="pjm-select pjm-sort-select" id="pjm-sort" aria-label="Ordenar tarefas"><option value="newest">Mais recentes</option><option value="oldest">Mais antigas</option><option value="active">Ativas primeiro</option></select><button class="pjm-btn" id="pjm-export" type="button"><i class="fa-solid fa-download" aria-hidden="true"></i><span>Exportar</span></button></div></div>
             <div class="pjm-stat-grid">
               <button type="button" class="pjm-stat pjm-stat--active" data-pjm-filter="active"><span class="pjm-stat-icon"><i class="fa-solid fa-inbox" aria-hidden="true"></i></span><span class="pjm-stat-value" id="pjm-stat-active">0</span><span class="pjm-stat-label">Em aberto</span></button>
               <button type="button" class="pjm-stat" data-pjm-filter="all"><span class="pjm-stat-icon"><i class="fa-solid fa-list" aria-hidden="true"></i></span><span class="pjm-stat-value" id="pjm-stat-all">0</span><span class="pjm-stat-label">Todas</span></button>
               <button type="button" class="pjm-stat pjm-stat--global" data-pjm-filter="global"><span class="pjm-stat-icon"><i class="fa-solid fa-layer-group" aria-hidden="true"></i></span><span class="pjm-stat-value" id="pjm-stat-global">0</span><span class="pjm-stat-label">Globais</span></button>
               <button type="button" class="pjm-stat pjm-stat--done" data-pjm-filter="done"><span class="pjm-stat-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span><span class="pjm-stat-value" id="pjm-stat-done">0</span><span class="pjm-stat-label">Concluídas</span></button>
             </div>
-            <section class="pjm-filter-card" aria-label="Ordenação e importação de tarefas"><div class="pjm-filterbar pjm-filterbar--compact">
-              <select class="pjm-select" id="pjm-sort" aria-label="Ordenar tarefas"><option value="newest">Mais recentes</option><option value="oldest">Mais antigas</option><option value="active">Ativas primeiro</option></select>
-              <button class="pjm-btn" id="pjm-import" type="button"><i class="fa-solid fa-upload" aria-hidden="true"></i><span>Importar</span></button>
-            </div></section>
-            <div class="pjm-workspace-grid"><div class="pjm-content-column"><section class="pjm-composer-card"><input class="pjm-input" id="pjm-new-text" placeholder="Criar tarefa global rápida" aria-label="Nova tarefa global" /><button class="pjm-btn pjm-btn--primary" id="pjm-new-add" type="button"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>Adicionar</span></button></section><section class="pjm-queue-card"><div class="pjm-list-head"><div><div class="pjm-section-title"><i class="fa-solid fa-list-check" aria-hidden="true"></i><span>Fila de tarefas</span></div><div id="pjm-stats" class="pjm-item-meta"></div></div></div><div class="pjm-queue"><div class="pjm-table-wrap" id="pjm-list"></div></div></section></div></div>
+            <div class="pjm-workspace-grid"><div class="pjm-content-column"><section class="pjm-composer-card"><input class="pjm-input" id="pjm-new-text" placeholder="Criar tarefa global rápida" aria-label="Nova tarefa global" /><button class="pjm-btn pjm-btn--primary" id="pjm-new-add" type="button"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>Adicionar</span></button></section><section class="pjm-queue-card"><div class="pjm-list-head"><div><div class="pjm-section-title"><i class="fa-solid fa-list-check" aria-hidden="true"></i><span>Fila de tarefas</span></div><div id="pjm-stats" class="pjm-item-meta"></div></div><button class="pjm-btn pjm-btn--compact" id="pjm-import" type="button"><i class="fa-solid fa-upload" aria-hidden="true"></i><span>Importar</span></button></div><div class="pjm-queue"><div class="pjm-table-wrap" id="pjm-list"></div></div></section></div></div>
           </div>
         </main>
         <div class="pjm-backup-popover pj-backup-ui__popover" id="pjm-backup-popover">
