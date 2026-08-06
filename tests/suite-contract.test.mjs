@@ -126,7 +126,9 @@ test('atalhos do processo e filtros de intimações mantêm o comportamento atua
 
 test('painel de intimações mantém rolagem e navegação em larguras intermediárias', () => {
   const intimacoes = sources.intimacoes;
-  assert.match(intimacoes, /\.pjip-modal-body\s*\{[\s\S]{0,500}?grid-template-rows: minmax\(0, 1fr\);[\s\S]{0,500}?container: pjip-modal-body \/ inline-size;/, 'o corpo do modal não limita sua altura nem expõe um container ancestral');
+  assert.match(intimacoes, /#\$\{IDS\.modalPanel\}\s*\{[\s\S]{0,260}?height: min\(94vh, 960px\);[\s\S]{0,180}?min-height: 0;/, 'o painel não pode bloquear a contração dos descendentes roláveis');
+  assert.match(intimacoes, /\.pjip-modal-body\s*\{[\s\S]{0,600}?flex: 1 1 0;[\s\S]{0,500}?grid-template-rows: minmax\(0, 1fr\);[\s\S]{0,180}?height: 0;[\s\S]{0,500}?container: pjip-modal-body \/ inline-size;/, 'o corpo do modal não recebe altura finita para a rolagem no Safari');
+  assert.match(intimacoes, /\.pjip-dashboard-workspace\s*\{[\s\S]{0,500}?min-height: 0;[\s\S]{0,500}?overflow-y: scroll;[\s\S]{0,220}?overscroll-behavior: contain;/, 'o workspace deixou de ser o único contêiner de rolagem vertical');
   assert.match(intimacoes, /@container pjip-modal-body \(max-width: 1240px\)\s*\{[\s\S]{0,240}?\.pjip-dashboard-workspace \{ grid-template-columns: minmax\(0, 1fr\); \}[\s\S]{0,120}?\.pjip-detail \{ display: none; \}/, 'a fila ainda reserva largura para o detalhe oculto');
   assert.match(intimacoes, /grid-template-areas: "nav" "workspace";/, 'a navegação móvel não permanece em uma linha própria');
   assert.doesNotMatch(intimacoes, /pjip-dashboard-nav__backup|data-role="backup-toggle"|data-role="backup-pill"/, 'o backup remoto ainda tem acesso duplicado na navegação');

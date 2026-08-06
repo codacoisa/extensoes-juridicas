@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.08.05-22:52
+// @version      2026.08.05-22:58
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       lourencosv
@@ -234,6 +234,7 @@
       width: min(1440px, calc(100vw - 32px));
       height: min(94vh, 960px);
       max-height: calc(100vh - 28px);
+      min-height: 0;
       border: 1px solid #e2e8f0;
       border-radius: 20px;
       background: #fff;
@@ -277,10 +278,12 @@
     }
     .pjip-modal-close:hover { background: #f8fafc; color: #172033; }
     .pjip-modal-body {
+      flex: 1 1 0;
       display: grid;
       grid-template-columns: 196px minmax(0, 1fr);
       grid-template-rows: minmax(0, 1fr);
       grid-template-areas: "nav workspace";
+      height: 0;
       gap: 0;
       min-height: 0;
       padding: 0;
@@ -346,7 +349,9 @@
       min-height: 0;
       padding: 24px;
       overflow-x: hidden;
-      overflow-y: auto;
+      overflow-y: scroll;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
     }
     .pjip-dashboard-content { display: grid; grid-template-columns: minmax(0, 1fr); grid-auto-flow: row; align-content: start; gap: 20px; min-width: 0; width: 100%; }
     .pjip-dashboard-context { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
