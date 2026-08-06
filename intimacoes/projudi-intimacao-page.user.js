@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.08.04-09:58
+// @version      2026.08.05-22:15
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       lourencosv
@@ -221,6 +221,334 @@
     @media (max-width: 720px) { .pj-backup-ui__popover { padding: 10px !important; } .pj-backup-ui__dialog { width: calc(100vw - 20px) !important; padding: 16px !important; } .pj-backup-ui__grid, .pj-backup-ui__actions { grid-template-columns: 1fr !important; } .pj-backup-ui__field--full { grid-column: auto !important; } .pj-backup-ui__toggles { align-items: stretch !important; flex-direction: column !important; } }
   `;
 
+  // Camada visual nova do workspace. Mantida separada para facilitar a
+  // reutilizacao dos mesmos tokens nas demais extensoes juridicas.
+  const INTIMACOES_REDESIGN_CSS = String.raw`
+    #${IDS.modalOverlay} {
+      padding: 18px;
+      background: rgba(23, 32, 51, .18);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    #${IDS.modalPanel} {
+      width: min(1440px, calc(100vw - 32px));
+      height: min(94vh, 960px);
+      max-height: calc(100vh - 28px);
+      border: 1px solid #e2e8f0;
+      border-radius: 20px;
+      background: #fff;
+      box-shadow: 0 28px 80px rgba(15, 23, 42, .18);
+      color: #172033;
+    }
+    #${IDS.modalPanel} :where(button, input, select, textarea):focus-visible,
+    #${IDS.hostRoot} :where(button, input, select):focus-visible {
+      outline: 3px solid rgba(37, 99, 235, .2);
+      outline-offset: 2px;
+      border-color: #2563eb;
+    }
+    .pjip-modal-head {
+      min-height: 76px;
+      padding: 16px 28px;
+      border-bottom: 1px solid #e2e8f0;
+      background: #fff;
+      color: #172033;
+    }
+    .pjip-modal-brand { gap: 12px; }
+    .pjip-modal-brand-icon {
+      width: 42px;
+      height: 42px;
+      border: 1px solid #dbe4ef;
+      border-radius: 12px;
+      background: #f8fafc;
+      color: #1e3a5f;
+      box-shadow: none;
+      font-size: 18px;
+    }
+    .pjip-modal-title { color: #172033; font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+    .pjip-modal-subtitle { color: #64748b; font-size: 12px; opacity: 1; }
+    .pjip-modal-close {
+      width: 38px;
+      min-width: 38px;
+      height: 38px;
+      border: 1px solid #e2e8f0;
+      background: #fff;
+      color: #64748b;
+      font-size: 20px;
+    }
+    .pjip-modal-close:hover { background: #f8fafc; color: #172033; }
+    .pjip-modal-body {
+      display: grid;
+      grid-template-columns: 196px minmax(0, 1fr);
+      grid-template-areas: "nav workspace";
+      gap: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #f8fafc;
+    }
+    .pjip-dashboard-nav {
+      grid-area: nav;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      padding: 24px 14px 18px;
+      border-right: 1px solid #e2e8f0;
+      background: #fff;
+    }
+    .pjip-dashboard-nav__label {
+      margin: 0 10px 12px;
+      color: #94a3b8;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+    .pjip-dashboard-nav__items { display: grid; gap: 4px; }
+    .pjip-dashboard-nav__button {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      width: 100%;
+      min-height: 42px;
+      padding: 10px 11px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      background: transparent;
+      color: #64748b;
+      cursor: pointer;
+      font: 600 13px/1.2 inherit;
+      text-align: left;
+    }
+    .pjip-dashboard-nav__button i { width: 18px; color: #94a3b8; text-align: center; }
+    .pjip-dashboard-nav__button:hover { background: #f8fafc; color: #172033; }
+    .pjip-dashboard-nav__button[data-active="true"] {
+      border-color: #dbeafe;
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+    .pjip-dashboard-nav__button[data-active="true"] i { color: #2563eb; }
+    .pjip-dashboard-nav__footer {
+      display: grid;
+      gap: 12px;
+      margin-top: auto;
+      padding-top: 18px;
+      border-top: 1px solid #eef2f7;
+    }
+    .pjip-dashboard-nav__hint { margin: 0 10px; color: #94a3b8; font-size: 11px; line-height: 1.45; }
+    .pjip-dashboard-nav__backup {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 9px 10px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #fff;
+      color: #475569;
+      cursor: pointer;
+      font: 700 12px/1.2 inherit;
+      text-align: left;
+    }
+    .pjip-dashboard-nav__backup:hover { border-color: #bfdbfe; background: #f8fbff; color: #1d4ed8; }
+    .pjip-dashboard-nav__backup i { color: #2563eb; }
+    .pjip-dashboard-workspace {
+      grid-area: workspace;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 286px;
+      gap: 24px;
+      min-width: 0;
+      min-height: 0;
+      padding: 28px;
+      overflow: auto;
+    }
+    .pjip-dashboard-content { display: grid; align-content: start; gap: 20px; min-width: 0; }
+    .pjip-dashboard-context { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .pjip-dashboard-eyebrow { margin: 0 0 7px; color: #64748b; font-size: 12px; font-weight: 700; }
+    .pjip-dashboard-heading { margin: 0; color: #172033; font-size: 25px; font-weight: 800; letter-spacing: -.03em; line-height: 1.12; }
+    .pjip-dashboard-description { margin: 7px 0 0; color: #64748b; font-size: 13px; }
+    .pjip-dashboard-header-tools { display: flex; align-items: center; gap: 10px; min-width: 300px; }
+    .pjip-dashboard-header-search { position: relative; flex: 1 1 auto; min-width: 0; }
+    .pjip-dashboard-header-search i { position: absolute; top: 50%; left: 13px; color: #94a3b8; pointer-events: none; transform: translateY(-50%); }
+    .pjip-dashboard-header-search input { width: 100%; min-height: 40px; padding: 9px 12px 9px 36px; border: 1px solid #e2e8f0; border-radius: 9px; background: #fff; color: #172033; font: 500 12px/1.2 inherit; }
+    .pjip-dashboard-export { min-height: 40px; white-space: nowrap; }
+    .pjip-summary, .pjip-overview { display: contents; }
+    .pjip-summary-head, .pjip-summary-actions, .pjip-toolbar-meta { display: none; }
+    .pjip-summary-grid { grid-area: auto; display: contents; }
+    .pjip-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .pjip-stat {
+      display: grid;
+      grid-template-columns: 38px minmax(0, 1fr);
+      grid-template-rows: auto auto;
+      column-gap: 11px;
+      align-items: center;
+      min-height: 84px;
+      padding: 14px;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, .03);
+    }
+    .pjip-stat:hover { border-color: #bfdbfe; box-shadow: 0 5px 16px rgba(37, 99, 235, .08); }
+    .pjip-stat[data-active="true"] { border-color: #93c5fd; box-shadow: inset 0 0 0 1px #2563eb; }
+    .pjip-stat-icon { grid-row: 1 / span 2; display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: 16px; }
+    .pjip-stat-value { color: #172033; font-size: 25px; font-weight: 800; line-height: 1; }
+    .pjip-stat-label { color: #64748b; font-size: 11px; font-weight: 700; letter-spacing: .01em; }
+    .pjip-stat--late .pjip-stat-icon { background: #fef2f2; color: #dc2626; }
+    .pjip-stat--late .pjip-stat-value { color: #dc2626; }
+    .pjip-stat--soon .pjip-stat-icon { background: #fff7ed; color: #d97706; }
+    .pjip-stat--soon .pjip-stat-value { color: #d97706; }
+    .pjip-stat--open .pjip-stat-icon { background: #eff6ff; color: #2563eb; }
+    .pjip-stat--open .pjip-stat-value { color: #2563eb; }
+    .pjip-stat--done .pjip-stat-icon { background: #f0fdf4; color: #15803d; }
+    .pjip-stat--done .pjip-stat-value { color: #15803d; }
+    .pjip-toolbar {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, .03);
+    }
+    .pjip-toolbar .pjip-section-title { display: none; }
+    .pjip-toolbar-grid { display: grid; grid-template-columns: minmax(210px, 1fr) 132px 142px; gap: 9px; }
+    .pjip-toolbar-row { display: contents; }
+    .pjip-field { display: grid; gap: 6px; }
+    .pjip-field label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .pjip-toolbar input[type="search"], .pjip-toolbar select {
+      width: 100%; min-height: 40px; padding: 9px 11px; border: 1px solid #e2e8f0; border-radius: 9px; background: #fff; color: #334155; font: 600 12px/1.2 inherit;
+    }
+    .pjip-toolbar input[type="search"] { padding-left: 12px; }
+    .pjip-checks { display: flex; flex-wrap: wrap; gap: 7px; }
+    .pjip-checks label { min-height: 30px; padding: 7px 9px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; color: #64748b; font-size: 11px; }
+    .pjip-deadline { display: grid; gap: 12px; padding: 14px 0 0; border-top: 1px solid #e2e8f0; background: transparent; }
+    .pjip-deadline-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .pjip-deadline .pjip-section-title { margin: 0; color: #172033; font-size: 13px; letter-spacing: 0; text-transform: none; }
+    .pjip-deadline .pjip-section-title :is(i, .pj-suite-fa) { color: #2563eb; }
+    .pjip-deadline-status { color: #64748b; font-size: 11px; font-weight: 600; text-align: right; }
+    .pjip-deadline-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+    .pjip-deadline-card { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }
+    .pjip-deadline-card-title { color: #334155; font-size: 11px; font-weight: 800; letter-spacing: 0; text-transform: none; }
+    .pjip-deadline-card-desc { min-height: 31px; color: #94a3b8; font-size: 10px; line-height: 1.35; }
+    .pjip-deadline-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; height: auto; }
+    .pjip-deadline-row--range { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .pjip-deadline-row > input, .pjip-deadline-row > button { width: 100%; height: 38px; min-height: 38px; padding: 0 9px; font-size: 11px; }
+    .pjip-deadline-row > input[type="date"] { border: 1px solid #e2e8f0; border-radius: 8px; }
+    .pjip-modal-btn { min-height: 38px; padding: 8px 10px; border: 1px solid #dbe4ef; border-radius: 8px; background: #fff; color: #334155; font-size: 11px; font-weight: 700; }
+    .pjip-modal-btn:hover { border-color: #bfdbfe; background: #f8fbff; color: #1d4ed8; }
+    .pjip-modal-btn--primary { border-color: #2563eb; background: #2563eb; color: #fff; }
+    .pjip-modal-btn--primary:hover { border-color: #1d4ed8; background: #1d4ed8; color: #fff; }
+    .pjip-modal-btn--ghost { background: #f8fafc; }
+    .pjip-modal-btn--danger { border-color: #fecaca; background: #fff7f7; color: #b42318; }
+    .pjip-list-shell { display: grid; gap: 11px; min-width: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
+    .pjip-list-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+    .pjip-list-head .pjip-section-title { margin: 0; color: #172033; font-size: 15px; letter-spacing: -.01em; text-transform: none; }
+    .pjip-list-head .pjip-section-title :is(i, .pj-suite-fa) { color: #2563eb; }
+    .pjip-list-meta { margin-top: 4px; color: #64748b; font-size: 11px; }
+    .pjip-table-head, .pjip-item { display: grid; grid-template-columns: 72px minmax(136px, 1.1fr) 94px minmax(180px, 1.65fr) 100px 86px 84px; gap: 12px; align-items: center; }
+    .pjip-table-head { padding: 0 12px 8px; border-bottom: 1px solid #e2e8f0; color: #94a3b8; font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    .pjip-list { display: grid; gap: 0; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; }
+    .pjip-item { position: relative; min-height: 76px; padding: 12px; border: 0; border-bottom: 1px solid #eef2f7; border-radius: 0; background: #fff; box-shadow: none; cursor: pointer; }
+    .pjip-item:last-child { border-bottom: 0; }
+    .pjip-item:hover { background: #fbfdff; border-color: #eef2f7; box-shadow: none; }
+    .pjip-item[data-selected="true"] { background: #eff6ff; box-shadow: inset 3px 0 0 #2563eb; }
+    .pjip-item--done { opacity: .7; }
+    .pjip-item-top { display: contents; }
+    .pjip-item-priority { display: inline-flex; align-items: center; gap: 6px; color: #64748b; font-size: 11px; font-weight: 700; }
+    .pjip-item-priority::before { width: 7px; height: 7px; border-radius: 999px; background: #94a3b8; content: ''; }
+    .pjip-item-priority--late::before { background: #dc2626; }
+    .pjip-item-priority--soon::before { background: #d97706; }
+    .pjip-item-priority--open::before { background: #2563eb; }
+    .pjip-item-priority--done::before { background: #16a34a; }
+    .pjip-item-process, .pjip-item-intimation, .pjip-item-movement, .pjip-item-deadline { min-width: 0; }
+    .pjip-item-process strong, .pjip-item-intimation strong { display: block; overflow: hidden; color: #172033; font-size: 11px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+    .pjip-item-process span, .pjip-item-intimation span { display: block; overflow: hidden; margin-top: 4px; color: #64748b; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .pjip-item-movement { overflow: hidden; color: #475569; font-size: 11px; line-height: 1.35; }
+    .pjip-item-deadline strong { display: block; color: #334155; font-size: 11px; }
+    .pjip-item-deadline span { display: block; margin-top: 4px; color: #64748b; font-size: 10px; }
+    .pjip-item-deadline--late strong, .pjip-item-deadline--late span { color: #b42318; }
+    .pjip-item-deadline--soon strong, .pjip-item-deadline--soon span { color: #b54708; }
+    .pjip-item-status { display: inline-flex; width: fit-content; padding: 5px 8px; border-radius: 6px; background: #f1f5f9; color: #475569; font-size: 10px; font-weight: 800; }
+    .pjip-item-status--done { background: #f0fdf4; color: #15803d; }
+    .pjip-item-status--late { background: #fef2f2; color: #b42318; }
+    .pjip-item-status--soon { background: #fff7ed; color: #b54708; }
+    .pjip-item-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; min-width: 0; }
+    .pjip-item-action { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #64748b; cursor: pointer; }
+    .pjip-item-action:hover { border-color: #dbeafe; background: #fff; color: #2563eb; }
+    .pjip-item-action--danger:hover { border-color: #fecaca; color: #b42318; }
+    .pjip-item-grid, .pjip-item-meta { display: none; }
+    .pjip-empty { padding: 36px 18px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #fff; color: #64748b; text-align: center; }
+    .pjip-detail {
+      align-self: start;
+      display: grid;
+      gap: 18px;
+      min-width: 0;
+      padding: 18px;
+      border: 1px solid #e2e8f0;
+      border-radius: 13px;
+      background: #fff;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, .03);
+    }
+    .pjip-detail__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid #eef2f7; }
+    .pjip-detail__title { margin: 0; color: #172033; font-size: 15px; font-weight: 800; }
+    .pjip-detail__subtitle { margin: 5px 0 0; color: #94a3b8; font-size: 11px; }
+    .pjip-detail__icon { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 9px; background: #eff6ff; color: #2563eb; }
+    .pjip-detail__fields { display: grid; gap: 15px; }
+    .pjip-detail__field { display: grid; gap: 5px; padding-bottom: 12px; border-bottom: 1px solid #eef2f7; }
+    .pjip-detail__field:last-child { padding-bottom: 0; border-bottom: 0; }
+    .pjip-detail__label { color: #64748b; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+    .pjip-detail__value { color: #334155; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+    .pjip-detail__value--strong { color: #172033; font-weight: 800; }
+    .pjip-detail__deadline { color: #b54708; font-weight: 800; }
+    .pjip-detail__actions { display: grid; gap: 8px; }
+    .pjip-detail__actions .pjip-modal-btn { width: 100%; }
+    .pjip-detail--empty { align-content: center; min-height: 260px; text-align: center; }
+    .pjip-detail--empty .pjip-detail__icon { margin: 0 auto; background: #f1f5f9; color: #64748b; }
+    .pjip-detail--empty p { margin: 0; color: #64748b; font-size: 12px; line-height: 1.5; }
+    .pjip-backup-popover { background: rgba(23, 32, 51, .32); backdrop-filter: blur(4px); }
+    .pjip-actions-head { background: #1e3a5f; }
+    .pjip-fab, .pjip-today-deadline-fab { border-color: #1e3a5f; background: #1e3a5f; }
+    #${IDS.toast} { border-color: #1e3a5f; background: #1e3a5f; }
+    @media (max-width: 1180px) {
+      .pjip-dashboard-workspace { grid-template-columns: minmax(0, 1fr); }
+      .pjip-detail { display: none; }
+    }
+    @media (max-width: 900px) {
+      #${IDS.modalOverlay} { padding: 8px; }
+      #${IDS.modalPanel} { width: calc(100vw - 12px); height: calc(100vh - 16px); max-height: none; border-radius: 14px; }
+      .pjip-modal-head { padding: 13px 16px; }
+      .pjip-modal-body { grid-template-columns: 1fr; grid-template-areas: "workspace"; }
+      .pjip-dashboard-nav { display: flex; flex-direction: row; align-items: center; gap: 4px; overflow-x: auto; padding: 8px 12px; border-right: 0; border-bottom: 1px solid #e2e8f0; }
+      .pjip-dashboard-nav__label, .pjip-dashboard-nav__footer { display: none; }
+      .pjip-dashboard-nav__items { display: flex; flex: 1 1 auto; gap: 4px; }
+      .pjip-dashboard-nav__button { width: auto; min-width: max-content; }
+      .pjip-dashboard-workspace { padding: 18px 16px; }
+      .pjip-dashboard-context { display: grid; }
+      .pjip-dashboard-header-tools { min-width: 0; width: 100%; }
+      .pjip-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .pjip-toolbar-grid { grid-template-columns: minmax(0, 1fr) 1fr; }
+      .pjip-toolbar-grid > .pjip-field:first-child { grid-column: 1 / -1; }
+      .pjip-deadline-grid { grid-template-columns: 1fr; }
+      .pjip-table-head { display: none; }
+      .pjip-item { grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px; }
+      .pjip-item-priority { grid-column: 1 / -1; }
+      .pjip-item-movement { grid-column: 1 / -1; }
+      .pjip-item-actions { grid-column: 1 / -1; justify-content: flex-start; }
+    }
+    @media (max-width: 560px) {
+      .pjip-dashboard-heading { font-size: 21px; }
+      .pjip-dashboard-header-tools { display: grid; grid-template-columns: 1fr auto; }
+      .pjip-dashboard-export { padding: 8px; }
+      .pjip-dashboard-export span { display: none; }
+      .pjip-metrics { gap: 8px; }
+      .pjip-stat { grid-template-columns: 30px minmax(0, 1fr); min-height: 72px; padding: 10px; }
+      .pjip-stat-icon { width: 30px; height: 30px; font-size: 13px; }
+      .pjip-stat-value { font-size: 20px; }
+      .pjip-toolbar-grid { grid-template-columns: 1fr; }
+      .pjip-toolbar-grid > .pjip-field:first-child { grid-column: auto; }
+      .pjip-item { grid-template-columns: 1fr; }
+      .pjip-item-priority, .pjip-item-movement, .pjip-item-actions { grid-column: auto; }
+    }
+  `;
+
   /** @type {{
    * frame: HTMLIFrameElement | null,
    * frameDoc: Document | null,
@@ -236,6 +564,7 @@
    * hostHooksAttached: boolean,
    * menuOpen: boolean,
    * modalOpen: boolean,
+   * selectedItemId: string | null,
    * modalRoot: HTMLElement | null,
    * toastTimer: number,
    * backupTimer: number,
@@ -261,6 +590,7 @@
     hostHooksAttached: false,
     menuOpen: false,
     modalOpen: false,
+    selectedItemId: null,
     modalRoot: null,
     toastTimer: 0,
     backupTimer: 0,
@@ -2244,6 +2574,7 @@
           justify-content: flex-start;
         }
       }
+      ${INTIMACOES_REDESIGN_CSS}
       ${BACKUP_UI_CSS}
     `;
 
@@ -2563,6 +2894,33 @@
     state.store.ui.sortBy = 'deadline-asc';
     state.store.ui.query = '';
     openModal();
+  }
+
+  function applyQuickDeadlineFilter(mode) {
+    const today = cloneDay(new Date());
+    if (mode === 'today') {
+      setDeadlineStored(DEADLINE.filterDateKey, toYmd(today));
+      setDeadlineFilterMode('exact');
+      setDeadlineFilterEnabled(true);
+    } else if (mode === 'next7') {
+      const end = cloneDay(today);
+      end.setDate(end.getDate() + 6);
+      setDeadlineStored(DEADLINE.filterRangeStartKey, toYmd(today));
+      setDeadlineStored(DEADLINE.filterRangeEndKey, toYmd(end));
+      setDeadlineFilterMode('range');
+      setDeadlineFilterEnabled(true);
+    } else if (mode === 'missing') {
+      setDeadlineFilterMode('missing');
+      setDeadlineFilterEnabled(true);
+    } else {
+      clearDeadlineStored(DEADLINE.filterDateKey);
+      clearDeadlineStored(DEADLINE.filterRangeStartKey);
+      clearDeadlineStored(DEADLINE.filterRangeEndKey);
+      setDeadlineFilterMode('exact');
+      setDeadlineFilterEnabled(false);
+    }
+    applyDeadlineSettingsChange();
+    renderModal();
   }
 
   /**
@@ -3121,7 +3479,7 @@
     const brandText = document.createElement('div');
     const title = document.createElement('div');
     title.className = 'pjip-modal-title';
-    title.textContent = 'Minhas Intimações';
+    title.textContent = 'Intimações';
     const subtitle = document.createElement('div');
     subtitle.className = 'pjip-modal-subtitle';
     subtitle.textContent = 'Triagem local com atualização sob demanda.';
@@ -3140,59 +3498,77 @@
     const body = document.createElement('div');
     body.className = 'pjip-modal-body';
     body.innerHTML = `
-      <section class="pjip-overview">
-        <section class="pjip-summary">
-          <div class="pjip-summary-head">
-            <div>
-              <div class="pjip-summary-kicker"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i> Painel principal</div>
-              <div class="pjip-summary-title" data-role="summary-title"></div>
-              <div class="pjip-summary-subtitle" data-role="summary-subtitle"></div>
+      <nav class="pjip-dashboard-nav" aria-label="Navegação das intimações">
+        <div class="pjip-dashboard-nav__label">Workspace</div>
+        <div class="pjip-dashboard-nav__items">
+          <button type="button" class="pjip-dashboard-nav__button" data-role="nav-filter" data-nav="overview" data-status="all"><i class="fa-solid fa-house" aria-hidden="true"></i><span>Visão geral</span></button>
+          <button type="button" class="pjip-dashboard-nav__button" data-role="nav-filter" data-nav="focus" data-status="active" data-active="true"><i class="fa-solid fa-bell" aria-hidden="true"></i><span>Em foco</span></button>
+          <button type="button" class="pjip-dashboard-nav__button" data-role="nav-filter" data-nav="all" data-status="all"><i class="fa-solid fa-folder" aria-hidden="true"></i><span>Todas</span></button>
+          <button type="button" class="pjip-dashboard-nav__button" data-role="nav-filter" data-nav="done" data-status="done"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span>Concluídas</span></button>
+          <button type="button" class="pjip-dashboard-nav__button" data-role="nav-settings"><i class="fa-solid fa-gear" aria-hidden="true"></i><span>Configurações</span></button>
+        </div>
+        <div class="pjip-dashboard-nav__footer">
+          <p class="pjip-dashboard-nav__hint">Os dados ficam salvos localmente neste navegador.</p>
+          <button type="button" class="pjip-dashboard-nav__backup" data-role="backup-toggle"><i class="fa-solid fa-cloud" aria-hidden="true"></i><span>Backup remoto</span></button>
+          <span class="pjip-dashboard-nav__hint" data-role="backup-pill">Backup desativado</span>
+        </div>
+      </nav>
+      <main class="pjip-dashboard-workspace">
+        <div class="pjip-dashboard-content">
+          <section class="pjip-summary">
+            <div class="pjip-dashboard-context">
+              <div>
+                <p class="pjip-dashboard-eyebrow">Resumo da triagem</p>
+                <h1 class="pjip-dashboard-heading" data-role="summary-title">Hoje</h1>
+                <p class="pjip-dashboard-description" data-role="summary-subtitle">Organizando o que exige atenção.</p>
+              </div>
+              <div class="pjip-dashboard-header-tools">
+                <div class="pjip-dashboard-header-search">
+                  <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                  <input id="pjip-modal-search" type="search" data-role="search" placeholder="Buscar intimações ou processos" aria-label="Buscar intimações ou processos">
+                </div>
+                <button type="button" class="pjip-modal-btn pjip-dashboard-export" data-role="export-csv"><i class="fa-solid fa-download" aria-hidden="true"></i><span>Exportar</span></button>
+              </div>
             </div>
-          </div>
-          <div class="pjip-summary-grid">
-            <button type="button" class="pjip-stat pjip-stat--late" data-role="quick-status" data-status="late">
-              <i class="fa-solid fa-triangle-exclamation pjip-stat-icon" aria-hidden="true"></i>
-              <div class="pjip-stat-value" data-role="stat-late">0</div>
-              <div class="pjip-stat-label">Vencidas</div>
-            </button>
-            <button type="button" class="pjip-stat pjip-stat--soon" data-role="quick-status" data-status="soon">
-              <i class="fa-solid fa-hourglass-half pjip-stat-icon" aria-hidden="true"></i>
-              <div class="pjip-stat-value" data-role="stat-soon">0</div>
-              <div class="pjip-stat-label">Vencendo</div>
-            </button>
-            <button type="button" class="pjip-stat pjip-stat--open" data-role="quick-status" data-status="open">
-              <i class="fa-solid fa-envelope-open-text pjip-stat-icon" aria-hidden="true"></i>
-              <div class="pjip-stat-value" data-role="stat-open">0</div>
-              <div class="pjip-stat-label">Abertas</div>
-            </button>
-            <button type="button" class="pjip-stat pjip-stat--done" data-role="quick-status" data-status="done">
-              <i class="fa-solid fa-circle-check pjip-stat-icon" aria-hidden="true"></i>
-              <div class="pjip-stat-value" data-role="stat-done">0</div>
-              <div class="pjip-stat-label">Concluídas</div>
-            </button>
-          </div>
-          <div class="pjip-summary-actions">
-            <button type="button" class="pjip-modal-btn pjip-modal-btn--ghost" data-role="backup-toggle"></button>
-          </div>
-        </section>
-        <section class="pjip-toolbar">
-          <div class="pjip-section">
-            <div class="pjip-section-title"><i class="fa-solid fa-filter" aria-hidden="true"></i><span>Filtros</span></div>
+            <div class="pjip-metrics" aria-label="Resumo por prioridade">
+              <button type="button" class="pjip-stat pjip-stat--late" data-role="quick-status" data-status="late">
+                <i class="fa-solid fa-circle-exclamation pjip-stat-icon" aria-hidden="true"></i>
+                <div class="pjip-stat-value" data-role="stat-late">0</div>
+                <div class="pjip-stat-label">Vencidas</div>
+              </button>
+              <div class="pjip-stat pjip-stat--soon">
+                <i class="fa-solid fa-calendar-day pjip-stat-icon" aria-hidden="true"></i>
+                <div class="pjip-stat-value" data-role="stat-today">0</div>
+                <div class="pjip-stat-label">Vencem hoje</div>
+              </div>
+              <div class="pjip-stat pjip-stat--open">
+                <i class="fa-solid fa-calendar-week pjip-stat-icon" aria-hidden="true"></i>
+                <div class="pjip-stat-value" data-role="stat-next7">0</div>
+                <div class="pjip-stat-label">Próximos 7 dias</div>
+              </div>
+              <div class="pjip-stat pjip-stat--done">
+                <i class="fa-solid fa-infinity pjip-stat-icon" aria-hidden="true"></i>
+                <div class="pjip-stat-value" data-role="stat-missing">0</div>
+                <div class="pjip-stat-label">Sem prazo</div>
+              </div>
+            </div>
+          </section>
+          <section class="pjip-toolbar">
             <div class="pjip-toolbar-grid">
               <div class="pjip-field">
-                <label for="pjip-modal-search">Busca</label>
-                <input id="pjip-modal-search" type="search" data-role="search" placeholder="Buscar intimação, processo ou texto">
+                <label for="pjip-modal-search-secondary">Busca</label>
+                <input id="pjip-modal-search-secondary" type="search" data-role="search-secondary" placeholder="Buscar na fila de atenção">
               </div>
               <div class="pjip-toolbar-row">
                 <div class="pjip-field">
                   <label for="pjip-modal-status">Status</label>
                   <select id="pjip-modal-status" data-role="status-filter">
-                    <option value="all">Todas</option>
+                    <option value="all">Todos os status</option>
                     <option value="late">Vencidas</option>
                     <option value="soon">Vencendo</option>
                     <option value="open">Abertas</option>
                     <option value="done">Concluídas</option>
-                    <option value="active">Abertas e em andamento</option>
+                    <option value="active">Em andamento</option>
                   </select>
                 </div>
                 <div class="pjip-field">
@@ -3211,54 +3587,56 @@
               <label><input type="checkbox" data-role="only-marked-page"> Mostrar só as marcadas nesta página</label>
             </div>
             <div class="pjip-toolbar-meta" data-role="meta"></div>
-          </div>
-        </section>
-      </section>
-      <section class="pjip-deadline" data-role="deadline-panel">
-        <div class="pjip-deadline-head">
-          <div class="pjip-section">
-            <div class="pjip-section-title"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i><span>Prazos</span></div>
-            <div class="pjip-backup-meta">Filtros aplicados diretamente à tabela atual do Projudi.</div>
-          </div>
-          <div class="pjip-deadline-status" data-role="deadline-status"></div>
-        </div>
-        <div class="pjip-deadline-grid">
-          <div class="pjip-deadline-card">
-            <div class="pjip-deadline-card-title">Filtro por data exata</div>
-            <div class="pjip-deadline-card-desc">Exibe somente linhas cuja coluna de prazo corresponda à data escolhida.</div>
-            <div class="pjip-deadline-row">
-              <input data-role="deadline-date" type="date">
-              <button type="button" class="pjip-modal-btn pjip-modal-btn--primary" data-role="deadline-apply-date"><i class="fa-solid fa-check" aria-hidden="true"></i><span>Aplicar</span></button>
+          </section>
+          <section class="pjip-deadline" data-role="deadline-panel">
+            <div class="pjip-deadline-head">
+              <div class="pjip-section-title"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i><span>Filtros de prazo</span></div>
+              <div class="pjip-deadline-status" data-role="deadline-status"></div>
             </div>
-          </div>
-          <div class="pjip-deadline-card">
-            <div class="pjip-deadline-card-title">Filtro por período</div>
-            <div class="pjip-deadline-card-desc">Exibe somente linhas com prazo dentro do intervalo informado.</div>
-            <div class="pjip-deadline-row pjip-deadline-row--range">
-              <input data-role="deadline-range-start" type="date">
-              <input data-role="deadline-range-end" type="date">
-              <button type="button" class="pjip-modal-btn pjip-modal-btn--primary" data-role="deadline-apply-range"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i><span>Aplicar período</span></button>
+            <div class="pjip-deadline-grid">
+              <div class="pjip-deadline-card">
+                <div class="pjip-deadline-card-title">Data exata</div>
+                <div class="pjip-deadline-card-desc">Mostra somente os prazos da data escolhida.</div>
+                <div class="pjip-deadline-row">
+                  <input data-role="deadline-date" type="date" aria-label="Data exata">
+                  <button type="button" class="pjip-modal-btn pjip-modal-btn--primary" data-role="deadline-apply-date"><i class="fa-solid fa-check" aria-hidden="true"></i><span>Aplicar</span></button>
+                </div>
+              </div>
+              <div class="pjip-deadline-card">
+                <div class="pjip-deadline-card-title">Período personalizado</div>
+                <div class="pjip-deadline-card-desc">Limita a tabela ao intervalo informado.</div>
+                <div class="pjip-deadline-row pjip-deadline-row--range">
+                  <input data-role="deadline-range-start" type="date" aria-label="Data inicial">
+                  <input data-role="deadline-range-end" type="date" aria-label="Data final">
+                  <button type="button" class="pjip-modal-btn pjip-modal-btn--primary" data-role="deadline-apply-range"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i><span>Aplicar</span></button>
+                </div>
+              </div>
+              <div class="pjip-deadline-card">
+                <div class="pjip-deadline-card-title">Sem data limite</div>
+                <div class="pjip-deadline-card-desc">Encontra linhas sem prazo preenchido.</div>
+                <div class="pjip-deadline-row">
+                  <button type="button" class="pjip-modal-btn pjip-modal-btn--primary" data-role="deadline-apply-missing"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>Localizar</span></button>
+                  <button type="button" class="pjip-modal-btn" data-role="deadline-clear"><i class="fa-solid fa-filter-circle-xmark" aria-hidden="true"></i><span>Limpar</span></button>
+                </div>
+              </div>
             </div>
-          </div>
-          <div class="pjip-deadline-card">
-            <div class="pjip-deadline-card-title">Sem data limite</div>
-            <div class="pjip-deadline-card-desc">Localiza linhas com prazo vazio ou preenchido apenas com traço.</div>
-            <div class="pjip-deadline-row">
-              <button type="button" class="pjip-modal-btn pjip-modal-btn--primary" data-role="deadline-apply-missing"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>Localizar sem prazo</span></button>
-              <button type="button" class="pjip-modal-btn" data-role="deadline-clear"><i class="fa-solid fa-filter-circle-xmark" aria-hidden="true"></i><span>Limpar filtro</span></button>
+          </section>
+          <section class="pjip-list-shell">
+            <div class="pjip-list-head">
+              <div>
+                <div class="pjip-section-title"><i class="fa-solid fa-list-check" aria-hidden="true"></i><span>Fila de atenção</span></div>
+                <div class="pjip-list-meta" data-role="list-meta"></div>
+              </div>
             </div>
-          </div>
+            <div class="pjip-table-head" aria-hidden="true"><span>Prioridade</span><span>Processo</span><span>Intimação</span><span>Movimentação</span><span>Prazo</span><span>Status</span><span>Ações</span></div>
+            <section class="pjip-list" data-role="list"></section>
+          </section>
         </div>
-      </section>
-      <section class="pjip-list-shell">
-        <div class="pjip-list-head">
-          <div>
-            <div class="pjip-section-title"><i class="fa-solid fa-layer-group" aria-hidden="true"></i><span>Itens monitorados</span></div>
-            <div class="pjip-list-meta" data-role="list-meta"></div>
-          </div>
-        </div>
-        <section class="pjip-list" data-role="list"></section>
-      </section>
+        <aside class="pjip-detail pjip-detail--empty" data-role="detail" aria-live="polite">
+          <div class="pjip-detail__icon"><i class="fa-solid fa-file-lines" aria-hidden="true"></i></div>
+          <p>Selecione uma intimação para ver os detalhes e as ações disponíveis.</p>
+        </aside>
+      </main>
       <div class="pjip-backup-popover pj-backup-ui__popover" data-role="backup-popover">
         <section class="pjip-backup pjip-backup-dialog pj-backup-ui__dialog" data-role="backup-panel" role="dialog" aria-modal="true" aria-labelledby="pjip-backup-title">
           <div class="pjip-backup-head pj-backup-ui__header">
@@ -3315,6 +3693,30 @@
       renderModal();
     });
 
+    body.querySelector('[data-role="search-secondary"]')?.addEventListener('input', (event) => {
+      const input = /** @type {HTMLInputElement} */ (event.currentTarget);
+      state.store.ui.query = input.value || '';
+      persistStore();
+      renderModal();
+    });
+
+    body.querySelector('[data-role="export-csv"]')?.addEventListener('click', () => exportCSV());
+
+    body.querySelectorAll('[data-role="nav-filter"]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        const target = /** @type {HTMLElement} */ (event.currentTarget);
+        state.store.ui.statusFilter = target.dataset.status || 'active';
+        persistStore();
+        renderModal();
+      });
+    });
+
+    body.querySelector('[data-role="nav-settings"]')?.addEventListener('click', () => {
+      state.store.ui.backupExpanded = true;
+      persistStore();
+      renderModal();
+    });
+
     body.querySelector('[data-role="hide-done"]')?.addEventListener('change', (event) => {
       const input = /** @type {HTMLInputElement} */ (event.currentTarget);
       state.store.ui.hideDone = input.checked;
@@ -3351,6 +3753,10 @@
       persistStore();
       refreshFrameContext();
       renderModal();
+    });
+
+    body.querySelectorAll('[data-role="quick-deadline"]').forEach((button) => {
+      button.addEventListener('click', () => applyQuickDeadlineFilter(button.dataset.mode || 'clear'));
     });
 
     body.querySelector('[data-role="backup-toggle"]')?.addEventListener('click', () => {
@@ -3505,6 +3911,7 @@
     const summary = buildItemsSummary();
     const visibleItems = getFilteredItems();
     setInputValue(root.querySelector('[data-role="search"]'), state.store.ui.query);
+    setInputValue(root.querySelector('[data-role="search-secondary"]'), state.store.ui.query);
     setChecked(root.querySelector('[data-role="hide-done"]'), state.store.ui.hideDone);
     setChecked(root.querySelector('[data-role="only-marked-page"]'), state.store.ui.onlyMarkedOnPage);
     setSelectValue(root.querySelector('[data-role="status-filter"]'), state.store.ui.statusFilter);
@@ -3519,28 +3926,43 @@
     setInputValue(root.querySelector('[data-role="deadline-range-start"]'), getDeadlineRangeStart() || filterDate);
     setInputValue(root.querySelector('[data-role="deadline-range-end"]'), getDeadlineRangeEnd() || filterDate);
     setNodeText(root.querySelector('[data-role="deadline-status"]'), describeActiveDeadlineFilter());
-    setNodeText(root.querySelector('[data-role="summary-title"]'), `${formatCount(summary.visible, 'item', 'itens')} em foco`);
+    const todayLabel = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' })
+      .format(new Date())
+      .replace(/\sde\s/g, ' ')
+      .replace(/\./g, '');
+    setNodeText(root.querySelector('[data-role="summary-title"]'), `Hoje, ${todayLabel}`);
     setNodeText(
       root.querySelector('[data-role="summary-subtitle"]'),
       summary.late
         ? `${summary.late} vencida(s) precisam de atenção imediata.`
-        : 'Painel reorganizado para priorizar o que exige ação.'
+        : `${formatCount(summary.visible, 'item visível', 'itens visíveis')} na fila atual.`
     );
     setNodeText(root.querySelector('[data-role="stat-late"]'), String(summary.late));
-    setNodeText(root.querySelector('[data-role="stat-soon"]'), String(summary.soon));
-    setNodeText(root.querySelector('[data-role="stat-open"]'), String(summary.open));
-    setNodeText(root.querySelector('[data-role="stat-done"]'), String(summary.done));
+    setNodeText(root.querySelector('[data-role="stat-today"]'), String(summary.today));
+    setNodeText(root.querySelector('[data-role="stat-next7"]'), String(summary.next7));
+    setNodeText(root.querySelector('[data-role="stat-missing"]'), String(summary.noDeadline));
     root.querySelectorAll('[data-role="quick-status"]').forEach((button) => {
       if (button instanceof HTMLElement) {
         button.dataset.active = button.dataset.status === state.store.ui.statusFilter ? 'true' : 'false';
       }
+    });
+    root.querySelectorAll('[data-role="nav-filter"]').forEach((button) => {
+      if (!(button instanceof HTMLElement)) return;
+      const nav = button.dataset.nav;
+      const active = nav === 'focus'
+        ? state.store.ui.statusFilter === 'active' || ['late', 'soon', 'open'].includes(state.store.ui.statusFilter)
+        : nav === 'done'
+          ? state.store.ui.statusFilter === 'done'
+          : nav === 'all'
+            ? state.store.ui.statusFilter === 'all'
+            : false;
+      button.dataset.active = active ? 'true' : 'false';
     });
     setNodeText(root.querySelector('[data-role="list-meta"]'), describeVisibleItems(summary.visible, summary.total, state.store.ui.statusFilter));
     setNodeText(
       root.querySelector('[data-role="meta"]'),
       `${formatCount(visibleItems.length, 'item visível', 'itens visíveis')} • ${formatCount(summary.total, 'intimação marcada', 'intimações marcadas')} • ordenação: ${resolveSortLabel(state.store.ui.sortBy)}.`
     );
-    setIconButton(root.querySelector('[data-role="backup-toggle"]'), 'fa-cloud', 'Backup remoto');
     setNodeText(root.querySelector('[data-role="backup-pill"]'), backupSettings.enabled ? 'Backup ativo' : 'Backup desativado');
     const backupPopover = root.querySelector('[data-role="backup-popover"]');
     if (backupPopover instanceof HTMLElement) {
@@ -3556,6 +3978,8 @@
       empty.className = 'pjip-empty';
       empty.textContent = 'Nenhuma intimação marcada para este filtro.';
       listNode.appendChild(empty);
+      state.selectedItemId = null;
+      renderDetail(root, null);
       return;
     }
 
@@ -3564,6 +3988,10 @@
       fragment.appendChild(buildModalItem(item));
     }
     listNode.appendChild(fragment);
+
+    const selectedItem = visibleItems.find(item => String(item.id) === String(state.selectedItemId)) || visibleItems[0] || null;
+    state.selectedItemId = selectedItem ? String(selectedItem.id) : null;
+    renderDetail(root, selectedItem);
   }
 
   /**
@@ -3574,56 +4002,71 @@
   function buildModalItem(item) {
     const card = document.createElement('article');
     card.className = `pjip-item${item.done ? ' pjip-item--done' : ''}`;
+    card.dataset.selected = String(item.id) === String(state.selectedItemId) ? 'true' : 'false';
+    card.setAttribute('tabindex', '0');
+    card.setAttribute('role', 'group');
+    card.setAttribute('aria-label', `Ver detalhes da intimação ${item.id}`);
 
-    const top = document.createElement('div');
-    top.className = 'pjip-item-top';
+    const status = resolveItemStatusKey(item);
+    const priority = document.createElement('div');
+    priority.className = `pjip-item-priority pjip-item-priority--${status}`;
+    priority.textContent = status === 'late' ? 'Alta' : status === 'soon' ? 'Média' : status === 'done' ? 'Concluída' : 'Baixa';
 
-    const idNode = document.createElement('div');
-    idNode.className = 'pjip-item-id';
-    idNode.textContent = String(item.id || '');
+    const process = document.createElement('div');
+    process.className = 'pjip-item-process';
+    appendTextPair(process, item.processNumber || 'Sem processo', item.sourceLegend || item.kind || 'Origem não informada');
+
+    const intimation = document.createElement('div');
+    intimation.className = 'pjip-item-intimation';
+    appendTextPair(intimation, String(item.id || '—'), item.kind || 'Intimação');
+
+    const movement = document.createElement('div');
+    movement.className = 'pjip-item-movement';
+    movement.textContent = item.movement || 'Sem movimentação registrada.';
+
+    const deadline = document.createElement('div');
+    deadline.className = `pjip-item-deadline${status === 'late' ? ' pjip-item-deadline--late' : status === 'soon' ? ' pjip-item-deadline--soon' : ''}`;
+    appendTextPair(deadline, formatDeadlinePill(item.deadline).replace(/^Prazo\s*/, ''), status === 'late' ? 'Vencida' : status === 'soon' ? 'Em breve' : item.deadline ? 'Dentro do prazo' : 'Sem prazo');
 
     const statusNode = document.createElement('div');
     statusNode.className = `pjip-item-status ${resolveItemStatusClass(item)}`.trim();
     statusNode.textContent = resolveItemStatusLabel(item);
-
-    const meta = document.createElement('div');
-    meta.className = 'pjip-item-meta';
-    meta.appendChild(buildItemPill(item.processNumber || 'Sem processo'));
-    meta.appendChild(buildItemPill(formatDeadlinePill(item.deadline)));
-    top.append(idNode, statusNode, meta);
-
-    const grid = document.createElement('div');
-    grid.className = 'pjip-item-grid';
-    appendLabeledValue(grid, 'Movimentação', item.movement || '—');
-    appendLabeledValue(grid, 'Última atualização', formatObservedAt(item.updatedAt || item.observedAt));
-    appendLabeledValue(grid, 'Origem', item.sourceLegend || item.kind || 'Intimação');
 
     const actions = document.createElement('div');
     actions.className = 'pjip-item-actions';
 
     const doneButton = document.createElement('button');
     doneButton.type = 'button';
-    doneButton.className = 'pjip-modal-btn pjip-modal-btn--primary';
-    doneButton.innerHTML = `<i class="fa-solid ${item.done ? 'fa-rotate-left' : 'fa-check'}" aria-hidden="true"></i><span>${item.done ? 'Reabrir' : 'Concluir'}</span>`;
-    doneButton.addEventListener('click', () => {
+    doneButton.className = 'pjip-item-action';
+    doneButton.innerHTML = `<i class="fa-solid ${item.done ? 'fa-rotate-left' : 'fa-check'}" aria-hidden="true"></i>`;
+    doneButton.title = item.done ? 'Reabrir intimação' : 'Concluir intimação';
+    doneButton.setAttribute('aria-label', doneButton.title);
+    doneButton.addEventListener('click', (event) => {
+      event.stopPropagation();
       toggleDone(String(item.id));
       renderModal();
     });
 
     const openProcessButton = document.createElement('button');
     openProcessButton.type = 'button';
-    openProcessButton.className = 'pjip-modal-btn';
-    openProcessButton.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i><span>Abrir processo</span>';
+    openProcessButton.className = 'pjip-item-action';
+    openProcessButton.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>';
+    openProcessButton.title = 'Abrir processo';
+    openProcessButton.setAttribute('aria-label', 'Abrir processo');
     openProcessButton.disabled = !getProcessOpenUrl(item);
-    openProcessButton.addEventListener('click', () => {
+    openProcessButton.addEventListener('click', (event) => {
+      event.stopPropagation();
       openProcess(item);
     });
 
     const removeButton = document.createElement('button');
     removeButton.type = 'button';
-    removeButton.className = 'pjip-modal-btn pjip-modal-btn--danger';
-    removeButton.innerHTML = '<i class="fa-solid fa-trash-can" aria-hidden="true"></i><span>Remover</span>';
-    removeButton.addEventListener('click', () => {
+    removeButton.className = 'pjip-item-action pjip-item-action--danger';
+    removeButton.innerHTML = '<i class="fa-solid fa-trash-can" aria-hidden="true"></i>';
+    removeButton.title = 'Remover intimação';
+    removeButton.setAttribute('aria-label', 'Remover intimação');
+    removeButton.addEventListener('click', (event) => {
+      event.stopPropagation();
       if (!window.confirm('Remover esta intimação do painel local?')) return;
       delete state.store.items[item.id];
       persistStore();
@@ -3632,8 +4075,59 @@
     });
 
     actions.append(doneButton, openProcessButton, removeButton);
-    card.append(top, grid, actions);
+    card.append(priority, process, intimation, movement, deadline, statusNode, actions);
+    card.addEventListener('click', () => {
+      state.selectedItemId = String(item.id);
+      renderModal();
+    });
+    card.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      state.selectedItemId = String(item.id);
+      renderModal();
+    });
     return card;
+  }
+
+  function appendTextPair(container, primary, secondary) {
+    const primaryNode = document.createElement('strong');
+    primaryNode.textContent = primary;
+    const secondaryNode = document.createElement('span');
+    secondaryNode.textContent = secondary;
+    container.append(primaryNode, secondaryNode);
+  }
+
+  function renderDetail(root, item) {
+    const detail = root.querySelector('[data-role="detail"]');
+    if (!(detail instanceof HTMLElement)) return;
+    if (!item) {
+      detail.className = 'pjip-detail pjip-detail--empty';
+      detail.innerHTML = '<div class="pjip-detail__icon"><i class="fa-solid fa-file-lines" aria-hidden="true"></i></div><p>Selecione uma intimação para ver os detalhes e as ações disponíveis.</p>';
+      return;
+    }
+
+    detail.className = 'pjip-detail';
+    detail.innerHTML = `
+      <div class="pjip-detail__head">
+        <div><h2 class="pjip-detail__title">Detalhes da intimação</h2><p class="pjip-detail__subtitle">ID ${escapeHtml(String(item.id || '—'))}</p></div>
+        <div class="pjip-detail__icon"><i class="fa-solid fa-file-lines" aria-hidden="true"></i></div>
+      </div>
+      <div class="pjip-detail__fields">
+        <div class="pjip-detail__field"><span class="pjip-detail__label">Processo</span><span class="pjip-detail__value pjip-detail__value--strong">${escapeHtml(item.processNumber || 'Sem processo')}</span></div>
+        <div class="pjip-detail__field"><span class="pjip-detail__label">Movimentação</span><span class="pjip-detail__value">${escapeHtml(item.movement || 'Sem movimentação registrada.')}</span></div>
+        <div class="pjip-detail__field"><span class="pjip-detail__label">Prazo</span><span class="pjip-detail__value pjip-detail__deadline">${escapeHtml(formatDeadlinePill(item.deadline))}</span></div>
+        <div class="pjip-detail__field"><span class="pjip-detail__label">Origem</span><span class="pjip-detail__value">${escapeHtml(item.sourceLegend || item.kind || 'Intimação')}</span></div>
+      </div>
+      <div class="pjip-detail__actions">
+        <button type="button" class="pjip-modal-btn pjip-modal-btn--primary" data-role="detail-open"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i><span>Abrir processo</span></button>
+        <button type="button" class="pjip-modal-btn" data-role="detail-toggle"><i class="fa-solid ${item.done ? 'fa-rotate-left' : 'fa-check'}" aria-hidden="true"></i><span>${item.done ? 'Reabrir' : 'Concluir'}</span></button>
+      </div>
+    `;
+    detail.querySelector('[data-role="detail-open"]')?.addEventListener('click', () => openProcess(item));
+    detail.querySelector('[data-role="detail-toggle"]')?.addEventListener('click', () => {
+      toggleDone(String(item.id));
+      renderModal();
+    });
   }
 
   /**
@@ -3716,7 +4210,7 @@
 
   /**
    * Gera resumo geral para o topo do painel.
-   * @returns {{total: number, visible: number, late: number, soon: number, open: number, done: number}}
+   * @returns {{total: number, visible: number, late: number, soon: number, open: number, done: number, today: number, next7: number, noDeadline: number}}
    */
   function buildItemsSummary() {
     const allItems = Object.values(state.store.items);
@@ -3724,6 +4218,9 @@
     let soon = 0;
     let open = 0;
     let done = 0;
+    let today = 0;
+    let next7 = 0;
+    let noDeadline = 0;
 
     for (const item of allItems) {
       const status = resolveItemStatusKey(item);
@@ -3731,6 +4228,11 @@
       else if (status === 'late') late += 1;
       else if (status === 'soon') soon += 1;
       else open += 1;
+
+      const distance = getItemDeadlineDistance(item);
+      if (distance === null) noDeadline += 1;
+      else if (distance === 0) today += 1;
+      else if (distance > 0 && distance <= 7) next7 += 1;
     }
 
     return {
@@ -3739,8 +4241,17 @@
       late,
       soon,
       open,
-      done
+      done,
+      today,
+      next7,
+      noDeadline
     };
+  }
+
+  function getItemDeadlineDistance(item) {
+    const deadlineDate = extractDeadlineDatesFromText(item?.deadline || '')[0] || null;
+    if (!deadlineDate) return null;
+    return getLocalDayNumber(deadlineDate) - getLocalDayNumber(new Date());
   }
 
   /**
@@ -4607,6 +5118,20 @@
    */
   function setNodeText(element, value) {
     if (element) element.textContent = value;
+  }
+
+  /**
+   * Escapa texto observado antes de inseri-lo no painel de detalhes.
+   * @param {unknown} value
+   * @returns {string}
+   */
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
   }
 
   /**

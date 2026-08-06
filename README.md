@@ -37,7 +37,7 @@ Cada extensão mantém somente dois documentos persistentes no navegador:
 
 Token, Gist ID e demais parâmetros de conexão nunca são incluídos em exportações, assinaturas de conteúdo ou arquivos enviados ao Gist. As versões atuais migram automaticamente as chaves legadas e continuam aceitando os formatos anteriores de backup.
 
-As versões dos userscripts seguem o instante da edição no formato `YYYY.MM.DD-HHmm`, usando o fuso `America/Sao_Paulo`. O formato mantém ordenação cronológica direta; uma nova edição não deve reutilizar o mesmo minuto da versão anterior.
+As novas versões dos userscripts seguem o instante da edição no formato `YYYY.MM.DD-HH:MM`, usando o fuso `America/Sao_Paulo` e hora/minuto sempre preenchidos com dois dígitos. O formato mantém ordenação cronológica direta; uma nova edição não deve reutilizar o mesmo minuto da versão anterior. Versões históricas anteriores a 2026.08.05 podem manter a grafia legada `HHmm`.
 
 ## Arquivo histórico
 

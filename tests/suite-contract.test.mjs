@@ -226,14 +226,18 @@ test('APIs auxiliares e mensagens ficam isoladas do contexto global da página',
 });
 
 test('versões seguem data e hora crescentes', () => {
+  const newVersionCutoff = new Date('2026-08-05T00:00:00-03:00');
   for (const [id, source] of Object.entries(sources)) {
-    const match = source.match(/^\/\/ @version\s+(\d{4}\.\d{2}\.\d{2}-\d{4})$/m);
-    assert.ok(match, `${id}: versão fora do formato YYYY.MM.DD-HHmm`);
+    const match = source.match(/^\/\/ @version\s+(\d{4}\.\d{2}\.\d{2}-\d{2}:?\d{2})$/m);
+    assert.ok(match, `${id}: versão fora do formato YYYY.MM.DD-HH:MM`);
     const [, value] = match;
-    const [, year, month, day, hour, minute] = value.match(/^(\d{4})\.(\d{2})\.(\d{2})-(\d{2})(\d{2})$/);
+    const [, year, month, day, hour, minute] = value.match(/^(\d{4})\.(\d{2})\.(\d{2})-(\d{2}):?(\d{2})$/);
     const instant = new Date(`${year}-${month}-${day}T${hour}:${minute}:00-03:00`);
     assert.equal(Number.isNaN(instant.getTime()), false, `${id}: data de versão inválida`);
     assert.equal(instant.getUTCFullYear(), Number(year), `${id}: ano de versão inválido`);
+    if (instant >= newVersionCutoff) {
+      assert.match(value, /-\d{2}:\d{2}$/, `${id}: versões novas devem usar HH:MM`);
+    }
   }
 });
 
