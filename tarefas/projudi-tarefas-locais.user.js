@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2026.08.07-21:46
+// @version      2026.08.07-22:19
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       lourencosv
@@ -49,11 +49,19 @@
     var CODE = 'KeyT';
     var isTop = window.top === window.self;
     var leaderUntil = 0;
+    /**
+     * Executa a rotina de in field.
+     * @param {Event} e Valor de `e` utilizado pela rotina.
+     * @returns {unknown} Resultado produzido pela rotina.
+     */
     function inField(e) {
       var t = e && e.target;
       var tag = (t && t.tagName) || '';
       return /^(INPUT|TEXTAREA|SELECT)$/.test(tag) || (t && t.isContentEditable);
     }
+    /**
+     * Abre here.
+     */
     function openHere() {
       if (isTop) { try { openManagerPanel(); } catch (_) {} }
       else { try { window.top.postMessage({ type: 'pj-open-panel', script: ID }, window.location.origin); } catch (_) {} }
@@ -207,6 +215,12 @@
     lastCnj: null
   };
 
+  /**
+   * Executa a rotina de log warn.
+   * @param {string} message Valor de `message` utilizado pela rotina.
+   * @param {unknown} meta Valor de `meta` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function logWarn(message, meta) {
     if (meta === undefined) {
       console.warn(LOG_PREFIX, message);
@@ -215,10 +229,22 @@
     console.warn(LOG_PREFIX, message, meta);
   }
 
+  /**
+   * Executa a rotina de log error.
+   * @param {string} message Valor de `message` utilizado pela rotina.
+   * @param {unknown} error Erro capturado pela rotina.
+   */
   function logError(message, error) {
     console.error(LOG_PREFIX, message, error);
   }
 
+  /**
+   * Executa a rotina de safe run.
+   * @param {string} label Valor de `label` utilizado pela rotina.
+   * @param {Function} task Valor de `task` utilizado pela rotina.
+   * @param {unknown} fallbackValue Valor de `fallbackValue` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function safeRun(label, task, fallbackValue) {
     try {
       return task();
@@ -228,6 +254,11 @@
     }
   }
 
+  /**
+   * Processa tags.
+   * @param {unknown} raw Valor de `raw` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function parseTags(raw) {
     const text = String(raw || '').trim();
     if (!text) return [];
@@ -243,6 +274,11 @@
     return out.slice(0, 5);
   }
 
+  /**
+   * Processa todo item.
+   * @param {unknown} item Valor de `item` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function normalizeTodoItem(item) {
     const src = item && typeof item === 'object' ? item : {};
     const id = src.id ? String(src.id) : uid();
@@ -254,11 +290,21 @@
     return { id, text, done, createdAt, completedAt, tags };
   }
 
+  /**
+   * Processa todo items.
+   * @param {Array<unknown>} items Valor de `items` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function normalizeTodoItems(items) {
     const list = Array.isArray(items) ? items : [];
     return list.map(normalizeTodoItem).filter(x => x.text);
   }
 
+  /**
+   * Formata date time.
+   * @param {number} ts Valor de `ts` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function formatDateTime(ts) {
     const n = Number(ts);
     if (!Number.isFinite(n) || n <= 0) return '--';
@@ -272,10 +318,21 @@
     });
   }
 
+  /**
+   * Formata count.
+   * @param {number} count Valor de `count` utilizado pela rotina.
+   * @param {unknown} singular Valor de `singular` utilizado pela rotina.
+   * @param {unknown} plural Valor de `plural` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function formatCount(count, singular, plural) {
     return `${count} ${count === 1 ? singular : plural}`;
   }
 
+  /**
+   * Executa panel cleanup.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function runPanelCleanup() {
     if (typeof state.panelCleanup !== 'function') return;
     try {
@@ -286,11 +343,20 @@
     state.panelCleanup = null;
   }
 
+  /**
+   * Define panel cleanup.
+   * @param {unknown} fn Valor de `fn` utilizado pela rotina.
+   */
   function setPanelCleanup(fn) {
     runPanelCleanup();
     state.panelCleanup = typeof fn === 'function' ? fn : null;
   }
 
+  /**
+   * Cria cleanups.
+   * @param {Array<unknown>} fns Valor de `fns` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function composeCleanups(...fns) {
     const list = fns.filter(fn => typeof fn === 'function');
     if (!list.length) return null;
@@ -305,6 +371,10 @@
     };
   }
 
+  /**
+   * Abre launcher safely.
+   * @param {Object} options Valor de `options` utilizado pela rotina.
+   */
   function openLauncherSafely({ removeLauncher, onOpen }) {
     try {
       if (typeof removeLauncher === 'function') removeLauncher();
@@ -315,6 +385,10 @@
     }
   }
 
+  /**
+   * Agenda evaluate.
+   * @param {number=} delay Valor de `delay` utilizado pela rotina.
+   */
   function scheduleEvaluate(delay = 0) {
     clearTimeout(state.timer);
     state.timer = setTimeout(() => {
@@ -323,10 +397,18 @@
     }, Math.max(0, delay | 0));
   }
 
+  /**
+   * Verifica top header page.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function isTopHeaderPage() {
     return window.top === window.self && !!document.getElementById('Principal') && !!document.getElementById('menuPrinciapl');
   }
 
+  /**
+   * Verifica run in this frame.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function shouldRunInThisFrame() {
     if (document.visibilityState !== 'visible' && !isProcessPage(document) && !isHomeDashboardIframe()) return false;
     const frame = window.frameElement;
@@ -340,6 +422,12 @@
     return true;
   }
 
+  /**
+   * Executa a rotina de raw storage get.
+   * @param {string} key Valor de `key` utilizado pela rotina.
+   * @param {unknown} fallback Valor de `fallback` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function rawStorageGet(key, fallback) {
       try {
         if (typeof GM_getValue === 'function') {
@@ -362,6 +450,11 @@
       }
   }
 
+  /**
+   * Executa a rotina de raw storage set.
+   * @param {string} key Valor de `key` utilizado pela rotina.
+   * @param {unknown} value Valor a ser persistido.
+   */
   function rawStorageSet(key, value) {
       try {
         if (typeof GM_setValue === 'function') GM_setValue(key, value);
@@ -373,6 +466,10 @@
       });
   }
 
+  /**
+   * Executa a rotina de raw storage delete.
+   * @param {string} key Valor de `key` utilizado pela rotina.
+   */
   function rawStorageDelete(key) {
       try {
         if (typeof GM_deleteValue === 'function') GM_deleteValue(key);
@@ -386,6 +483,11 @@
 
   let taskDataCache = null;
 
+  /**
+   * Processa task data envelope.
+   * @param {unknown} value Envelope de dados a ser normalizado.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function normalizeTaskDataEnvelope(value) {
     const source = value && typeof value === 'object' ? value : {};
     return {
@@ -397,12 +499,19 @@
     };
   }
 
+  /**
+   * Obtém task data envelope.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function loadTaskDataEnvelope() {
     if (taskDataCache) return taskDataCache;
     taskDataCache = normalizeTaskDataEnvelope(rawStorageGet(DATA_KEY, null));
     return taskDataCache;
   }
 
+  /**
+   * Define task data envelope.
+   */
   function saveTaskDataEnvelope() {
     const next = normalizeTaskDataEnvelope(taskDataCache);
     next.revision += 1;
@@ -430,6 +539,11 @@
     }
   };
 
+  /**
+   * Processa backup settings.
+   * @param {unknown} value Configurações de backup a serem normalizadas.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function normalizeBackupSettings(value) {
     const next = { ...DEFAULT_BACKUP_SETTINGS, ...(value || {}) };
     next.enabled = !!next.enabled;
@@ -442,6 +556,11 @@
     return next;
   }
 
+  /**
+   * Formata last backup label.
+   * @param {string} value Data ISO do último backup.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function formatLastBackupLabel(value) {
     if (!value) return 'Último backup: ainda não enviado.';
     const date = new Date(value);
@@ -449,16 +568,30 @@
     return `Último backup: ${date.toLocaleString('pt-BR')}.`;
   }
 
+  /**
+   * Obtém backup settings.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function loadBackupSettings() {
     return normalizeBackupSettings(storage.get(KEY_BACKUP, DEFAULT_BACKUP_SETTINGS));
   }
 
+  /**
+   * Define backup settings.
+   * @param {unknown} next Valor de `next` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function saveBackupSettings(next) {
     const normalized = normalizeBackupSettings(next);
     storage.set(KEY_BACKUP, normalized);
     return normalized;
   }
 
+  /**
+   * Executa a rotina de github request.
+   * @param {unknown} options Valor de `options` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function githubRequest(options) {
     return new Promise((resolve, reject) => {
       if (typeof gmXmlHttpRequest !== 'function') {
@@ -477,6 +610,11 @@
     });
   }
 
+  /**
+   * Processa github error.
+   * @param {unknown} response Valor de `response` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function parseGithubError(response) {
     try {
       const parsed = JSON.parse(response.responseText || '{}');
@@ -485,6 +623,12 @@
     return `GitHub respondeu com status ${response.status}.`;
   }
 
+  /**
+   * Executa a rotina de push backup to gist.
+   * @param {unknown} backupSettings Valor de `backupSettings` utilizado pela rotina.
+   * @param {unknown} payload Valor de `payload` utilizado pela rotina.
+   * @returns {Promise<unknown>} Resultado produzido pela rotina.
+   */
   async function pushBackupToGist(backupSettings, payload) {
     if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
     if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
@@ -513,6 +657,11 @@
     return { skipped: false, gist: JSON.parse(response.responseText || '{}') };
   }
 
+  /**
+   * Obtém payload backup signature.
+   * @param {unknown} payload Valor de `payload` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function getPayloadBackupSignature(payload) {
     if (!payload || payload.schema !== EXPORT_SCHEMA || payload.scriptId !== SCRIPT_META.id || !payload.data || typeof payload.data !== 'object') return '';
     if (payload.backupSignature) return String(payload.backupSignature);
@@ -523,6 +672,12 @@
     return JSON.stringify({ schema: EXPORT_SCHEMA, data: ordered });
   }
 
+  /**
+   * Obtém backup from gist.
+   * @param {unknown} backupSettings Valor de `backupSettings` utilizado pela rotina.
+   * @param {unknown=} options Valor de `options` utilizado pela rotina.
+   * @returns {Promise<unknown>} Resultado produzido pela rotina.
+   */
   async function readBackupFromGist(backupSettings, options = {}) {
     if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
     if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
@@ -570,6 +725,11 @@
     }
   }
 
+  /**
+   * Obtém cnjfrom document.
+   * @param {Document} doc Valor de `doc` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function getCNJFromDocument(doc) {
     if (!doc) return null;
     const direct = doc.querySelector('#span_proc_numero');
@@ -595,6 +755,11 @@
     return null;
   }
 
+  /**
+   * Obtém current process url.
+   * @param {Document} doc Valor de `doc` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function getCurrentProcessUrl(doc) {
     const href = String(doc?.location?.href || location.href || '');
     if (/\/BuscaProcesso\b/i.test(href) && /Id_Processo=/i.test(href)) return href;
@@ -602,6 +767,12 @@
     return extractProcessUrlFromElement(link, href);
   }
 
+  /**
+   * Extrai process url from element.
+   * @param {Element} element Valor de `element` utilizado pela rotina.
+   * @param {unknown} baseUrl Valor de `baseUrl` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function extractProcessUrlFromElement(element, baseUrl) {
     if (!element) return '';
     const href = element.getAttribute('href');
@@ -610,6 +781,11 @@
     return resolveAllowedUrl(raw, baseUrl || location.href);
   }
 
+  /**
+   * Extrai process href from onclick.
+   * @param {unknown} onclickValue Valor de `onclickValue` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function extractProcessHrefFromOnclick(onclickValue) {
     if (!onclickValue) return '';
     const locationMatch = onclickValue.match(/(?:window\.)?location\.href\s*=\s*['"]([^'"]+)['"]/i);
@@ -618,6 +794,12 @@
     return processMatch ? processMatch[1].replace(/&amp;/g, '&') : '';
   }
 
+  /**
+   * Processa allowed url.
+   * @param {string} href Valor de `href` utilizado pela rotina.
+   * @param {unknown} baseUrl Valor de `baseUrl` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function resolveAllowedUrl(href, baseUrl) {
     if (!href) return '';
     try {
@@ -630,6 +812,11 @@
     }
   }
 
+  /**
+   * Navega to process url.
+   * @param {string} href Valor de `href` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function navigateToProcessUrl(href) {
     const resolved = resolveAllowedUrl(href, location.href);
     if (!resolved) return false;
@@ -637,12 +824,22 @@
     return true;
   }
 
+  /**
+   * Cria process lookup url.
+   * @param {unknown} processNumber Valor de `processNumber` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function buildProcessLookupUrl(processNumber) {
     const normalized = String(processNumber || '').trim().replace(/\s+/g, ' ');
     if (!normalized || normalized.length > 80 || !/\d/.test(normalized)) return '';
     return `BuscaProcesso?PaginaAtual=2&TipoConsultaProcesso=24&ProcessoNumero=${encodeURIComponent(normalized)}`;
   }
 
+  /**
+   * Localiza process search input.
+   * @param {Document} doc Valor de `doc` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function findProcessSearchInput(doc) {
     const inputs = Array.from(doc.querySelectorAll('input:not([type]), input[type="text"], input[type="search"], input[type="tel"]'))
       .filter(input => !input.closest(`#pj-todo, #${ID_MANAGER_OVERLAY}, #${ID_PROC_BTN}`));
@@ -667,6 +864,11 @@
     return scored[0] ? scored[0].input : null;
   }
 
+  /**
+   * Envia process search.
+   * @param {Element} input Valor de `input` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function submitProcessSearch(input) {
     const form = input.closest('form');
     const root = form || document;
@@ -685,6 +887,11 @@
     return true;
   }
 
+  /**
+   * Localiza process by cnj.
+   * @param {unknown} cnj Valor de `cnj` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function searchProcessByCnj(cnj) {
     const input = findProcessSearchInput(document);
     if (!input) return false;
@@ -695,6 +902,12 @@
     return submitProcessSearch(input);
   }
 
+  /**
+   * Abre process from cnj.
+   * @param {unknown} cnj Valor de `cnj` utilizado pela rotina.
+   * @param {unknown=} processUrl Valor de `processUrl` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function openProcessFromCnj(cnj, processUrl = '') {
     // URLs armazenadas de uma pendência podem conter um ID contextual que
     // expira no Projudi. A consulta pelo número do processo é estável e deve
@@ -705,15 +918,28 @@
     return searchProcessByCnj(cnj);
   }
 
+  /**
+   * Verifica process page.
+   * @param {Document} doc Valor de `doc` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function isProcessPage(doc) {
     return !!getCNJFromDocument(doc);
   }
 
+  /**
+   * Verifica home dashboard iframe.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function isHomeDashboardIframe() {
     const href = String(location.href || '');
     return /\/Usuario\?(?:[^#]*&)?PaginaAtual=-?10\b/.test(href) || /\/Usuario\?PaginaAtual=-?10\b/.test(href);
   }
 
+  /**
+   * Abre todo panel for current page.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function openTodoPanelForCurrentPage() {
     if (isIntimacoesPage()) return false;
 
@@ -743,6 +969,10 @@
     return false;
   }
 
+  /**
+   * Garante header menu entry.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function ensureHeaderMenuEntry() {
     if (!isTopHeaderPage()) return;
     if (document.getElementById(ID_HEADER_MENU)) return;
@@ -781,6 +1011,10 @@
     else menu.appendChild(ul);
   }
 
+  /**
+   * Verifica intimacoes page.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function isIntimacoesPage() {
     const titleEl = document.querySelector('h1,h2,.Titulo,.titulo');
     const titleText = String(titleEl && titleEl.textContent ? titleEl.textContent : '').trim();
@@ -788,29 +1022,57 @@
     return /intima(ç|c)(a|ã)o|intima(ç|c)ões/i.test(titleText) || /intimac/i.test(url);
   }
 
+  /**
+   * Executa a rotina de process ctx from cnj.
+   * @param {unknown} cnj Valor de `cnj` utilizado pela rotina.
+   * @param {unknown=} processUrl Valor de `processUrl` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function processCtxFromCnj(cnj, processUrl = '') {
     if (!cnj) return null;
     const shortCnj = String(cnj).split('.')[0] || cnj;
     return { type: 'process', cnj, shortCnj, key: `cnj_${cnj}`, processUrl };
   }
 
+  /**
+   * Executa a rotina de todos key.
+   * @param {unknown} ctxKey Valor de `ctxKey` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function todosKey(ctxKey) {
     return `${KEY_PREFIX}${ctxKey}::items`;
   }
 
+  /**
+   * Executa a rotina de ui key.
+   * @param {unknown} ctxKey Valor de `ctxKey` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function uiKey(ctxKey) {
     return `${KEY_PREFIX}${ctxKey}::ui`;
   }
 
+  /**
+   * Obtém index.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function loadIndex() {
     const idx = storage.get(KEY_INDEX, []);
     return Array.isArray(idx) ? idx : [];
   }
 
+  /**
+   * Define index.
+   * @param {unknown} idx Valor de `idx` utilizado pela rotina.
+   */
   function saveIndex(idx) {
     storage.set(KEY_INDEX, idx);
   }
 
+  /**
+   * Garante index has.
+   * @param {unknown} ctx Valor de `ctx` utilizado pela rotina.
+   */
   function ensureIndexHas(ctx) {
     const idx = loadIndex();
     if (!idx.some(x => x && x.key === ctx.key)) {
@@ -819,6 +1081,10 @@
     }
   }
 
+  /**
+   * Executa a rotina de touch index.
+   * @param {unknown} ctx Valor de `ctx` utilizado pela rotina.
+   */
   function touchIndex(ctx) {
     const idx = loadIndex();
     const i = idx.findIndex(x => x && x.key === ctx.key);
@@ -832,26 +1098,50 @@
     }
   }
 
+  /**
+   * Executa a rotina de maybe remove from index if empty.
+   * @param {unknown} ctx Valor de `ctx` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function maybeRemoveFromIndexIfEmpty(ctx) {
     const items = loadItemsByKey(ctx.key);
     if (items && items.length > 0) return;
     saveIndex(loadIndex().filter(x => x && x.key !== ctx.key));
   }
 
+  /**
+   * Executa a rotina de uid.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function uid() {
     return 't_' + Math.random().toString(16).slice(2) + Date.now().toString(16);
   }
 
+  /**
+   * Obtém items by key.
+   * @param {unknown} ctxKey Valor de `ctxKey` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function loadItemsByKey(ctxKey) {
     const items = storage.get(todosKey(ctxKey), []);
     return normalizeTodoItems(items);
   }
 
+  /**
+   * Define items by key.
+   * @param {unknown} ctxKey Valor de `ctxKey` utilizado pela rotina.
+   * @param {Array<unknown>} items Valor de `items` utilizado pela rotina.
+   */
   function saveItemsByKey(ctxKey, items) {
     storage.set(todosKey(ctxKey), normalizeTodoItems(items));
     scheduleTodoAutoBackup();
   }
 
+  /**
+   * Processa panel ui.
+   * @param {unknown} value Estado visual a ser normalizado.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function normalizePanelUI(value) {
     const source = value && typeof value === 'object' ? value : {};
     const rawRight = Number(source.right);
@@ -866,32 +1156,62 @@
     };
   }
 
+  /**
+   * Obtém uiby key.
+   * @param {unknown} ctxKey Valor de `ctxKey` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function loadUIByKey(ctxKey) {
     return normalizePanelUI(storage.get(uiKey(ctxKey), DEFAULT_UI));
   }
 
+  /**
+   * Define uiby key.
+   * @param {unknown} ctxKey Valor de `ctxKey` utilizado pela rotina.
+   * @param {unknown} ui Valor de `ui` utilizado pela rotina.
+   */
   function saveUIByKey(ctxKey, ui) {
     storage.set(uiKey(ctxKey), normalizePanelUI(ui));
   }
 
+  /**
+   * Obtém global items.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function loadGlobalItems() {
     const items = storage.get(KEY_GLOBAL_ITEMS, []);
     return normalizeTodoItems(items);
   }
 
+  /**
+   * Define global items.
+   * @param {Array<unknown>} items Valor de `items` utilizado pela rotina.
+   */
   function saveGlobalItems(items) {
     storage.set(KEY_GLOBAL_ITEMS, normalizeTodoItems(items));
     scheduleTodoAutoBackup();
   }
 
+  /**
+   * Obtém global ui.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function loadGlobalUI() {
     return normalizePanelUI(storage.get(KEY_GLOBAL_UI, DEFAULT_UI));
   }
 
+  /**
+   * Define global ui.
+   * @param {unknown} ui Valor de `ui` utilizado pela rotina.
+   */
   function saveGlobalUI(ui) {
     storage.set(KEY_GLOBAL_UI, normalizePanelUI(ui));
   }
 
+  /**
+   * Obtém known todo keys from index.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function getKnownTodoKeysFromIndex() {
     const idx = loadIndex();
     const keys = [KEY_INDEX, KEY_GLOBAL_ITEMS, KEY_GLOBAL_UI];
@@ -903,11 +1223,19 @@
     return keys;
   }
 
+  /**
+   * Executa a rotina de list todo keys.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function listTodoKeys() {
     const envelopeKeys = Object.keys(loadTaskDataEnvelope().values || {}).filter(key => key.startsWith(KEY_PREFIX));
     return [...new Set([...getKnownTodoKeysFromIndex(), ...envelopeKeys])];
   }
 
+  /**
+   * Exporta todo payload.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function exportTodoPayload() {
     const data = {};
     const keys = listTodoKeys();
@@ -926,6 +1254,10 @@
     };
   }
 
+  /**
+   * Cria todo backup payload.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function buildTodoBackupPayload() {
     const exported = exportTodoPayload();
     return {
@@ -940,6 +1272,10 @@
     };
   }
 
+  /**
+   * Cria todo backup signature.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function buildTodoBackupSignature() {
     const payload = exportTodoPayload();
     const ordered = {};
@@ -949,6 +1285,9 @@
     return JSON.stringify({ schema: EXPORT_SCHEMA, data: ordered });
   }
 
+  /**
+   * Exporta todo data.
+   */
   function exportTodoData() {
     const payload = exportTodoPayload();
 
@@ -964,6 +1303,10 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  /**
+   * Importa todo data.
+   * @returns {Promise<unknown>} Resultado produzido pela rotina.
+   */
   async function importTodoData() {
     const fileInput = el('input', { type: 'file', accept: 'application/json' });
 
@@ -1006,6 +1349,12 @@
     }
   }
 
+  /**
+   * Importa todo payload object.
+   * @param {unknown} parsed Valor de `parsed` utilizado pela rotina.
+   * @param {unknown} expectedSchema Valor de `expectedSchema` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function importTodoPayloadObject(parsed, expectedSchema) {
     if (!parsed || typeof parsed !== 'object' || parsed.schema !== expectedSchema || parsed.scriptId !== SCRIPT_META.id || !parsed.data || typeof parsed.data !== 'object') {
       throw new Error('Backup incompatível com Tarefas.');
@@ -1031,6 +1380,10 @@
 
   let backupTimer = null;
 
+  /**
+   * Agenda todo auto backup.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function scheduleTodoAutoBackup() {
     const backupSettings = loadBackupSettings();
     if (!backupSettings.enabled || !backupSettings.autoBackupOnSave) return;
@@ -1052,20 +1405,40 @@
     }, delay);
   }
 
+  /**
+   * Alterna done state.
+   * @param {unknown} item Valor de `item` utilizado pela rotina.
+   * @param {boolean} done Valor de `done` utilizado pela rotina.
+   */
   function toggleDoneState(item, done) {
     item.done = !!done;
     if (item.done) item.completedAt = Date.now();
     else item.completedAt = null;
   }
 
+  /**
+   * Atualiza item text.
+   * @param {unknown} item Valor de `item` utilizado pela rotina.
+   * @param {string} text Valor de `text` utilizado pela rotina.
+   */
   function updateItemText(item, text) {
     item.text = String(text || '').trim();
   }
 
+  /**
+   * Atualiza item tags.
+   * @param {unknown} item Valor de `item` utilizado pela rotina.
+   * @param {unknown} tagsRaw Valor de `tagsRaw` utilizado pela rotina.
+   */
   function updateItemTags(item, tagsRaw) {
     item.tags = parseTags(tagsRaw);
   }
 
+  /**
+   * Processa move target.
+   * @param {unknown} raw Valor de `raw` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function normalizeMoveTarget(raw) {
     const text = String(raw || '').trim();
     if (!text) return null;
@@ -1076,6 +1449,12 @@
     return ctx ? { type: 'process', key: ctx.key, cnj: ctx.cnj, label: `Processo ${ctx.cnj}` } : null;
   }
 
+  /**
+   * Executa a rotina de prompt move target.
+   * @param {unknown} currentLabel Valor de `currentLabel` utilizado pela rotina.
+   * @param {unknown} defaultValue Valor de `defaultValue` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function promptMoveTarget(currentLabel, defaultValue) {
     const msg = [
       'Mover tarefa para:',
@@ -1095,6 +1474,12 @@
     return target;
   }
 
+  /**
+   * Move todo item.
+   * @param {unknown} source Valor de `source` utilizado pela rotina.
+   * @param {unknown} target Valor de `target` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function moveTodoItem(source, target) {
     if (!source || !source.id || !target) return false;
     const sameGlobal = source.scopeType === 'global' && target.type === 'global';
@@ -1139,6 +1524,10 @@
     return true;
   }
 
+  /**
+   * Cria task stats.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function buildTaskStats() {
     let active = 0;
     let completed = 0;
@@ -1159,6 +1548,10 @@
     return { active, completed };
   }
 
+  /**
+   * Executa a rotina de collect task rows.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function collectTaskRows() {
     const rows = [];
     const addRow = (scopeType, scopeLabel, key, cnj, item, processUrl = '') => {
@@ -1188,6 +1581,13 @@
     return rows;
   }
 
+  /**
+   * Executa a rotina de el.
+   * @param {unknown} tag Valor de `tag` utilizado pela rotina.
+   * @param {unknown=} props Valor de `props` utilizado pela rotina.
+   * @param {unknown=} children Valor de `children` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function el(tag, props = {}, children = []) {
     const node = document.createElement(tag);
     Object.assign(node, props);
@@ -1198,6 +1598,11 @@
   const fontAwesomeRoots = new WeakMap();
   const fontAwesomeSprites = new WeakMap();
 
+  /**
+   * Garante font awesome.
+   * @param {Document=} doc Valor de `doc` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function ensureFontAwesome(doc = document) {
     if (!doc || !doc.head) return null;
     if (!doc.getElementById('pj-suite-core-style')) {
@@ -1252,6 +1657,11 @@
     return promise;
   }
 
+  /**
+   * Executa a rotina de convert font awesome icons.
+   * @param {Element} root Valor de `root` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function convertFontAwesomeIcons(root) {
     const doc = root.ownerDocument || document;
     const icons = root.matches?.('i.fa-solid') ? [root] : [];
@@ -1276,6 +1686,11 @@
     });
   }
 
+  /**
+   * Renderiza font awesome.
+   * @param {Element} root Valor de `root` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function renderFontAwesome(root) {
     if (!root || root.nodeType !== 1) return;
     const doc = root.ownerDocument || document;
@@ -1290,10 +1705,19 @@
     });
   }
 
+  /**
+   * Executa a rotina de fa icon.
+   * @param {unknown} className Valor de `className` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function faIcon(className) {
     return el('i', { className, 'aria-hidden': 'true' });
   }
 
+  /**
+   * Renderiza styles.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function injectStyles() {
     if (document.getElementById('pj-todo-style')) return;
     const style = document.createElement('style');
@@ -2592,6 +3016,11 @@
     document.head.appendChild(style);
   }
 
+  /**
+   * Vincula panel scroll lock.
+   * @param {Element} panel Valor de `panel` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function bindPanelScrollLock(panel) {
     const onWheel = e => {
       const getScrollable = start => {
@@ -2624,6 +3053,11 @@
     return () => panel.removeEventListener('wheel', onWheel);
   }
 
+  /**
+   * Copia to clipboard.
+   * @param {string} text Valor de `text` utilizado pela rotina.
+   * @returns {Promise<unknown>} Resultado produzido pela rotina.
+   */
   async function copyToClipboard(text) {
     try {
       await navigator.clipboard.writeText(text);
@@ -2638,6 +3072,11 @@
     }
   }
 
+  /**
+   * Renderiza items list.
+   * @param {Object=} options Valor de `options` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function renderItemsList({ listEl, items, onToggle, onDelete, onEdit, onReorder, onMove, onEditTags, emptyMessage = 'Sem tarefas.' }) {
     listEl.innerHTML = '';
 
@@ -2711,6 +3150,11 @@
     }
   }
 
+  /**
+   * Executa a rotina de enable drag window.
+   * @param {Object} options Valor de `options` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function enableDragWindow({ loadUI, saveUI, panel, handle }) {
     let dragging = false;
     let startX = 0;
@@ -2718,6 +3162,11 @@
     let startRight = 0;
     let startTop = 0;
 
+    /**
+     * Processa down.
+     * @param {Event} e Valor de `e` utilizado pela rotina.
+     * @returns {unknown} Resultado produzido pela rotina.
+     */
     function onDown(e) {
       const t = e.target;
       if (t && (t.classList?.contains('pj-todo-btn') || t.closest?.('.pj-todo-btn'))) return;
@@ -2732,6 +3181,11 @@
       e.preventDefault();
     }
 
+    /**
+     * Processa move.
+     * @param {Event} e Valor de `e` utilizado pela rotina.
+     * @returns {unknown} Resultado produzido pela rotina.
+     */
     function onMove(e) {
       if (!dragging) return;
       const dx = e.clientX - startX;
@@ -2746,6 +3200,9 @@
       saveUI(ui);
     }
 
+    /**
+     * Processa up.
+     */
     function onUp() {
       dragging = false;
       document.removeEventListener('mousemove', onMove);
@@ -2761,6 +3218,9 @@
     };
   }
 
+  /**
+   * Executa a rotina de unmount.
+   */
   function unmount() {
     runPanelCleanup();
     const p = document.getElementById('pj-todo');
@@ -2772,6 +3232,11 @@
     state.ctxKey = null;
   }
 
+  /**
+   * Executa a rotina de match process launcher size.
+   * @param {Element} button Valor de `button` utilizado pela rotina.
+   * @param {Element} anchor Valor de `anchor` utilizado pela rotina.
+   */
   function matchProcessLauncherSize(button, anchor) {
     const anchorStyle = getComputedStyle(anchor);
     const anchorRect = anchor.getBoundingClientRect();
@@ -2788,6 +3253,11 @@
     button.style.setProperty('vertical-align', anchorStyle.verticalAlign || 'middle', 'important');
   }
 
+  /**
+   * Renderiza process inline button.
+   * @param {Object} options Valor de `options` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function mountProcessInlineButton({ onOpen }) {
     const existing = document.getElementById(ID_PROC_BTN);
     if (existing) return true;
@@ -2851,6 +3321,10 @@
     return true;
   }
 
+  /**
+   * Localiza direct process header anchor.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function findDirectProcessHeaderAnchor() {
     const selectors = [
       'i.fa-thumbtack',
@@ -2869,6 +3343,11 @@
     return null;
   }
 
+  /**
+   * Renderiza process header button.
+   * @param {Object} options Valor de `options` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function mountProcessHeaderButton({ onOpen }) {
     const existing = document.getElementById(ID_PROC_BTN);
     if (existing) return true;
@@ -2912,6 +3391,11 @@
     return true;
   }
 
+  /**
+   * Atualiza process launcher.
+   * @param {unknown} ctx Valor de `ctx` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function syncProcessLauncher(ctx) {
     const onOpen = () => openProcessPanel(ctx);
     if (document.getElementById('pj-todo')) return;
@@ -2921,6 +3405,11 @@
     scheduleEvaluate(350);
   }
 
+  /**
+   * Cria header actions.
+   * @param {Object} options Valor de `options` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function createHeaderActions({ onClose }) {
     const closeBtn = el('button', { className: 'pj-todo-btn pj-todo-close-btn', title: 'Fechar' }, [faIcon('fa-solid fa-xmark')]);
 
@@ -2929,6 +3418,11 @@
     return el('div', { id: 'pj-todo-actions' }, [closeBtn]);
   }
 
+  /**
+   * Cria modern panel header.
+   * @param {Object} options Valor de `options` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function createModernPanelHeader({ title, subtitle, icon, tooltip, onClose }) {
     return el('div', { id: 'pj-todo-header' }, [
       el('div', { className: 'pj-home-header-brand', title: tooltip || title }, [
@@ -2942,6 +3436,11 @@
     ]);
   }
 
+  /**
+   * Cria task composer.
+   * @param {Object} options Valor de `options` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function createTaskComposer({ label, inputPlaceholder, inputAriaLabel, tagsAriaLabel }) {
     const input = el('input', { className: 'pj-input', type: 'text', placeholder: inputPlaceholder, 'aria-label': inputAriaLabel });
     const tagsInput = el('input', {
@@ -2962,6 +3461,10 @@
     return { root, input, tagsInput, addBtn };
   }
 
+  /**
+   * Abre manager panel.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function openManagerPanel() {
     const existing = document.getElementById(ID_MANAGER_OVERLAY);
     if (existing) return;
@@ -3116,16 +3619,30 @@
       backupAuto.checked = backupSettings.autoBackupOnSave;
     }
 
+    /**
+     * Executa a rotina de show backup status.
+     * @param {string} message Valor de `message` utilizado pela rotina.
+     * @param {unknown} tone Valor de `tone` utilizado pela rotina.
+     * @returns {unknown} Resultado produzido pela rotina.
+     */
     function showBackupStatus(message, tone) {
       if (!hasBackupUi) return;
       backupStatus.textContent = message || '';
       backupStatus.dataset.state = !message ? 'idle' : tone === 'err' ? 'error' : tone === 'ok' ? 'success' : 'progress';
     }
+    /**
+     * Atualiza backup last.
+     * @returns {unknown} Resultado produzido pela rotina.
+     */
     function updateBackupLast() {
       if (!hasBackupUi) return;
       backupLast.textContent = formatLastBackupLabel(backupSettings.lastBackupAt);
     }
 
+    /**
+     * Obtém backup settings from panel.
+     * @returns {unknown} Resultado produzido pela rotina.
+     */
     function readBackupSettingsFromPanel() {
       if (!hasBackupUi) return backupSettings;
       return normalizeBackupSettings({
@@ -3137,6 +3654,10 @@
       });
     }
 
+    /**
+     * Executa backup now.
+     * @returns {Promise<unknown>} Resultado produzido pela rotina.
+     */
     async function runBackupNow() {
       backupSettings = saveBackupSettings(readBackupSettingsFromPanel());
       showBackupStatus('Enviando backup...', 'muted');
@@ -3150,6 +3671,9 @@
     }
     updateBackupLast();
 
+    /**
+     * Executa a rotina de clear backup settings from panel.
+     */
     function clearBackupSettingsFromPanel() {
       backupSettings = saveBackupSettings(DEFAULT_BACKUP_SETTINGS);
       backupEnabled.checked = backupSettings.enabled;
@@ -3161,6 +3685,11 @@
       showBackupStatus('Configuração de backup removida.', 'ok');
     }
 
+    /**
+     * Executa a rotina de persist row.
+     * @param {Element} row Valor de `row` utilizado pela rotina.
+     * @returns {unknown} Resultado produzido pela rotina.
+     */
     function persistRow(row) {
       if (row.scopeType === 'global') {
         const items = loadGlobalItems();
@@ -3178,6 +3707,11 @@
       if (row.cnj) touchIndex({ key: row.key, cnj: row.cnj });
     }
 
+    /**
+     * Remove row.
+     * @param {Element} row Valor de `row` utilizado pela rotina.
+     * @returns {unknown} Resultado produzido pela rotina.
+     */
     function removeRow(row) {
       if (row.scopeType === 'global') {
         saveGlobalItems(loadGlobalItems().filter(x => x.id !== row.id));
@@ -3194,6 +3728,10 @@
       backupClear.addEventListener('click', clearBackupSettingsFromPanel);
     }
 
+    /**
+     * Define backup open.
+     * @param {unknown} open Valor de `open` utilizado pela rotina.
+     */
     function setBackupOpen(open) {
       if (backupPopover instanceof HTMLElement) backupPopover.dataset.open = open ? 'true' : 'false';
     }
@@ -3208,6 +3746,10 @@
       btn.addEventListener('click', () => setBackupOpen(false));
     });
 
+    /**
+     * Renderiza manager rows.
+     * @returns {unknown} Resultado produzido pela rotina.
+     */
     function renderManagerRows() {
       const allRows = collectTaskRows();
       const filterState = stateFilterEl.value;
@@ -3358,6 +3900,10 @@
     renderManagerRows();
   }
 
+  /**
+   * Executa a rotina de register menu command.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function registerMenuCommand() {
     if (state.menuRegistered) return;
     if (typeof gmRegisterMenuCommand !== 'function') return;
@@ -3371,6 +3917,10 @@
     } catch (_) {}
   }
 
+  /**
+   * Renderiza process.
+   * @param {unknown} ctx Valor de `ctx` utilizado pela rotina.
+   */
   function mountProcess(ctx) {
     injectStyles();
     state.mounted = true;
@@ -3379,6 +3929,11 @@
     syncProcessLauncher(ctx);
   }
 
+  /**
+   * Abre process panel.
+   * @param {unknown} ctx Valor de `ctx` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function openProcessPanel(ctx) {
     const cnjLabel = ctx.shortCnj || ctx.cnj;
     const getUI = () => loadUIByKey(ctx.key);
@@ -3428,6 +3983,10 @@
     panel.style.right = `${ui.right}px`;
     panel.style.top = `${ui.top}px`;
 
+    /**
+     * Executa a rotina de rerender.
+     * @returns {unknown} Resultado produzido pela rotina.
+     */
     function rerender() {
       const items = loadItemsByKey(ctx.key).filter(x => !x.done);
       pendingCount.textContent = String(items.length);
@@ -3490,6 +4049,10 @@
       });
     }
 
+    /**
+     * Executa a rotina de add item.
+     * @returns {unknown} Resultado produzido pela rotina.
+     */
     function addItem() {
       const text = String(input.value || '').trim();
       if (!text) return;
@@ -3527,6 +4090,9 @@
     rerender();
   }
 
+  /**
+   * Renderiza home dashboard.
+   */
   function mountHomeDashboard() {
     injectStyles();
     state.mounted = true;
@@ -3534,6 +4100,10 @@
     state.ctxKey = 'global';
   }
 
+  /**
+   * Abre home panel.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function openHomePanel() {
     const getUI = () => loadGlobalUI();
     const setUI = u => saveGlobalUI(u);
@@ -3606,6 +4176,10 @@
     panel.style.right = `${ui.right}px`;
     panel.style.top = `${ui.top}px`;
 
+    /**
+     * Executa a rotina de collect process pending rows.
+     * @returns {unknown} Resultado produzido pela rotina.
+     */
     function collectProcessPendingRows() {
       const rows = [];
       for (const entry of loadIndex()) {
@@ -3617,6 +4191,9 @@
       return rows;
     }
 
+    /**
+     * Atualiza overview counts.
+     */
     function updateOverviewCounts() {
       const globalActive = loadGlobalItems().filter(x => !x.done).length;
       const processRows = collectProcessPendingRows();
@@ -3630,6 +4207,10 @@
         : 'Nenhuma tarefa aguardando providência.';
     }
 
+    /**
+     * Renderiza global.
+     * @returns {unknown} Resultado produzido pela rotina.
+     */
     function renderGlobal() {
       const query = String(globalSearch.value || '').trim().toLowerCase();
       let items = loadGlobalItems().filter(x => !x.done);
@@ -3693,6 +4274,10 @@
       updateOverviewCounts();
     }
 
+    /**
+     * Renderiza processes pending.
+     * @returns {unknown} Resultado produzido pela rotina.
+     */
     function renderProcessesPending() {
       procList.innerHTML = '';
       const query = String(processSearch.value || '').trim().toLowerCase();
@@ -3802,6 +4387,10 @@
       updateOverviewCounts();
     }
 
+    /**
+     * Executa a rotina de add global.
+     * @returns {unknown} Resultado produzido pela rotina.
+     */
     function addGlobal() {
       const text = String(globalInput.value || '').trim();
       if (!text) return;
@@ -3829,6 +4418,10 @@
       if (e.key === 'Enter') addGlobal();
     });
 
+    /**
+     * Define home tab.
+     * @param {unknown} which Valor de `which` utilizado pela rotina.
+     */
     function setHomeTab(which) {
       const isGlobal = which === 'global';
       tabGlobal.classList.toggle('active', isGlobal);
@@ -3867,6 +4460,10 @@
     renderProcessesPending();
   }
 
+  /**
+   * Executa a rotina de evaluate.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function evaluate() {
     registerMenuCommand();
     ensureHeaderMenuEntry();
@@ -3909,6 +4506,11 @@
     if (state.mounted) unmount();
   }
 
+  /**
+   * Verifica own ui node.
+   * @param {Element} node Valor de `node` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function isOwnUiNode(node) {
     if (!(node instanceof Element)) return false;
     if (node.id === 'pj-todo' || node.id === ID_PROC_BTN) return true;
@@ -3916,6 +4518,11 @@
     return !!node.closest?.(`#pj-todo, #${ID_PROC_BTN}`);
   }
 
+  /**
+   * Verifica ignore mutations.
+   * @param {unknown} mutations Valor de `mutations` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function shouldIgnoreMutations(mutations) {
     if (!mutations || !mutations.length) return true;
     for (const m of mutations) {

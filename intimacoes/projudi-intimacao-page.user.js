@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.08.07-21:46
+// @version      2026.08.07-22:19
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       lourencosv
@@ -47,11 +47,19 @@
     var CODE = 'KeyI';
     var isTop = window.top === window.self;
     var leaderUntil = 0;
+    /**
+     * Executa a rotina de in field.
+     * @param {Event} e Valor de `e` utilizado pela rotina.
+     * @returns {unknown} Resultado produzido pela rotina.
+     */
     function inField(e) {
       var t = e && e.target;
       var tag = (t && t.tagName) || '';
       return /^(INPUT|TEXTAREA|SELECT)$/.test(tag) || (t && t.isContentEditable);
     }
+    /**
+     * Abre here.
+     */
     function openHere() {
       if (isTop) { try { openModal(); } catch (_) {} }
       else { try { window.top.postMessage({ type: 'pj-open-panel', script: ID }, window.location.origin); } catch (_) {} }
@@ -323,19 +331,6 @@
       },
       true
     );
-  }
-
-  /**
-   * Escreve log de informacao pontual.
-   * @param {string} message
-   * @param {unknown=} details
-   */
-  function logInfo(message, details) {
-    if (details === undefined) {
-      console.info(LOG_PREFIX, message);
-      return;
-    }
-    console.info(LOG_PREFIX, message, details);
   }
 
   /**
@@ -1232,6 +1227,10 @@
     };
   }
 
+  /**
+   * Cria backup signature.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function buildBackupSignature() {
     const orderedItems = Object.create(null);
     Object.keys(state.store.items || {})
@@ -1318,6 +1317,11 @@
     return { skipped: false, gist: JSON.parse(response.responseText || '{}') };
   }
 
+  /**
+   * Obtém payload backup signature.
+   * @param {unknown} payload Valor de `payload` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function getPayloadBackupSignature(payload) {
     if (!payload || payload.schema !== BACKUP_SCHEMA || payload.scriptId !== SCRIPT_ID || !payload.items || typeof payload.items !== 'object' || Array.isArray(payload.items)) return '';
     if (payload.backupSignature) return String(payload.backupSignature);
@@ -2256,6 +2260,11 @@
   const fontAwesomeRoots = new WeakMap();
   const fontAwesomeSprites = new WeakMap();
 
+  /**
+   * Garante font awesome.
+   * @param {Document=} doc Valor de `doc` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function ensureFontAwesome(doc = document) {
     if (!doc) return Promise.resolve(null);
     const styleHost = doc.head || doc.documentElement;
@@ -2312,6 +2321,11 @@
     return promise;
   }
 
+  /**
+   * Executa a rotina de convert font awesome icons.
+   * @param {Element} root Valor de `root` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function convertFontAwesomeIcons(root) {
     const doc = root.ownerDocument || document;
     const icons = root.matches?.('i.fa-solid') ? [root] : [];
@@ -2336,6 +2350,11 @@
     });
   }
 
+  /**
+   * Renderiza font awesome.
+   * @param {Element} root Valor de `root` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function renderFontAwesome(root) {
     if (!root || root.nodeType !== 1) return;
     const doc = root.ownerDocument || document;
@@ -2563,14 +2582,6 @@
     state.store.ui.sortBy = 'deadline-asc';
     state.store.ui.query = '';
     openModal();
-  }
-
-  /**
-   * Remove o menu flutuante quando a pagina deixa de ser relevante.
-   */
-  function teardownActionMenu() {
-    state.menuOpen = false;
-    document.getElementById(IDS.hostRoot)?.remove();
   }
 
   /**
@@ -3797,6 +3808,11 @@
     return 'open';
   }
 
+  /**
+   * Obtém local day number.
+   * @param {unknown} date Valor de `date` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function getLocalDayNumber(date) {
     return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / (24 * 60 * 60 * 1000);
   }
@@ -4156,33 +4172,61 @@
     }
   }
 
+  /**
+   * Obtém deadline filter date.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function getDeadlineFilterDate() {
     return String(getDeadlineStored(DEADLINE.filterDateKey, '') || '');
   }
 
+  /**
+   * Obtém deadline filter enabled.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function getDeadlineFilterEnabled() {
     const raw = getDeadlineStored(DEADLINE.filterEnabledKey, false);
     return raw === true || raw === 'true' || raw === 1 || raw === '1';
   }
 
+  /**
+   * Define deadline filter enabled.
+   * @param {boolean} enabled Valor de `enabled` utilizado pela rotina.
+   */
   function setDeadlineFilterEnabled(enabled) {
     setDeadlineStored(DEADLINE.filterEnabledKey, Boolean(enabled));
   }
 
+  /**
+   * Obtém deadline filter mode.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function getDeadlineFilterMode() {
     const mode = String(getDeadlineStored(DEADLINE.filterModeKey, 'exact') || 'exact').toLowerCase();
     if (mode === 'range' || mode === 'missing') return mode;
     return 'exact';
   }
 
+  /**
+   * Define deadline filter mode.
+   * @param {string} mode Valor de `mode` utilizado pela rotina.
+   */
   function setDeadlineFilterMode(mode) {
     setDeadlineStored(DEADLINE.filterModeKey, mode === 'range' || mode === 'missing' ? mode : 'exact');
   }
 
+  /**
+   * Obtém deadline range start.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function getDeadlineRangeStart() {
     return String(getDeadlineStored(DEADLINE.filterRangeStartKey, '') || '');
   }
 
+  /**
+   * Obtém deadline range end.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function getDeadlineRangeEnd() {
     return String(getDeadlineStored(DEADLINE.filterRangeEndKey, '') || '');
   }
@@ -4289,6 +4333,7 @@
   }
 
   /**
+   * Retorna as células de uma linha de tabela de prazos.
    * @param {Element} row
    * @returns {HTMLTableCellElement[]}
    */
@@ -4297,6 +4342,7 @@
   }
 
   /**
+   * Analisa o conteúdo de uma célula para localizar datas e ausência de prazo.
    * @param {HTMLTableCellElement} cell
    * @returns {{text: string, missing: boolean, dates: Date[]}}
    */
@@ -4316,6 +4362,7 @@
   }
 
   /**
+   * Obtém a especificação do filtro de prazo atualmente ativo.
    * @returns {{mode: 'missing'} | {mode: 'range', from: Date, to: Date} | {mode: 'exact', date: Date, ymd: string} | null}
    */
   function getActiveDeadlineFilterSpec() {
@@ -4333,6 +4380,7 @@
   }
 
   /**
+   * Verifica se uma linha atende ao filtro de prazo informado.
    * @param {Element} row
    * @param {Set<number>} targetCols
    * @param {NonNullable<ReturnType<typeof getActiveDeadlineFilterSpec>>} filterSpec
@@ -4354,22 +4402,24 @@
     return false;
   }
 
+  /**
+   * Executa a rotina de hide deadline row.
+   * @param {Element} row Valor de `row` utilizado pela rotina.
+   */
   function hideDeadlineRow(row) {
     row.style.setProperty('display', 'none', 'important');
     row.setAttribute(DEADLINE.filterHiddenAttr, '1');
   }
 
+  /**
+   * Executa a rotina de show deadline row.
+   * @param {Element} row Valor de `row` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function showDeadlineRow(row) {
     if (!row.hasAttribute(DEADLINE.filterHiddenAttr)) return;
     row.style.removeProperty('display');
     row.removeAttribute(DEADLINE.filterHiddenAttr);
-  }
-
-  /**
-   * Compatibilidade: atalhos antigos de prazos agora abrem o painel integrado.
-   */
-  function openDeadlinePanel() {
-    openModal();
   }
 
   /**
@@ -4395,6 +4445,7 @@
   }
 
   /**
+   * Descreve o filtro de prazo atualmente ativo para a interface.
    * @returns {string}
    */
   function describeActiveDeadlineFilter() {
@@ -4413,12 +4464,22 @@
     return exact ? `Filtro ativo: ${formatDay(exact)}.` : 'Filtro por data incompleto.';
   }
 
+  /**
+   * Executa a rotina de clone day.
+   * @param {unknown} date Valor de `date` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function cloneDay(date) {
     const copy = new Date(date.getTime());
     copy.setHours(0, 0, 0, 0);
     return copy;
   }
 
+  /**
+   * Executa a rotina de ymd to date.
+   * @param {unknown} ymd Valor de `ymd` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function ymdToDate(ymd) {
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
     if (!match) return null;
@@ -4431,6 +4492,13 @@
     return date;
   }
 
+  /**
+   * Processa deadline date token.
+   * @param {unknown} dayValue Valor de `dayValue` utilizado pela rotina.
+   * @param {unknown} monthValue Valor de `monthValue` utilizado pela rotina.
+   * @param {unknown} yearValue Valor de `yearValue` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function parseDeadlineDateToken(dayValue, monthValue, yearValue) {
     const day = Number(dayValue);
     const month = Number(monthValue);
@@ -4443,6 +4511,11 @@
     return date;
   }
 
+  /**
+   * Extrai deadline dates from text.
+   * @param {string} text Valor de `text` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function extractDeadlineDatesFromText(text) {
     const dates = [];
     const regexp = /\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2}|\d{4})\b/g;
@@ -4454,15 +4527,30 @@
     return dates;
   }
 
+  /**
+   * Verifica missing deadline text.
+   * @param {string} text Valor de `text` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function isMissingDeadlineText(text) {
     const normalized = String(text || '').trim();
     return normalized === '' || /^[-–—]+$/.test(normalized);
   }
 
+  /**
+   * Executa a rotina de to ymd.
+   * @param {unknown} date Valor de `date` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function toYmd(date) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   }
 
+  /**
+   * Formata day.
+   * @param {unknown} date Valor de `date` utilizado pela rotina.
+   * @returns {unknown} Resultado produzido pela rotina.
+   */
   function formatDay(date) {
     return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
   }
