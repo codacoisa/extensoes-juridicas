@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2026.08.06-11:15
+// @version      2026.08.07-21:46
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       lourencosv
@@ -49,20 +49,11 @@
     var CODE = 'KeyT';
     var isTop = window.top === window.self;
     var leaderUntil = 0;
-    /**
-     * Verifica se o alvo do evento está dentro de um campo editável.
-     * @param {Event} e - Evento de teclado.
-     * @returns {boolean} true quando o foco está em um campo de entrada.
-     */
     function inField(e) {
       var t = e && e.target;
       var tag = (t && t.tagName) || '';
       return /^(INPUT|TEXTAREA|SELECT)$/.test(tag) || (t && t.isContentEditable);
     }
-    /**
-     * Abre o gerenciador de tarefas no próprio frame ou delega ao topo via postMessage.
-     * @returns {void}
-     */
     function openHere() {
       if (isTop) { try { openManagerPanel(); } catch (_) {} }
       else { try { window.top.postMessage({ type: 'pj-open-panel', script: ID }, window.location.origin); } catch (_) {} }
@@ -212,15 +203,10 @@
     mode: null,
     ctxKey: null,
     panelCleanup: null,
-    menuRegistered: false
+    menuRegistered: false,
+    lastCnj: null
   };
 
-  /**
-   * Registra um aviso no console, com prefixo do script e metadados opcionais.
-   * @param {string} message - Mensagem do aviso.
-   * @param {*} [meta] - Detalhe adicional opcional associado ao aviso.
-   * @returns {void}
-   */
   function logWarn(message, meta) {
     if (meta === undefined) {
       console.warn(LOG_PREFIX, message);
@@ -229,23 +215,10 @@
     console.warn(LOG_PREFIX, message, meta);
   }
 
-  /**
-   * Registra um erro no console com o prefixo do script.
-   * @param {string} message - Mensagem do erro.
-   * @param {*} error - Objeto ou detalhe do erro.
-   * @returns {void}
-   */
   function logError(message, error) {
     console.error(LOG_PREFIX, message, error);
   }
 
-  /**
-   * Executa uma tarefa protegendo contra exceções, devolvendo um valor padrão em caso de falha.
-   * @param {string} label - Rótulo usado na mensagem de erro em caso de exceção.
-   * @param {Function} task - Função a ser executada.
-   * @param {*} [fallbackValue] - Valor de retorno quando a tarefa lança uma exceção.
-   * @returns {*} Resultado da tarefa ou `fallbackValue` em caso de erro.
-   */
   function safeRun(label, task, fallbackValue) {
     try {
       return task();
@@ -255,11 +228,6 @@
     }
   }
 
-  /**
-   * Converte uma string de tags separadas por vírgula ou ponto e vírgula em uma lista única e limitada.
-   * @param {string} raw - Texto bruto com as tags.
-   * @returns {string[]} Lista de até 5 tags únicas, ignorando maiúsculas/minúsculas para duplicados.
-   */
   function parseTags(raw) {
     const text = String(raw || '').trim();
     if (!text) return [];
@@ -275,11 +243,6 @@
     return out.slice(0, 5);
   }
 
-  /**
-   * Normaliza um item de tarefa, preenchendo campos ausentes com valores padrão.
-   * @param {object} item - Item bruto a ser normalizado.
-   * @returns {object} Item de tarefa normalizado com id, text, done, createdAt, completedAt e tags.
-   */
   function normalizeTodoItem(item) {
     const src = item && typeof item === 'object' ? item : {};
     const id = src.id ? String(src.id) : uid();
@@ -291,21 +254,11 @@
     return { id, text, done, createdAt, completedAt, tags };
   }
 
-  /**
-   * Normaliza uma lista de itens de tarefa, descartando entradas sem texto.
-   * @param {Array} items - Lista de itens brutos.
-   * @returns {Array} Lista de itens normalizados e válidos.
-   */
   function normalizeTodoItems(items) {
     const list = Array.isArray(items) ? items : [];
     return list.map(normalizeTodoItem).filter(x => x.text);
   }
 
-  /**
-   * Formata um timestamp como data e hora no padrão pt-BR.
-   * @param {number|string} ts - Timestamp em milissegundos desde a época Unix.
-   * @returns {string} Data/hora formatada, ou '--' para valores inválidos.
-   */
   function formatDateTime(ts) {
     const n = Number(ts);
     if (!Number.isFinite(n) || n <= 0) return '--';
@@ -319,21 +272,10 @@
     });
   }
 
-  /**
-   * Formata uma quantidade com o substantivo no singular ou plural.
-   * @param {number} count - Quantidade de elementos.
-   * @param {string} singular - Substantivo no singular.
-   * @param {string} plural - Substantivo no plural.
-   * @returns {string} Texto formatado, ex.: "1 pendência" ou "3 pendências".
-   */
   function formatCount(count, singular, plural) {
     return `${count} ${count === 1 ? singular : plural}`;
   }
 
-  /**
-   * Executa e descarta a função de limpeza do painel atualmente ativo.
-   * @returns {void}
-   */
   function runPanelCleanup() {
     if (typeof state.panelCleanup !== 'function') return;
     try {
@@ -344,21 +286,11 @@
     state.panelCleanup = null;
   }
 
-  /**
-   * Define a função de limpeza do painel, removendo a anterior se houver.
-   * @param {Function|null} fn - Nova função de limpeza, ou null para nenhuma.
-   * @returns {void}
-   */
   function setPanelCleanup(fn) {
     runPanelCleanup();
     state.panelCleanup = typeof fn === 'function' ? fn : null;
   }
 
-  /**
-   * Combina várias funções de limpeza em uma única, executando cada uma protegidamente.
-   * @param {...Function} fns - Funções de limpeza a serem compostas.
-   * @returns {Function|null} Função composta, ou null se nenhuma função válida for fornecida.
-   */
   function composeCleanups(...fns) {
     const list = fns.filter(fn => typeof fn === 'function');
     if (!list.length) return null;
@@ -373,14 +305,6 @@
     };
   }
 
-  /**
-   * Abre um painel de forma segura, removendo o launcher e disparando o callback,
-   * reagendando uma avaliação caso algo falhe.
-   * @param {object} options - Opções de abertura.
-   * @param {Function} [options.removeLauncher] - Função que remove o launcher da tela.
-   * @param {Function} options.onOpen - Função executada para abrir o painel.
-   * @returns {void}
-   */
   function openLauncherSafely({ removeLauncher, onOpen }) {
     try {
       if (typeof removeLauncher === 'function') removeLauncher();
@@ -391,11 +315,6 @@
     }
   }
 
-  /**
-   * Agenda uma reavaliação da página após um atraso, cancelando qualquer agendamento pendente.
-   * @param {number} [delay] - Atraso em milissegundos antes de executar a avaliação.
-   * @returns {void}
-   */
   function scheduleEvaluate(delay = 0) {
     clearTimeout(state.timer);
     state.timer = setTimeout(() => {
@@ -404,18 +323,10 @@
     }, Math.max(0, delay | 0));
   }
 
-  /**
-   * Verifica se a página atual é o cabeçalho principal do Projudi no topo.
-   * @returns {boolean} true quando está no topo e contém os elementos principais de interface.
-   */
   function isTopHeaderPage() {
     return window.top === window.self && !!document.getElementById('Principal') && !!document.getElementById('menuPrinciapl');
   }
 
-  /**
-   * Decide se o script deve executar dentro do frame atual, ignorando frames ocultos, invisíveis ou pequenos.
-   * @returns {boolean} true quando o frame é relevante e deve ser processado.
-   */
   function shouldRunInThisFrame() {
     if (document.visibilityState !== 'visible' && !isProcessPage(document) && !isHomeDashboardIframe()) return false;
     const frame = window.frameElement;
@@ -429,12 +340,6 @@
     return true;
   }
 
-  /**
-   * Lê um valor bruto da storage, priorizando GM_getValue e espelhando no localStorage.
-   * @param {string} key - Chave do valor a ser lido.
-   * @param {*} fallback - Valor retornado quando a chave não existe.
-   * @returns {*} Valor armazenado, ou `fallback` quando ausente ou inválido.
-   */
   function rawStorageGet(key, fallback) {
       try {
         if (typeof GM_getValue === 'function') {
@@ -457,12 +362,6 @@
       }
   }
 
-  /**
-   * Salva um valor bruto na storage via GM_setValue e no localStorage.
-   * @param {string} key - Chave do valor a ser salvo.
-   * @param {*} value - Valor a ser persistido.
-   * @returns {void}
-   */
   function rawStorageSet(key, value) {
       try {
         if (typeof GM_setValue === 'function') GM_setValue(key, value);
@@ -474,11 +373,6 @@
       });
   }
 
-  /**
-   * Remove um valor bruto da storage via GM_deleteValue e do localStorage.
-   * @param {string} key - Chave do valor a ser removido.
-   * @returns {void}
-   */
   function rawStorageDelete(key) {
       try {
         if (typeof GM_deleteValue === 'function') GM_deleteValue(key);
@@ -492,11 +386,6 @@
 
   let taskDataCache = null;
 
-  /**
-   * Normaliza o envelope de dados de tarefas, garantindo schema, versão, revisão e valores.
-   * @param {*} value - Envelope bruto a ser normalizado.
-   * @returns {object} Envelope normalizado de dados de tarefas.
-   */
   function normalizeTaskDataEnvelope(value) {
     const source = value && typeof value === 'object' ? value : {};
     return {
@@ -508,20 +397,12 @@
     };
   }
 
-  /**
-   * Carrega o envelope de dados de tarefas, usando o cache em memória quando disponível.
-   * @returns {object} Envelope de dados de tarefas carregado.
-   */
   function loadTaskDataEnvelope() {
     if (taskDataCache) return taskDataCache;
     taskDataCache = normalizeTaskDataEnvelope(rawStorageGet(DATA_KEY, null));
     return taskDataCache;
   }
 
-  /**
-   * Persiste o envelope de dados de tarefas, incrementando a revisão e atualizando o timestamp.
-   * @returns {void}
-   */
   function saveTaskDataEnvelope() {
     const next = normalizeTaskDataEnvelope(taskDataCache);
     next.revision += 1;
@@ -530,38 +411,17 @@
     rawStorageSet(DATA_KEY, next);
   }
 
-  /**
-   * Objeto de acesso à storage com espelhamento entre GM e localStorage.
-   * @type {object}
-   */
   const storage = {
-    /**
-     * Lê um valor da storage, resolvendo chaves especiais diretamente.
-     * @param {string} key - Chave do valor.
-     * @param {*} fallback - Valor de retorno quando a chave não existe.
-     * @returns {*} Valor armazenado ou fallback.
-     */
     get(key, fallback) {
       if (key === KEY_BACKUP || key === DATA_KEY) return rawStorageGet(key, fallback);
       const envelope = loadTaskDataEnvelope();
       return Object.prototype.hasOwnProperty.call(envelope.values, key) ? envelope.values[key] : fallback;
     },
-    /**
-     * Persiste um valor na storage.
-     * @param {string} key - Chave do valor.
-     * @param {*} value - Valor a ser salvo.
-     * @returns {void}
-     */
     set(key, value) {
       if (key === KEY_BACKUP || key === DATA_KEY) return rawStorageSet(key, value);
       loadTaskDataEnvelope().values[key] = value;
       saveTaskDataEnvelope();
     },
-    /**
-     * Remove um valor da storage.
-     * @param {string} key - Chave do valor a ser removido.
-     * @returns {void}
-     */
     del(key) {
       if (key === KEY_BACKUP || key === DATA_KEY) return rawStorageDelete(key);
       const envelope = loadTaskDataEnvelope();
@@ -570,11 +430,6 @@
     }
   };
 
-  /**
-   * Normaliza as configurações de backup remoto, preenchendo valores padrão e restringindo tipos.
-   * @param {*} value - Configurações brutas a serem normalizadas.
-   * @returns {object} Configurações de backup normalizadas.
-   */
   function normalizeBackupSettings(value) {
     const next = { ...DEFAULT_BACKUP_SETTINGS, ...(value || {}) };
     next.enabled = !!next.enabled;
@@ -587,11 +442,6 @@
     return next;
   }
 
-  /**
-   * Formata o rótulo de último backup a partir de um timestamp ISO.
-   * @param {string} value - Timestamp ISO do último backup, ou vazio quando nunca enviado.
-   * @returns {string} Rótulo de último backup legível.
-   */
   function formatLastBackupLabel(value) {
     if (!value) return 'Último backup: ainda não enviado.';
     const date = new Date(value);
@@ -599,34 +449,16 @@
     return `Último backup: ${date.toLocaleString('pt-BR')}.`;
   }
 
-  /**
-   * Carrega e normaliza as configurações de backup salvas.
-   * @returns {object} Configurações de backup atuais.
-   */
   function loadBackupSettings() {
     return normalizeBackupSettings(storage.get(KEY_BACKUP, DEFAULT_BACKUP_SETTINGS));
   }
 
-  /**
-   * Salva as configurações de backup normalizadas e as devolve.
-   * @param {object} next - Configurações a serem persistidas.
-   * @returns {object} Configurações de backup salvas e normalizadas.
-   */
   function saveBackupSettings(next) {
     const normalized = normalizeBackupSettings(next);
     storage.set(KEY_BACKUP, normalized);
     return normalized;
   }
 
-  /**
-   * Executa uma requisição ao GitHub via GM_xmlhttpRequest, retornando uma Promise.
-   * @param {object} options - Opções da requisição.
-   * @param {string} [options.method] - Método HTTP (padrão GET).
-   * @param {string} options.url - URL de destino.
-   * @param {object} [options.headers] - Cabeçalhos HTTP.
-   * @param {*} [options.data] - Corpo da requisição.
-   * @returns {Promise<object>} Promise resolvida com a resposta ou rejeitada em erro de rede.
-   */
   function githubRequest(options) {
     return new Promise((resolve, reject) => {
       if (typeof gmXmlHttpRequest !== 'function') {
@@ -645,11 +477,6 @@
     });
   }
 
-  /**
-   * Extrai a mensagem de erro a partir de uma resposta do GitHub.
-   * @param {object} response - Resposta bruta da requisição.
-   * @returns {string} Mensagem de erro legível.
-   */
   function parseGithubError(response) {
     try {
       const parsed = JSON.parse(response.responseText || '{}');
@@ -658,12 +485,6 @@
     return `GitHub respondeu com status ${response.status}.`;
   }
 
-  /**
-   * Envia o payload de backup para o Gist, pulando quando o conteúdo remoto já é idêntico.
-   * @param {object} backupSettings - Configurações de backup com gistId e token.
-   * @param {object} payload - Payload de backup a ser persistido.
-   * @returns {Promise<object>} Resultado com `skipped` indicando se houve envio, e `gist` quando enviado.
-   */
   async function pushBackupToGist(backupSettings, payload) {
     if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
     if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
@@ -692,11 +513,6 @@
     return { skipped: false, gist: JSON.parse(response.responseText || '{}') };
   }
 
-  /**
-   * Calcula a assinatura de um payload de backup para comparação de conteúdo.
-   * @param {object} payload - Payload de backup.
-   * @returns {string} Assinatura canônica, ou string vazia para payloads incompatíveis.
-   */
   function getPayloadBackupSignature(payload) {
     if (!payload || payload.schema !== EXPORT_SCHEMA || payload.scriptId !== SCRIPT_META.id || !payload.data || typeof payload.data !== 'object') return '';
     if (payload.backupSignature) return String(payload.backupSignature);
@@ -707,14 +523,6 @@
     return JSON.stringify({ schema: EXPORT_SCHEMA, data: ordered });
   }
 
-  /**
-   * Lê o payload de backup a partir do Gist, tolerando conteúdo ausente ou inválido conforme as opções.
-   * @param {object} backupSettings - Configurações de backup com gistId e token.
-   * @param {object} [options] - Opções de tolerância.
-   * @param {boolean} [options.missingOk] - Retorna null quando o arquivo não existe.
-   * @param {boolean} [options.invalidOk] - Retorna null quando o conteúdo está vazio ou inválido.
-   * @returns {Promise<object|null>} Payload lido, ou null quando tolerado e indisponível.
-   */
   async function readBackupFromGist(backupSettings, options = {}) {
     if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
     if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
@@ -762,11 +570,6 @@
     }
   }
 
-  /**
-   * Extrai o número CNJ do documento, buscando em elementos conhecidos e no corpo.
-   * @param {Document} doc - Documento a ser inspecionado.
-   * @returns {string|null} CNJ encontrado, ou null quando ausente.
-   */
   function getCNJFromDocument(doc) {
     if (!doc) return null;
     const direct = doc.querySelector('#span_proc_numero');
@@ -792,11 +595,6 @@
     return null;
   }
 
-  /**
-   * Obtém a URL atual do processo a partir do documento ou elementos de link.
-   * @param {Document} doc - Documento a ser inspecionado.
-   * @returns {string} URL do processo, ou string vazia quando não encontrada.
-   */
   function getCurrentProcessUrl(doc) {
     const href = String(doc?.location?.href || location.href || '');
     if (/\/BuscaProcesso\b/i.test(href) && /Id_Processo=/i.test(href)) return href;
@@ -804,12 +602,6 @@
     return extractProcessUrlFromElement(link, href);
   }
 
-  /**
-   * Extrai uma URL de processo de um elemento a partir de href ou onclick.
-   * @param {Element|null} element - Elemento que pode conter a URL do processo.
-   * @param {string} baseUrl - URL base para resolver endereços relativos.
-   * @returns {string} URL resolvida do processo, ou string vazia.
-   */
   function extractProcessUrlFromElement(element, baseUrl) {
     if (!element) return '';
     const href = element.getAttribute('href');
@@ -818,11 +610,6 @@
     return resolveAllowedUrl(raw, baseUrl || location.href);
   }
 
-  /**
-   * Extrai um href de processo a partir do valor de um atributo onclick.
-   * @param {string} onclickValue - Conteúdo do atributo onclick.
-   * @returns {string} URL extraída, ou string vazia quando não localizada.
-   */
   function extractProcessHrefFromOnclick(onclickValue) {
     if (!onclickValue) return '';
     const locationMatch = onclickValue.match(/(?:window\.)?location\.href\s*=\s*['"]([^'"]+)['"]/i);
@@ -831,12 +618,6 @@
     return processMatch ? processMatch[1].replace(/&amp;/g, '&') : '';
   }
 
-  /**
-   * Resolve e valida uma URL permitida, garantindo protocolo http(s).
-   * @param {string} href - URL bruta a ser resolvida.
-   * @param {string} baseUrl - URL base para endereços relativos.
-   * @returns {string} URL absoluta válida, ou string vazia quando inválida.
-   */
   function resolveAllowedUrl(href, baseUrl) {
     if (!href) return '';
     try {
@@ -849,11 +630,6 @@
     }
   }
 
-  /**
-   * Navega para uma URL de processo resolvida e validada.
-   * @param {string} href - URL de destino do processo.
-   * @returns {boolean} true quando a navegação foi iniciada.
-   */
   function navigateToProcessUrl(href) {
     const resolved = resolveAllowedUrl(href, location.href);
     if (!resolved) return false;
@@ -861,22 +637,12 @@
     return true;
   }
 
-  /**
-   * Monta a URL de busca de processo pelo número CNJ.
-   * @param {string} processNumber - Número do processo (CNJ).
-   * @returns {string} URL de busca, ou string vazia para números inválidos.
-   */
   function buildProcessLookupUrl(processNumber) {
     const normalized = String(processNumber || '').trim().replace(/\s+/g, ' ');
     if (!normalized || normalized.length > 80 || !/\d/.test(normalized)) return '';
     return `BuscaProcesso?PaginaAtual=2&TipoConsultaProcesso=24&ProcessoNumero=${encodeURIComponent(normalized)}`;
   }
 
-  /**
-   * Localiza o campo de busca de processo mais provável no documento.
-   * @param {Document} doc - Documento a ser inspecionado.
-   * @returns {HTMLInputElement|null} Campo de busca, ou null quando não encontrado.
-   */
   function findProcessSearchInput(doc) {
     const inputs = Array.from(doc.querySelectorAll('input:not([type]), input[type="text"], input[type="search"], input[type="tel"]'))
       .filter(input => !input.closest(`#pj-todo, #${ID_MANAGER_OVERLAY}, #${ID_PROC_BTN}`));
@@ -901,11 +667,6 @@
     return scored[0] ? scored[0].input : null;
   }
 
-  /**
-   * Submete uma busca de processo a partir do campo informado.
-   * @param {HTMLInputElement} input - Campo com o número do processo preenchido.
-   * @returns {boolean} true quando a submissão foi disparada.
-   */
   function submitProcessSearch(input) {
     const form = input.closest('form');
     const root = form || document;
@@ -924,11 +685,6 @@
     return true;
   }
 
-  /**
-   * Busca um processo pelo CNJ, preenchendo e submetendo o formulário de busca.
-   * @param {string} cnj - Número do processo a ser pesquisado.
-   * @returns {boolean} true quando a busca pôde ser iniciada.
-   */
   function searchProcessByCnj(cnj) {
     const input = findProcessSearchInput(document);
     if (!input) return false;
@@ -939,12 +695,6 @@
     return submitProcessSearch(input);
   }
 
-  /**
-   * Abre um processo pelo CNJ, priorizando a busca estável pelo número e depois o link salvo.
-   * @param {string} cnj - Número do processo.
-   * @param {string} [processUrl] - URL legada do processo salva localmente.
-   * @returns {boolean} true quando a abertura foi iniciada.
-   */
   function openProcessFromCnj(cnj, processUrl = '') {
     // URLs armazenadas de uma pendência podem conter um ID contextual que
     // expira no Projudi. A consulta pelo número do processo é estável e deve
@@ -955,28 +705,15 @@
     return searchProcessByCnj(cnj);
   }
 
-  /**
-   * Verifica se o documento representa uma página de processo.
-   * @param {Document} doc - Documento a ser inspecionado.
-   * @returns {boolean} true quando um CNJ é encontrado no documento.
-   */
   function isProcessPage(doc) {
     return !!getCNJFromDocument(doc);
   }
 
-  /**
-   * Verifica se o frame atual é o iframe do dashboard inicial do Projudi.
-   * @returns {boolean} true quando a URL corresponde ao painel inicial.
-   */
   function isHomeDashboardIframe() {
     const href = String(location.href || '');
     return /\/Usuario\?(?:[^#]*&)?PaginaAtual=-?10\b/.test(href) || /\/Usuario\?PaginaAtual=-?10\b/.test(href);
   }
 
-  /**
-   * Abre o painel de tarefas adequado à página atual (home ou processo).
-   * @returns {boolean} true quando um painel foi aberto ou já está visível.
-   */
   function openTodoPanelForCurrentPage() {
     if (isIntimacoesPage()) return false;
 
@@ -1006,10 +743,6 @@
     return false;
   }
 
-  /**
-   * Garante a presença do item "Tarefas" no menu principal do cabeçalho do Projudi.
-   * @returns {void}
-   */
   function ensureHeaderMenuEntry() {
     if (!isTopHeaderPage()) return;
     if (document.getElementById(ID_HEADER_MENU)) return;
@@ -1048,10 +781,6 @@
     else menu.appendChild(ul);
   }
 
-  /**
-   * Verifica se a página atual é uma tela de intimações, onde o script não deve atuar.
-   * @returns {boolean} true quando a página é de intimações.
-   */
   function isIntimacoesPage() {
     const titleEl = document.querySelector('h1,h2,.Titulo,.titulo');
     const titleText = String(titleEl && titleEl.textContent ? titleEl.textContent : '').trim();
@@ -1059,59 +788,29 @@
     return /intima(ç|c)(a|ã)o|intima(ç|c)ões/i.test(titleText) || /intimac/i.test(url);
   }
 
-  /**
-   * Constrói o contexto de um processo a partir do CNJ.
-   * @param {string} cnj - Número do processo (CNJ).
-   * @param {string} [processUrl] - URL do processo.
-   * @returns {object|null} Contexto do processo, ou null quando o CNJ é vazio.
-   */
   function processCtxFromCnj(cnj, processUrl = '') {
     if (!cnj) return null;
     const shortCnj = String(cnj).split('.')[0] || cnj;
     return { type: 'process', cnj, shortCnj, key: `cnj_${cnj}`, processUrl };
   }
 
-  /**
-   * Monta a chave de armazenamento dos itens de tarefa de um contexto.
-   * @param {string} ctxKey - Identificador do contexto (ex.: cnj_...).
-   * @returns {string} Chave completa de armazenamento.
-   */
   function todosKey(ctxKey) {
     return `${KEY_PREFIX}${ctxKey}::items`;
   }
 
-  /**
-   * Monta a chave de armazenamento da posição/painel de um contexto.
-   * @param {string} ctxKey - Identificador do contexto.
-   * @returns {string} Chave completa de armazenamento da UI.
-   */
   function uiKey(ctxKey) {
     return `${KEY_PREFIX}${ctxKey}::ui`;
   }
 
-  /**
-   * Carrega o índice de processos conhecidos.
-   * @returns {Array} Lista de entradas do índice.
-   */
   function loadIndex() {
     const idx = storage.get(KEY_INDEX, []);
     return Array.isArray(idx) ? idx : [];
   }
 
-  /**
-   * Persiste o índice de processos conhecidos.
-   * @param {Array} idx - Lista de entradas do índice a ser salva.
-   * @returns {void}
-   */
   function saveIndex(idx) {
     storage.set(KEY_INDEX, idx);
   }
 
-  /**
-   * Garante que um contexto exista no índice, adicionando-o quando ausente.
-   * @param {object} ctx - Contexto do processo a ser garantido no índice.
-   * @returns {void}
-   */
   function ensureIndexHas(ctx) {
     const idx = loadIndex();
     if (!idx.some(x => x && x.key === ctx.key)) {
@@ -1120,11 +819,6 @@
     }
   }
 
-  /**
-   * Atualiza o timestamp e metadados de um contexto no índice, criando a entrada se necessário.
-   * @param {object} ctx - Contexto do processo a ser tocado.
-   * @returns {void}
-   */
   function touchIndex(ctx) {
     const idx = loadIndex();
     const i = idx.findIndex(x => x && x.key === ctx.key);
@@ -1138,51 +832,26 @@
     }
   }
 
-  /**
-   * Remove um contexto do índice quando ele não possui mais itens.
-   * @param {object} ctx - Contexto do processo a ser verificado.
-   * @returns {void}
-   */
   function maybeRemoveFromIndexIfEmpty(ctx) {
     const items = loadItemsByKey(ctx.key);
     if (items && items.length > 0) return;
     saveIndex(loadIndex().filter(x => x && x.key !== ctx.key));
   }
 
-  /**
-   * Gera um identificador único para uma tarefa.
-   * @returns {string} Identificador aleatório baseado no tempo e em um número aleatório.
-   */
   function uid() {
     return 't_' + Math.random().toString(16).slice(2) + Date.now().toString(16);
   }
 
-  /**
-   * Carrega os itens de tarefa de um contexto, normalizando a lista.
-   * @param {string} ctxKey - Identificador do contexto.
-   * @returns {Array} Lista de itens de tarefa normalizados.
-   */
   function loadItemsByKey(ctxKey) {
     const items = storage.get(todosKey(ctxKey), []);
     return normalizeTodoItems(items);
   }
 
-  /**
-   * Salva os itens de tarefa de um contexto e agenda um possível backup automático.
-   * @param {string} ctxKey - Identificador do contexto.
-   * @param {Array} items - Lista de itens a serem persistidos.
-   * @returns {void}
-   */
   function saveItemsByKey(ctxKey, items) {
     storage.set(todosKey(ctxKey), normalizeTodoItems(items));
     scheduleTodoAutoBackup();
   }
 
-  /**
-   * Normaliza a posição da janela do painel, limitando a valores válidos.
-   * @param {*} value - Valores brutos de posição.
-   * @returns {object} Posição normalizada com `right` e `top`.
-   */
   function normalizePanelUI(value) {
     const source = value && typeof value === 'object' ? value : {};
     const rawRight = Number(source.right);
@@ -1197,65 +866,32 @@
     };
   }
 
-  /**
-   * Carrega a posição do painel de um contexto.
-   * @param {string} ctxKey - Identificador do contexto.
-   * @returns {object} Posição normalizada do painel.
-   */
   function loadUIByKey(ctxKey) {
     return normalizePanelUI(storage.get(uiKey(ctxKey), DEFAULT_UI));
   }
 
-  /**
-   * Salva a posição do painel de um contexto.
-   * @param {string} ctxKey - Identificador do contexto.
-   * @param {object} ui - Posição a ser persistida.
-   * @returns {void}
-   */
   function saveUIByKey(ctxKey, ui) {
     storage.set(uiKey(ctxKey), normalizePanelUI(ui));
   }
 
-  /**
-   * Carrega os itens de tarefa globais, normalizando a lista.
-   * @returns {Array} Lista de itens globais normalizados.
-   */
   function loadGlobalItems() {
     const items = storage.get(KEY_GLOBAL_ITEMS, []);
     return normalizeTodoItems(items);
   }
 
-  /**
-   * Salva os itens de tarefa globais e agenda um possível backup automático.
-   * @param {Array} items - Lista de itens globais a serem persistidos.
-   * @returns {void}
-   */
   function saveGlobalItems(items) {
     storage.set(KEY_GLOBAL_ITEMS, normalizeTodoItems(items));
     scheduleTodoAutoBackup();
   }
 
-  /**
-   * Carrega a posição do painel global.
-   * @returns {object} Posição normalizada do painel global.
-   */
   function loadGlobalUI() {
     return normalizePanelUI(storage.get(KEY_GLOBAL_UI, DEFAULT_UI));
   }
 
-  /**
-   * Salva a posição do painel global.
-   * @param {object} ui - Posição a ser persistida.
-   * @returns {void}
-   */
   function saveGlobalUI(ui) {
     storage.set(KEY_GLOBAL_UI, normalizePanelUI(ui));
   }
 
-  /**
-   * Lista as chaves de tarefas conhecidas a partir do índice de processos.
-   * @returns {string[]} Chaves de tarefas globais e por contexto derivadas do índice.
-   */
   function getKnownTodoKeysFromIndex() {
     const idx = loadIndex();
     const keys = [KEY_INDEX, KEY_GLOBAL_ITEMS, KEY_GLOBAL_UI];
@@ -1267,19 +903,11 @@
     return keys;
   }
 
-  /**
-   * Lista todas as chaves de tarefas conhecidas, unindo índice e envelope de dados.
-   * @returns {string[]} Conjunto único de chaves de tarefas.
-   */
   function listTodoKeys() {
     const envelopeKeys = Object.keys(loadTaskDataEnvelope().values || {}).filter(key => key.startsWith(KEY_PREFIX));
     return [...new Set([...getKnownTodoKeysFromIndex(), ...envelopeKeys])];
   }
 
-  /**
-   * Monta o payload de exportação de todas as tarefas, excluindo chaves sensíveis e de UI.
-   * @returns {object} Payload de exportação com schema, scriptId, exportedAt e dados.
-   */
   function exportTodoPayload() {
     const data = {};
     const keys = listTodoKeys();
@@ -1298,10 +926,6 @@
     };
   }
 
-  /**
-   * Monta o payload completo de backup remoto com assinatura.
-   * @returns {object} Payload de backup com metadados do script e dados exportados.
-   */
   function buildTodoBackupPayload() {
     const exported = exportTodoPayload();
     return {
@@ -1316,10 +940,6 @@
     };
   }
 
-  /**
-   * Gera a assinatura canônica dos dados exportados para comparar conteúdo de backup.
-   * @returns {string} Assinatura stringificada e ordenada dos dados exportados.
-   */
   function buildTodoBackupSignature() {
     const payload = exportTodoPayload();
     const ordered = {};
@@ -1329,10 +949,6 @@
     return JSON.stringify({ schema: EXPORT_SCHEMA, data: ordered });
   }
 
-  /**
-   * Exporta os dados de tarefas como download de arquivo JSON.
-   * @returns {void}
-   */
   function exportTodoData() {
     const payload = exportTodoPayload();
 
@@ -1348,10 +964,6 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  /**
-   * Importa os dados de tarefas a partir de um arquivo JSON selecionado pelo usuário.
-   * @returns {Promise<void>} Promise que resolve após a importação ser concluída ou cancelada.
-   */
   async function importTodoData() {
     const fileInput = el('input', { type: 'file', accept: 'application/json' });
 
@@ -1394,12 +1006,6 @@
     }
   }
 
-  /**
-   * Importa um payload de backup validado, substituindo os dados atuais de tarefas.
-   * @param {object} parsed - Payload de backup já parseado.
-   * @param {string} expectedSchema - Schema esperado para validar o payload.
-   * @returns {number} Quantidade de chaves importadas.
-   */
   function importTodoPayloadObject(parsed, expectedSchema) {
     if (!parsed || typeof parsed !== 'object' || parsed.schema !== expectedSchema || parsed.scriptId !== SCRIPT_META.id || !parsed.data || typeof parsed.data !== 'object') {
       throw new Error('Backup incompatível com Tarefas.');
@@ -1425,10 +1031,6 @@
 
   let backupTimer = null;
 
-  /**
-   * Agenda um backup automático tardio quando habilitado e há mudanças pendentes.
-   * @returns {void}
-   */
   function scheduleTodoAutoBackup() {
     const backupSettings = loadBackupSettings();
     if (!backupSettings.enabled || !backupSettings.autoBackupOnSave) return;
@@ -1450,43 +1052,20 @@
     }, delay);
   }
 
-  /**
-   * Alterna o estado de conclusão de um item, atualizando seu timestamp de conclusão.
-   * @param {object} item - Item de tarefa a ser atualizado.
-   * @param {boolean} done - Novo estado de conclusão.
-   * @returns {void}
-   */
   function toggleDoneState(item, done) {
     item.done = !!done;
     if (item.done) item.completedAt = Date.now();
     else item.completedAt = null;
   }
 
-  /**
-   * Atualiza o texto de um item de tarefa.
-   * @param {object} item - Item de tarefa a ser atualizado.
-   * @param {string} text - Novo texto da tarefa.
-   * @returns {void}
-   */
   function updateItemText(item, text) {
     item.text = String(text || '').trim();
   }
 
-  /**
-   * Atualiza as tags de um item de tarefa a partir de texto bruto.
-   * @param {object} item - Item de tarefa a ser atualizado.
-   * @param {string} tagsRaw - Texto bruto das tags.
-   * @returns {void}
-   */
   function updateItemTags(item, tagsRaw) {
     item.tags = parseTags(tagsRaw);
   }
 
-  /**
-   * Interpreta o destino informado em texto bruto, resolvendo "global" ou um CNJ de processo.
-   * @param {string} raw - Texto fornecido para o destino da tarefa.
-   * @returns {object|null} Destino normalizado, ou null quando inválido.
-   */
   function normalizeMoveTarget(raw) {
     const text = String(raw || '').trim();
     if (!text) return null;
@@ -1497,12 +1076,6 @@
     return ctx ? { type: 'process', key: ctx.key, cnj: ctx.cnj, label: `Processo ${ctx.cnj}` } : null;
   }
 
-  /**
-   * Solicita ao usuário o destino de uma tarefa por prompt e valida a resposta.
-   * @param {string} currentLabel - Rótulo da origem atual para exibição.
-   * @param {string} [defaultValue] - Valor inicial sugerido no prompt.
-   * @returns {object|null} Destino escolhido, ou null quando cancelado ou inválido.
-   */
   function promptMoveTarget(currentLabel, defaultValue) {
     const msg = [
       'Mover tarefa para:',
@@ -1522,12 +1095,6 @@
     return target;
   }
 
-  /**
-   * Move uma tarefa entre escopos global e por processo, atualizando o índice.
-   * @param {object} source - Origem da tarefa com scopeType, key, cnj e id.
-   * @param {object} target - Destino com type, key e cnj.
-   * @returns {boolean} true quando a tarefa foi movida com sucesso.
-   */
   function moveTodoItem(source, target) {
     if (!source || !source.id || !target) return false;
     const sameGlobal = source.scopeType === 'global' && target.type === 'global';
@@ -1572,10 +1139,6 @@
     return true;
   }
 
-  /**
-   * Calcula o total de tarefas ativas e concluídas em todos os escopos.
-   * @returns {object} Contadores `active` e `completed`.
-   */
   function buildTaskStats() {
     let active = 0;
     let completed = 0;
@@ -1596,10 +1159,6 @@
     return { active, completed };
   }
 
-  /**
-   * Coleta todas as tarefas em linhas planas com metadados de escopo, ordenadas por criação.
-   * @returns {Array} Lista de linhas de tarefas com escopo, texto, status e timestamps.
-   */
   function collectTaskRows() {
     const rows = [];
     const addRow = (scopeType, scopeLabel, key, cnj, item, processUrl = '') => {
@@ -1629,27 +1188,9 @@
     return rows;
   }
 
-  /**
-   * Cria um elemento DOM com atributos, estilos e filhos especificados.
-   * @param {string} tag - Nome da tag HTML.
-   * @param {object} [props] - Propriedades e atributos a definir no elemento.
-   * @param {Array} [children] - Filhos a anexar (strings viram nós de texto).
-   * @returns {HTMLElement} Elemento criado.
-   */
   function el(tag, props = {}, children = []) {
     const node = document.createElement(tag);
-    for (const [key, value] of Object.entries(props)) {
-      const attributeName = key === 'ariaSelected' ? 'aria-selected' : key;
-      if (attributeName === 'role' || attributeName.startsWith('aria-') || attributeName.startsWith('data-')) {
-        if (value !== null && value !== undefined && value !== false) node.setAttribute(attributeName, String(value));
-        continue;
-      }
-      if (key === 'tabindex') {
-        node.tabIndex = Number(value);
-        continue;
-      }
-      node[key] = value;
-    }
+    Object.assign(node, props);
     for (const c of children) node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
     return node;
   }
@@ -1657,11 +1198,6 @@
   const fontAwesomeRoots = new WeakMap();
   const fontAwesomeSprites = new WeakMap();
 
-  /**
-   * Garante que o estilo base e o sprite SVG do Font Awesome estejam disponíveis no documento.
-   * @param {Document} [doc] - Documento de destino (padrão: documento atual).
-   * @returns {Promise|null} Promise resolvida com o sprite, ou null em falha/ausência de head.
-   */
   function ensureFontAwesome(doc = document) {
     if (!doc || !doc.head) return null;
     if (!doc.getElementById('pj-suite-core-style')) {
@@ -1716,11 +1252,6 @@
     return promise;
   }
 
-  /**
-   * Substitui ícones `<i class="fa-solid ...">` por SVGs do sprite carregado.
-   * @param {HTMLElement} root - Elemento raiz cujos ícones devem ser convertidos.
-   * @returns {void}
-   */
   function convertFontAwesomeIcons(root) {
     const doc = root.ownerDocument || document;
     const icons = root.matches?.('i.fa-solid') ? [root] : [];
@@ -1745,11 +1276,6 @@
     });
   }
 
-  /**
-   * Prepara um elemento para a conversão de ícones e observa novas inserções.
-   * @param {HTMLElement} root - Elemento raiz a ser inicializado.
-   * @returns {void}
-   */
   function renderFontAwesome(root) {
     if (!root || root.nodeType !== 1) return;
     const doc = root.ownerDocument || document;
@@ -1764,19 +1290,10 @@
     });
   }
 
-  /**
-   * Cria um elemento de ícone Font Awesome com a classe indicada.
-   * @param {string} className - Classes do ícone (ex.: "fa-solid fa-bolt").
-   * @returns {HTMLElement} Elemento `<i>` do ícone.
-   */
   function faIcon(className) {
     return el('i', { className, 'aria-hidden': 'true' });
   }
 
-  /**
-   * Injeta os estilos CSS do script de tarefas no documento, se ainda não presentes.
-   * @returns {void}
-   */
   function injectStyles() {
     if (document.getElementById('pj-todo-style')) return;
     const style = document.createElement('style');
@@ -1947,6 +1464,37 @@
         gap: 12px;
         min-height: 0;
         flex: 1;
+      }
+      .pj-home-summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 2px 4px 0;
+      }
+      .pj-home-summary-copy {
+        flex: 1;
+        min-width: 0;
+      }
+      .pj-home-eyebrow {
+        margin-bottom: 2px;
+        color: #64748b;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+      }
+      .pj-home-summary-title {
+        color: #102a46;
+        font-size: 17px;
+        font-weight: 800;
+        line-height: 1.15;
+      }
+      .pj-home-summary-sub {
+        margin-top: 3px;
+        color: #64748b;
+        font-size: 11px;
+        line-height: 1.35;
       }
       #pj-todo.pj-todo-home .pj-home-tabs {
         display: flex;
@@ -2324,6 +1872,7 @@
       #pj-todo.pj-todo-modern .pj-home-layout .pj-list-inline { padding: 7px; }
       #pj-todo.pj-todo-modern .pj-home-layout .pj-list-inline .pj-item:last-child { margin-bottom: 0; }
       @media (max-width: 480px) {
+        .pj-home-summary-sub { display: none; }
         .pj-home-composer-footer { grid-template-columns: 1fr; }
         .pj-home-composer .pj-add { height: 36px; }
         .pj-home-toolbar { align-items: stretch; flex-direction: column; }
@@ -3038,647 +2587,11 @@
           width: 100%;
         }
       }
-      /* Workspace de tarefas: contrato de rolagem e tokens próprios da extensão. */
-      #${ID_MANAGER_OVERLAY} {
-        padding: 12px;
-        background: rgba(15, 23, 42, .46);
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-panel {
-        width: min(1440px, calc(100vw - 24px));
-        height: min(94vh, 960px);
-        display: grid;
-        grid-template-rows: auto minmax(0, 1fr);
-        container: pjm-manager / inline-size;
-        border: 1px solid #e2e8f0;
-        border-radius: 14px;
-        background: #f8fafc;
-        box-shadow: 0 28px 80px rgba(15, 23, 42, .30);
-        overflow: hidden;
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-head {
-        padding: 14px 18px;
-        border-bottom: 1px solid #e2e8f0;
-        background: #fff;
-        color: #172033;
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-head-row { gap: 16px; }
-      #${ID_MANAGER_OVERLAY} .pjm-brand { gap: 10px; }
-      #${ID_MANAGER_OVERLAY} .pjm-brand-icon {
-        width: 34px;
-        height: 34px;
-        border: 1px solid #dbeafe;
-        border-radius: 9px;
-        background: #eff6ff;
-        box-shadow: none;
-        color: #2563eb;
-        font-size: 15px;
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-title { color: #172033; font-size: 15px; font-weight: 800; }
-      #${ID_MANAGER_OVERLAY} .pjm-sub { color: #64748b; font-size: 12px; opacity: 1; }
-      #${ID_MANAGER_OVERLAY} .pjm-head-actions { display: flex; align-items: center; gap: 8px; }
-      #${ID_MANAGER_OVERLAY} .pjm-close {
-        width: 34px;
-        height: 34px;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        background: #fff;
-        color: #475569;
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-close:hover { background: #f8fafc; }
-      #${ID_MANAGER_OVERLAY} .pjm-body {
-        min-height: 0;
-        display: grid;
-        grid-template-columns: 208px minmax(0, 1fr);
-        grid-template-rows: minmax(0, 1fr);
-        grid-template-areas: "rail main";
-        align-items: stretch;
-        gap: 0;
-        padding: 0;
-        overflow: hidden;
-        background: #f8fafc;
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-rail {
-        min-height: 0;
-        padding: 14px 10px;
-        border-right: 1px solid #e2e8f0;
-        background: #fff;
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-label { padding: 0 9px 7px; color: #94a3b8; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-      #${ID_MANAGER_OVERLAY} .pjm-nav { display: grid; gap: 3px; }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-item {
-        display: flex;
-        align-items: center;
-        gap: 9px;
-        width: 100%;
-        min-height: 36px;
-        padding: 8px 9px;
-        border: 1px solid transparent;
-        border-radius: 7px;
-        background: transparent;
-        color: #475569;
-        cursor: pointer;
-        font: inherit;
-        font-size: 12px;
-        font-weight: 700;
-        text-align: left;
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-item:hover { background: #f1f5f9; color: #1e3a5f; }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-item[data-active="true"] { border-color: #dbeafe; background: #eff6ff; color: #1d4ed8; }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-item .pj-suite-fa { width: 14px; color: currentColor; }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-count { margin-left: auto; color: #64748b; font-size: 11px; font-variant-numeric: tabular-nums; }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-item[data-active="true"] .pjm-nav-count { color: #2563eb; }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-separator { height: 1px; margin: 10px 9px; background: #e2e8f0; }
-      #${ID_MANAGER_OVERLAY} .pjm-main { min-width: 0; min-height: 0; height: 100%; overflow: hidden; }
-      #${ID_MANAGER_OVERLAY} .pjm-workspace {
-        height: 100%;
-        min-height: 0;
-        padding: 18px;
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        scrollbar-gutter: stable;
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-context { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
-      #${ID_MANAGER_OVERLAY} .pjm-context-kicker { color: #64748b; font-size: 11px; font-weight: 700; }
-      #${ID_MANAGER_OVERLAY} .pjm-summary-title { margin-top: 3px; color: #172033; font-size: 20px; font-weight: 800; }
-      #${ID_MANAGER_OVERLAY} .pjm-summary-sub { margin-top: 4px; color: #64748b; font-size: 12px; font-weight: 500; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat-grid { grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat { gap: 4px; min-width: 0; padding: 12px; border-color: #e2e8f0; border-radius: 9px; background: #fff; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat:hover { border-color: #bfdbfe; background: #fff; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat[data-active="true"] { border-color: #93c5fd; box-shadow: inset 0 0 0 1px #93c5fd; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat-value { color: #172033; font-size: 21px; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat-label { color: #64748b; font-size: 11px; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat--active, #${ID_MANAGER_OVERLAY} .pjm-stat--done { background: #fff; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat--done .pjm-stat-value { color: #15803d; }
-      #${ID_MANAGER_OVERLAY} .pjm-filterbar { display: grid; grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(130px, 180px)) auto; gap: 8px; margin-bottom: 12px; }
-      #${ID_MANAGER_OVERLAY} .pjm-input, #${ID_MANAGER_OVERLAY} .pjm-select { min-height: 36px; border-color: #cbd5e1; border-radius: 7px; font-size: 12px; }
-      #${ID_MANAGER_OVERLAY} .pjm-btn { min-height: 36px; border-color: #cbd5e1; border-radius: 7px; color: #334155; font-size: 12px; font-weight: 700; }
-      #${ID_MANAGER_OVERLAY} .pjm-btn:hover { border-color: #93c5fd; background: #eff6ff; transform: none; }
-      #${ID_MANAGER_OVERLAY} .pjm-btn--primary { border-color: #2563eb; background: #2563eb; color: #fff; }
-      #${ID_MANAGER_OVERLAY} .pjm-btn--primary:hover { border-color: #1d4ed8; background: #1d4ed8; }
-      #${ID_MANAGER_OVERLAY} .pjm-queue { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 12px; min-width: 0; }
-      #${ID_MANAGER_OVERLAY} .pjm-card { gap: 0; padding: 0; border-color: #e2e8f0; border-radius: 9px; box-shadow: none; }
-      #${ID_MANAGER_OVERLAY} .pjm-card:hover { border-color: #e2e8f0; box-shadow: none; }
-      #${ID_MANAGER_OVERLAY} .pjm-list-head { padding: 13px 14px; border-bottom: 1px solid #e2e8f0; }
-      #${ID_MANAGER_OVERLAY} .pjm-section-title { color: #334155; font-size: 11px; }
-      #${ID_MANAGER_OVERLAY} .pjm-section-title :is(i, .pj-suite-fa) { color: #2563eb; }
-      #${ID_MANAGER_OVERLAY} .pjm-item-meta { color: #64748b; font-size: 11px; }
-      #${ID_MANAGER_OVERLAY} .pjm-table-wrap { overflow-x: auto; overscroll-behavior-x: contain; }
-      #${ID_MANAGER_OVERLAY} .pjm-table { width: 100%; min-width: 720px; border-collapse: collapse; font-size: 12px; }
-      #${ID_MANAGER_OVERLAY} .pjm-table th { padding: 9px 12px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; color: #64748b; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-align: left; text-transform: uppercase; white-space: nowrap; }
-      #${ID_MANAGER_OVERLAY} .pjm-table td { padding: 11px 12px; border-bottom: 1px solid #eef2f7; color: #334155; vertical-align: middle; }
-      #${ID_MANAGER_OVERLAY} .pjm-table tbody tr { cursor: pointer; }
-      #${ID_MANAGER_OVERLAY} .pjm-table tbody tr:focus-visible { outline: 3px solid rgba(37, 99, 235, .28); outline-offset: -3px; }
-      #${ID_MANAGER_OVERLAY} .pjm-table tbody tr:hover, #${ID_MANAGER_OVERLAY} .pjm-table tbody tr[data-selected="true"] { background: #f8fbff; }
-      #${ID_MANAGER_OVERLAY} .pjm-table tbody tr[data-selected="true"] td:first-child { box-shadow: inset 3px 0 0 #2563eb; }
-      #${ID_MANAGER_OVERLAY} .pjm-table tbody tr:last-child td { border-bottom: 0; }
-      #${ID_MANAGER_OVERLAY} .pjm-row-title { max-width: 320px; overflow: hidden; color: #172033; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-      #${ID_MANAGER_OVERLAY} .pjm-row-sub { margin-top: 2px; color: #94a3b8; font-size: 10px; }
-      #${ID_MANAGER_OVERLAY} .pjm-badge { min-height: 22px; padding: 3px 7px; background: #f1f5f9; color: #475569; font-size: 10px; }
-      #${ID_MANAGER_OVERLAY} .pjm-badge--done { background: #ecfdf3; color: #15803d; }
-      #${ID_MANAGER_OVERLAY} .pjm-badge--active { background: #eff6ff; color: #1d4ed8; }
-      #${ID_MANAGER_OVERLAY} .pjm-row-actions { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
-      #${ID_MANAGER_OVERLAY} .pjm-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; min-width: 28px; height: 28px; padding: 0; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #64748b; cursor: pointer; }
-      #${ID_MANAGER_OVERLAY} .pjm-icon-btn:hover { border-color: #cbd5e1; background: #fff; color: #2563eb; }
-      #${ID_MANAGER_OVERLAY} .pjm-icon-btn--danger:hover { border-color: #fecaca; background: #fff7f7; color: #b42318; }
-      #${ID_MANAGER_OVERLAY} .pjm-detail { min-width: 0; align-self: start; }
-      #${ID_MANAGER_OVERLAY} .pjm-detail-body { display: grid; gap: 12px; padding: 14px; }
-      #${ID_MANAGER_OVERLAY} .pjm-detail-title { color: #172033; font-size: 14px; font-weight: 800; line-height: 1.4; overflow-wrap: anywhere; }
-      #${ID_MANAGER_OVERLAY} .pjm-detail-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
-      #${ID_MANAGER_OVERLAY} .pjm-empty { padding: 32px 18px; color: #64748b; font-size: 12px; text-align: center; }
-      #${ID_MANAGER_OVERLAY} .pjm-new-task { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid #e2e8f0; background: #fbfdff; }
-      #${ID_MANAGER_OVERLAY} .pjm-new-task .pjm-input { flex: 1; }
-      @container pjm-manager (max-width: 1120px) { #${ID_MANAGER_OVERLAY} .pjm-queue { grid-template-columns: minmax(0, 1fr); } #${ID_MANAGER_OVERLAY} .pjm-detail { display: none; } }
-      @container pjm-manager (max-width: 800px) { #${ID_MANAGER_OVERLAY} .pjm-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "rail" "main"; } #${ID_MANAGER_OVERLAY} .pjm-rail { padding: 8px; border-right: 0; border-bottom: 1px solid #e2e8f0; } #${ID_MANAGER_OVERLAY} .pjm-nav { display: flex; overflow-x: auto; } #${ID_MANAGER_OVERLAY} .pjm-nav-label, #${ID_MANAGER_OVERLAY} .pjm-nav-separator { display: none; } #${ID_MANAGER_OVERLAY} .pjm-nav-item { width: auto; flex: 0 0 auto; } #${ID_MANAGER_OVERLAY} .pjm-workspace { padding: 12px; } #${ID_MANAGER_OVERLAY} .pjm-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } #${ID_MANAGER_OVERLAY} .pjm-filterbar { grid-template-columns: 1fr 1fr; } #${ID_MANAGER_OVERLAY} .pjm-filterbar > :first-child { grid-column: 1 / -1; } }
-      @container pjm-manager (max-width: 520px) {
-        #${ID_MANAGER_OVERLAY} .pjm-head { padding: 12px; }
-        #${ID_MANAGER_OVERLAY} .pjm-sub, #${ID_MANAGER_OVERLAY} .pjm-head-actions .pjm-btn span { display: none; }
-        #${ID_MANAGER_OVERLAY} .pjm-context { display: block; }
-        #${ID_MANAGER_OVERLAY} .pjm-stat-grid { gap: 8px; }
-        #${ID_MANAGER_OVERLAY} .pjm-filterbar { grid-template-columns: 1fr; }
-        #${ID_MANAGER_OVERLAY} .pjm-filterbar > :first-child { grid-column: auto; }
-        #${ID_MANAGER_OVERLAY} .pjm-new-task { align-items: stretch; flex-direction: column; }
-        #${ID_MANAGER_OVERLAY} .pjm-table-wrap { overflow-x: visible; }
-        #${ID_MANAGER_OVERLAY} .pjm-table { display: block; min-width: 0; }
-        #${ID_MANAGER_OVERLAY} .pjm-table thead { display: none; }
-        #${ID_MANAGER_OVERLAY} .pjm-table tbody { display: grid; gap: 8px; padding: 8px; }
-        #${ID_MANAGER_OVERLAY} .pjm-table tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 10px; padding: 11px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; }
-        #${ID_MANAGER_OVERLAY} .pjm-table td { display: block; min-width: 0; padding: 0; border: 0; }
-        #${ID_MANAGER_OVERLAY} .pjm-table td::before { display: block; margin-bottom: 2px; color: #94a3b8; font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; content: attr(data-label); }
-        #${ID_MANAGER_OVERLAY} .pjm-table td:first-child { grid-column: 1 / -1; }
-        #${ID_MANAGER_OVERLAY} .pjm-table td:nth-child(4), #${ID_MANAGER_OVERLAY} .pjm-table td:nth-child(5) { grid-column: 1 / -1; }
-        #${ID_MANAGER_OVERLAY} .pjm-table .pjm-row-title { max-width: none; white-space: normal; overflow-wrap: anywhere; }
-        #${ID_MANAGER_OVERLAY} .pjm-table .pjm-row-actions { justify-content: flex-start; }
-      }
-      /* Painel flutuante: mesma linguagem clean do dashboard principal. */
-      #pj-todo.pj-todo-modern {
-        width: min(520px, calc(100vw - 24px));
-        height: min(740px, calc(100vh - 24px));
-        max-height: calc(100vh - 24px);
-        border: 1px solid #dbe3ef;
-        border-radius: 14px;
-        background: #f8fafc;
-        box-shadow: 0 28px 80px rgba(15, 23, 42, .30);
-        overflow: hidden;
-      }
-      #pj-todo.pj-todo-modern #pj-todo-header {
-        min-height: 64px;
-        padding: 12px 14px;
-        border-bottom: 1px solid #e2e8f0;
-        background: #fff;
-        color: #172033;
-      }
-      #pj-todo.pj-todo-modern .pj-home-header-brand { gap: 10px; }
-      #pj-todo.pj-todo-modern .pj-home-header-icon {
-        width: 36px;
-        height: 36px;
-        border: 1px solid #dbeafe;
-        border-radius: 10px;
-        background: #eff6ff;
-        box-shadow: none;
-        color: #2563eb;
-      }
-      #pj-todo.pj-todo-modern .pj-home-header-title { color: #172033; font-size: 15px; font-weight: 800; }
-      #pj-todo.pj-todo-modern .pj-home-header-subtitle { color: #64748b; font-size: 11px; font-weight: 600; }
-      #pj-todo.pj-todo-modern #pj-todo-actions { gap: 6px; }
-      #pj-todo.pj-todo-modern .pj-todo-close-btn {
-        width: 34px;
-        height: 34px;
-        min-width: 34px;
-        border: 1px solid #e2e8f0;
-        background: #fff;
-        color: #475569;
-        font-size: 15px;
-      }
-      #pj-todo.pj-todo-modern .pj-todo-close-btn:hover { background: #f8fafc; color: #1e3a5f; }
-      #pj-todo.pj-todo-modern #pj-todo-body {
-        min-height: 0;
-        padding: 14px;
-        gap: 12px;
-        background: #f8fafc;
-        overflow: hidden;
-      }
-      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) {
-        min-height: 0;
-        height: 100%;
-      }
-      #pj-todo.pj-todo-modern .pj-home-tabs {
-        flex: 0 0 auto;
-        border-color: #e2e8f0;
-        border-radius: 10px;
-        background: #fff;
-      }
-      #pj-todo.pj-todo-modern .pj-home-tab { color: #64748b; }
-      #pj-todo.pj-todo-modern .pj-home-tab.active { border-color: #bfdbfe; color: #1d4ed8; box-shadow: 0 2px 8px rgba(37, 99, 235, .08); }
-      #pj-todo.pj-todo-modern .pj-home-stack { overflow: hidden; }
-      #pj-todo.pj-todo-modern .pj-home-panel .pj-section,
-      #pj-todo.pj-todo-modern .pj-process-layout .pj-section {
-        min-height: 0;
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        background: #fff;
-      }
-      #pj-todo.pj-todo-modern .pj-home-panel .pj-section { overflow: hidden; }
-      #pj-todo.pj-todo-modern .pj-process-layout .pj-section { overflow: hidden; }
-      #pj-todo.pj-todo-modern .pj-home-composer {
-        margin: 12px;
-        border-color: #dbe7f2;
-        border-radius: 10px;
-        background: #fbfdff;
-      }
-      #pj-todo.pj-todo-modern .pj-home-composer-label { color: #334155; }
-      #pj-todo.pj-todo-modern .pj-home-composer-label :is(i, .pj-suite-fa) { color: #2563eb; }
-      #pj-todo.pj-todo-modern .pj-home-composer .pj-add,
-      #pj-todo.pj-todo-modern .pj-add { border-color: #2563eb; background: #2563eb; }
-      #pj-todo.pj-todo-modern .pj-home-composer .pj-add:hover,
-      #pj-todo.pj-todo-modern .pj-add:hover { background: #1d4ed8; }
-      #pj-todo.pj-todo-modern .pj-home-toolbar { padding: 0 12px; }
-      #pj-todo.pj-todo-modern .pj-home-list-title { color: #334155; }
-      #pj-todo.pj-todo-modern .pj-home-search {
-        border-color: #cbd5e1;
-        border-radius: 7px;
-        background: #fff;
-        color: #172033;
-      }
-      #pj-todo.pj-todo-modern .pj-list {
-        scrollbar-gutter: stable;
-        scrollbar-color: #cbd5e1 transparent;
-      }
-      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) .pj-item {
-        margin-bottom: 8px;
-        border-color: #e2e8f0;
-        border-radius: 9px;
-        box-shadow: none;
-      }
-      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) .pj-item:hover {
-        border-color: #bfdbfe;
-        box-shadow: 0 4px 12px rgba(15, 23, 42, .06);
-        transform: none;
-      }
-      #pj-todo.pj-todo-modern .pj-proc-row { border-color: #e2e8f0; border-radius: 9px; }
-      #pj-todo.pj-todo-modern .pj-proc-head { background: #f8fafc; }
-      /* Camada final unificada: painel de tarefas segue a mesma composição de Intimações. */
-      #${ID_MANAGER_OVERLAY} .pjm-panel {
-        width: min(1320px, calc(100vw - 32px)); height: min(90vh, 920px);
-        border-radius: 18px; background: #f8fafc; border-color: #dce7f3;
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-head { min-height: 76px; padding: 16px 20px; }
-      #${ID_MANAGER_OVERLAY} .pjm-brand-icon { width: 42px; height: 42px; border-radius: 12px; font-size: 17px; color: #24446f; background: #f8fbff; border-color: #dbe7f5; }
-      #${ID_MANAGER_OVERLAY} .pjm-title { font-size: 20px; letter-spacing: -.02em; }
-      #${ID_MANAGER_OVERLAY} .pjm-sub { margin-top: 3px; font-size: 13px; }
-      #${ID_MANAGER_OVERLAY} .pjm-close { width: 40px; height: 40px; border-radius: 999px; font-size: 17px; }
-      #${ID_MANAGER_OVERLAY} .pjm-body { grid-template-columns: 196px minmax(0, 1fr); }
-      #${ID_MANAGER_OVERLAY} .pjm-rail { position: relative; display: flex; flex-direction: column; padding: 24px 12px; }
-      #${ID_MANAGER_OVERLAY} .pjm-rail::after { content: ''; width: 58px; height: 4px; margin: auto 8px 0; border-radius: 999px; background: #dbeafe; }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-label { padding: 0 12px 12px; }
-      #${ID_MANAGER_OVERLAY} .pjm-nav { gap: 4px; }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-item { min-height: 42px; padding: 10px 12px; border-radius: 10px; font-size: 13px; }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-separator { margin: 12px 10px; }
-      #${ID_MANAGER_OVERLAY} .pjm-workspace { padding: 24px; }
-      #${ID_MANAGER_OVERLAY} .pjm-context { align-items: center; margin-bottom: 20px; }
-      #${ID_MANAGER_OVERLAY} .pjm-context-actions { display: flex; align-items: center; gap: 10px; flex: 0 1 470px; min-width: 300px; }
-      #${ID_MANAGER_OVERLAY} .pjm-search-wrap { position: relative; flex: 1; min-width: 0; }
-      #${ID_MANAGER_OVERLAY} .pjm-search-wrap > :is(i, .pj-suite-fa) { position: absolute; left: 13px; top: 50%; color: #334155; transform: translateY(-50%); pointer-events: none; }
-      #${ID_MANAGER_OVERLAY} .pjm-search-wrap .pjm-input { padding-left: 38px; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat-grid { gap: 12px; margin-bottom: 18px; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat { display: grid; grid-template-columns: 26px 1fr; align-items: center; gap: 2px 10px; min-height: 94px; padding: 16px; border-radius: 12px; text-align: left; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat > :is(i, .pj-suite-fa) { grid-row: 1 / span 2; width: 20px; height: 20px; color: #2563eb; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat--active > :is(i, .pj-suite-fa) { color: #e11d48; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat--global > :is(i, .pj-suite-fa) { color: #7c3aed; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat--done > :is(i, .pj-suite-fa) { color: #15803d; }
-      #${ID_MANAGER_OVERLAY} .pjm-filter-card, #${ID_MANAGER_OVERLAY} .pjm-composer-card, #${ID_MANAGER_OVERLAY} .pjm-queue-card { margin-bottom: 16px; padding: 14px; border: 1px solid #dfe8f2; border-radius: 14px; background: #fff; }
-      #${ID_MANAGER_OVERLAY} .pjm-filterbar { grid-template-columns: minmax(140px, 1fr) minmax(140px, 1fr) auto; gap: 10px; margin: 0; }
-      #${ID_MANAGER_OVERLAY} .pjm-composer-card { display: flex; align-items: center; gap: 10px; }
-      #${ID_MANAGER_OVERLAY} .pjm-composer-card .pjm-input { flex: 1; }
-      #${ID_MANAGER_OVERLAY} .pjm-workspace-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; align-items: start; gap: 16px; }
-      #${ID_MANAGER_OVERLAY} .pjm-content-column { min-width: 0; }
-      #${ID_MANAGER_OVERLAY} .pjm-queue-card { margin-bottom: 0; padding: 0; overflow: hidden; }
-      #${ID_MANAGER_OVERLAY} .pjm-queue { display: block; }
-      #${ID_MANAGER_OVERLAY} .pjm-table-wrap { overflow: visible; }
-      #${ID_MANAGER_OVERLAY} .pjm-task-list { display: grid; }
-      #${ID_MANAGER_OVERLAY} .pjm-task-row { display: grid; grid-template-columns: minmax(190px, 1.7fr) minmax(120px, .9fr) minmax(90px, .6fr) minmax(120px, .8fr) auto; align-items: center; gap: 14px; padding: 14px 16px; border-top: 1px solid #edf2f7; cursor: pointer; }
-      #${ID_MANAGER_OVERLAY} .pjm-task-row:first-child { border-top: 0; }
-      #${ID_MANAGER_OVERLAY} .pjm-task-row:hover, #${ID_MANAGER_OVERLAY} .pjm-task-row[data-selected="true"] { background: #f8fbff; }
-      #${ID_MANAGER_OVERLAY} .pjm-task-row[data-selected="true"] { box-shadow: inset 3px 0 0 #2563eb; }
-      #${ID_MANAGER_OVERLAY} .pjm-task-row:focus-visible { outline: 3px solid rgba(37, 99, 235, .28); outline-offset: -3px; }
-      #${ID_MANAGER_OVERLAY} .pjm-task-cell { min-width: 0; }
-      #${ID_MANAGER_OVERLAY} .pjm-row-title { max-width: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      #${ID_MANAGER_OVERLAY} .pjm-detail { align-self: start; padding: 0; border-radius: 14px; overflow: hidden; }
-      #${ID_MANAGER_OVERLAY} .pjm-detail .pjm-list-head { padding: 15px 16px; }
-      #${ID_MANAGER_OVERLAY} .pjm-detail-body { padding: 16px; }
-      #${ID_MANAGER_OVERLAY} .pjm-detail-actions { grid-template-columns: 1fr 1fr; }
-      #pj-todo.pj-todo-modern { width: min(500px, calc(100vw - 24px)); border-radius: 18px; background: #f8fafc; border-color: #dce7f3; }
-      #pj-todo.pj-todo-modern #pj-todo-header { min-height: 76px; padding: 16px; }
-      #pj-todo.pj-todo-modern .pj-home-header-icon { width: 42px; height: 42px; border-radius: 12px; color: #24446f; background: #f8fbff; border-color: #dbe7f5; }
-      #pj-todo.pj-todo-modern .pj-home-header-title { font-size: 17px; }
-      #pj-todo.pj-todo-modern .pj-home-header-subtitle { margin-top: 3px; }
-      #pj-todo.pj-todo-modern #pj-todo-body { padding: 16px; gap: 14px; }
-      #pj-todo.pj-todo-modern .pj-home-tabs, #pj-todo.pj-todo-modern .pj-home-panel .pj-section, #pj-todo.pj-todo-modern .pj-process-layout .pj-section { border: 1px solid #dfe8f2; border-radius: 14px; background: #fff; }
-      #pj-todo.pj-todo-modern .pj-home-tabs { padding: 4px; }
-      #pj-todo.pj-todo-modern .pj-home-composer { margin: 12px; border-radius: 12px; }
-      #pj-todo.pj-todo-modern .pj-home-toolbar { padding: 0 12px 10px; }
-      /* Painel flutuante: mais área útil e menos espaço consumido pelos controles. */
-      #pj-todo.pj-todo-modern {
-        width: min(500px, calc(100vw - 24px));
-        height: min(740px, calc(100vh - 24px));
-        max-height: calc(100vh - 24px);
-      }
-      #pj-todo.pj-todo-modern #pj-todo-header {
-        min-height: 66px;
-        padding: 12px 14px;
-      }
-      #pj-todo.pj-todo-modern .pj-home-header-icon { width: 38px; height: 38px; }
-      #pj-todo.pj-todo-modern .pj-home-header-title { font-size: 16px; }
-      #pj-todo.pj-todo-modern #pj-todo-body { padding: 12px; gap: 10px; }
-      #pj-todo.pj-todo-modern .pj-home-layout { gap: 9px; }
-      #pj-todo.pj-todo-modern .pj-home-tabs {
-        height: 40px;
-        min-height: 40px;
-        padding: 3px;
-      }
-      #pj-todo.pj-todo-modern .pj-home-tab { height: 32px; min-height: 32px; max-height: 32px; }
-      #pj-todo.pj-todo-modern .pj-home-composer {
-        margin-bottom: 8px;
-        padding: 9px;
-      }
-      #pj-todo.pj-todo-modern .pj-home-composer-label { margin-bottom: 6px; }
-      #pj-todo.pj-todo-modern .pj-home-composer .pj-input { height: 34px; }
-      #pj-todo.pj-todo-modern .pj-home-composer-footer { grid-template-columns: minmax(0, 1fr) 112px; gap: 6px; margin-top: 6px; }
-      #pj-todo.pj-todo-modern .pj-home-tag-row,
-      #pj-todo.pj-todo-modern .pj-home-composer .pj-add { height: 32px; }
-      #pj-todo.pj-todo-modern .pj-home-toolbar { min-height: 30px; margin-bottom: 5px; padding: 0 8px 0; }
-      #pj-todo.pj-todo-modern .pj-home-list-title { font-size: 10px; }
-      #pj-todo.pj-todo-modern .pj-home-search { height: 30px; }
-      #pj-todo.pj-todo-modern .pj-home-panel .pj-list { padding: 0 1px 1px; }
-      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) .pj-item { margin-bottom: 5px; padding: 8px 7px; }
-      #pj-todo.pj-todo-modern :is(.pj-home-layout, .pj-process-layout) .pj-text {
-        display: -webkit-box;
-        overflow: hidden;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2;
-        text-overflow: ellipsis;
-        white-space: normal;
-      }
-      @media (max-width: 560px) {
-        #pj-todo.pj-todo-modern {
-          right: 12px !important;
-          left: 12px;
-          width: auto;
-          height: calc(100vh - 24px);
-          max-height: calc(100vh - 24px);
-        }
-      }
-      /* Polimento final: a barra lateral segue o mesmo acabamento de Intimações e a fila preserva a leitura dos dados. */
-      #${ID_MANAGER_OVERLAY} .pjm-rail,
-      #${ID_MANAGER_OVERLAY} .pjm-nav { background: #fff !important; }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-item {
-        appearance: none;
-        -webkit-appearance: none;
-        background: transparent !important;
-        box-shadow: none !important;
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-item:hover { background: #f8fafc !important; }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-item[data-active="true"] { background: #eff6ff !important; }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-separator { display: block; height: 1px; margin: 16px 10px; background: #eef2f7; }
-      #${ID_MANAGER_OVERLAY} .pjm-context-kicker { margin-bottom: 7px; color: #64748b; font-size: 12px; font-weight: 700; }
-      #${ID_MANAGER_OVERLAY} .pjm-summary-title { margin-top: 0; color: #172033; font-size: 25px; letter-spacing: -.03em; line-height: 1.12; }
-      #${ID_MANAGER_OVERLAY} .pjm-summary-sub { margin-top: 7px; color: #64748b; font-size: 13px; font-weight: 500; }
-      #${ID_MANAGER_OVERLAY} .pjm-context-actions { flex-basis: 500px; }
-      #${ID_MANAGER_OVERLAY} .pjm-search-wrap { height: 40px; }
-      #${ID_MANAGER_OVERLAY} .pjm-search-wrap > :is(i, .pj-suite-fa) { left: 13px; width: 16px; height: 16px; color: #64748b; }
-      #${ID_MANAGER_OVERLAY} .pjm-search-wrap .pjm-input,
-      #${ID_MANAGER_OVERLAY} .pjm-context-actions .pjm-btn { min-height: 40px; height: 40px; }
-      #${ID_MANAGER_OVERLAY} .pjm-search-wrap .pjm-input { padding-left: 36px; border-radius: 9px; font-size: 12px; }
-      #${ID_MANAGER_OVERLAY} .pjm-context-actions .pjm-btn { border-radius: 9px; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat {
-        grid-template-columns: 38px minmax(0, 1fr);
-        grid-template-rows: auto auto;
-        column-gap: 11px;
-        min-height: 84px;
-        padding: 14px;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        box-shadow: 0 1px 2px rgba(15, 23, 42, .03);
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-stat > :is(i, .pj-suite-fa) {
-        grid-row: 1 / span 2;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 38px;
-        height: 38px;
-        border-radius: 999px;
-        background: #f1f5f9;
-        color: #475569;
-        font-size: 16px;
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-stat--active > :is(i, .pj-suite-fa) { background: #eff6ff; color: #2563eb; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat--active .pjm-stat-value { color: #2563eb; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat--global > :is(i, .pj-suite-fa) { background: #f5f3ff; color: #7c3aed; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat--global .pjm-stat-value { color: #7c3aed; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat--done > :is(i, .pj-suite-fa) { background: #f0fdf4; color: #15803d; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat--done .pjm-stat-value { color: #15803d; }
-      #${ID_MANAGER_OVERLAY} .pjm-filter-card { padding: 14px; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 1px 2px rgba(15, 23, 42, .03); }
-      #${ID_MANAGER_OVERLAY} .pjm-filterbar { gap: 9px; }
-      #${ID_MANAGER_OVERLAY} .pjm-filterbar .pjm-select { min-height: 40px; border-radius: 9px; font-size: 12px; }
-      #${ID_MANAGER_OVERLAY} .pjm-filterbar .pjm-btn { min-height: 40px; border-radius: 9px; }
-      #${ID_MANAGER_OVERLAY} .pjm-queue-card { border: 0; background: transparent; }
-      #${ID_MANAGER_OVERLAY} .pjm-queue-card .pjm-list-head { padding: 0 0 11px; border-bottom: 0; }
-      #${ID_MANAGER_OVERLAY} .pjm-queue-card .pjm-queue { overflow: hidden; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; }
-      #${ID_MANAGER_OVERLAY} .pjm-queue-card .pjm-task-row:first-child { border-top: 0; }
-      #${ID_MANAGER_OVERLAY} .pjm-task-row {
-        grid-template-columns: minmax(250px, 1.8fr) minmax(180px, 1.2fr) minmax(105px, .75fr) minmax(130px, .85fr) 76px;
-        column-gap: 18px;
-        min-height: 76px;
-        padding: 16px 18px;
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-row-title {
-        max-width: none;
-        overflow: visible;
-        overflow-wrap: anywhere;
-        text-overflow: clip;
-        white-space: normal;
-        line-height: 1.3;
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-badge--cnj {
-        max-width: 100%;
-        justify-content: center;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        font-variant-numeric: tabular-nums;
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-task-cell:nth-child(2),
-      #${ID_MANAGER_OVERLAY} .pjm-task-cell:nth-child(3),
-      #${ID_MANAGER_OVERLAY} .pjm-task-cell:nth-child(4) { align-self: center; }
-      #${ID_MANAGER_OVERLAY} .pjm-task-cell:nth-child(4) .pjm-badge-row { margin-top: 0; }
-      @container pjm-manager (max-width: 1120px) { #${ID_MANAGER_OVERLAY} .pjm-workspace-grid { grid-template-columns: 1fr; } #${ID_MANAGER_OVERLAY} .pjm-detail { display: none; } }
-      @container pjm-manager (max-width: 800px) { #${ID_MANAGER_OVERLAY} .pjm-context { align-items: stretch; flex-direction: column; } #${ID_MANAGER_OVERLAY} .pjm-context-actions { min-width: 0; flex-basis: auto; } #${ID_MANAGER_OVERLAY} .pjm-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); grid-template-areas: 'rail' 'main'; } #${ID_MANAGER_OVERLAY} .pjm-rail { padding: 8px; border-right: 0; border-bottom: 1px solid #e2e8f0; } #${ID_MANAGER_OVERLAY} .pjm-rail::after { display: none; } #${ID_MANAGER_OVERLAY} .pjm-nav { display: flex; overflow-x: auto; } #${ID_MANAGER_OVERLAY} .pjm-nav-label, #${ID_MANAGER_OVERLAY} .pjm-nav-separator { display: none; } #${ID_MANAGER_OVERLAY} .pjm-nav-item { flex: 0 0 auto; width: auto; } }
-      @container pjm-manager (max-width: 620px) { #${ID_MANAGER_OVERLAY} .pjm-workspace { padding: 14px; } #${ID_MANAGER_OVERLAY} .pjm-context-actions, #${ID_MANAGER_OVERLAY} .pjm-composer-card, #${ID_MANAGER_OVERLAY} .pjm-filterbar { align-items: stretch; flex-direction: column; grid-template-columns: 1fr; } #${ID_MANAGER_OVERLAY} .pjm-context-actions .pjm-btn { width: 100%; } #${ID_MANAGER_OVERLAY} .pjm-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } #${ID_MANAGER_OVERLAY} .pjm-task-row { grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px; } #${ID_MANAGER_OVERLAY} .pjm-task-cell:first-child, #${ID_MANAGER_OVERLAY} .pjm-task-cell:nth-child(4), #${ID_MANAGER_OVERLAY} .pjm-task-cell:nth-child(5) { grid-column: 1 / -1; } #${ID_MANAGER_OVERLAY} .pjm-task-cell::before { display: block; margin-bottom: 3px; color: #94a3b8; font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; content: attr(data-label); } #${ID_MANAGER_OVERLAY} .pjm-row-title { white-space: normal; overflow-wrap: anywhere; } }
-      @media (max-width: 560px) {
-        #pj-todo.pj-todo-modern {
-          right: 12px !important;
-          left: 12px;
-          top: 12px !important;
-          width: auto;
-          height: calc(100vh - 24px);
-          max-height: calc(100vh - 24px);
-        }
-        #pj-todo.pj-todo-modern .pj-home-header-subtitle { display: none; }
-      }
-      /* Contratos de leitura: rolagem, largura da fila e tags não podem ser ocultadas. */
-      #${ID_MANAGER_OVERLAY} .pjm-workspace,
-      #pj-todo.pj-todo-modern .pj-list {
-        scrollbar-width: thin;
-        scrollbar-color: #cbd5e1 #f1f5f9;
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-workspace::-webkit-scrollbar,
-      #pj-todo.pj-todo-modern .pj-list::-webkit-scrollbar { width: 10px; height: 10px; }
-      #${ID_MANAGER_OVERLAY} .pjm-workspace::-webkit-scrollbar-track,
-      #pj-todo.pj-todo-modern .pj-list::-webkit-scrollbar-track { background: #f1f5f9; }
-      #${ID_MANAGER_OVERLAY} .pjm-workspace::-webkit-scrollbar-thumb,
-      #pj-todo.pj-todo-modern .pj-list::-webkit-scrollbar-thumb { border: 2px solid #f1f5f9; border-radius: 999px; background: #cbd5e1; }
-      #${ID_MANAGER_OVERLAY} .pjm-workspace::-webkit-scrollbar-thumb:hover,
-      #pj-todo.pj-todo-modern .pj-list::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-      #${ID_MANAGER_OVERLAY} .pjm-workspace-grid { grid-template-columns: minmax(0, 1fr) 286px; }
-      #${ID_MANAGER_OVERLAY} .pjm-queue-card,
-      #${ID_MANAGER_OVERLAY} .pjm-queue-card .pjm-queue { overflow: visible; }
-      #${ID_MANAGER_OVERLAY} .pjm-table-wrap { overflow-x: auto; overflow-y: visible; overscroll-behavior-x: contain; }
-      #${ID_MANAGER_OVERLAY} .pjm-task-list { min-width: 860px; }
-      #${ID_MANAGER_OVERLAY} .pjm-task-row { min-width: 860px; grid-template-columns: minmax(240px, 1.7fr) minmax(155px, 1fr) minmax(100px, .7fr) minmax(150px, 1fr) 76px; }
-      #${ID_MANAGER_OVERLAY} .pjm-badge-row { max-width: 100%; flex-wrap: wrap; overflow: visible; }
-      #${ID_MANAGER_OVERLAY} .pjm-badge { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
-      #${ID_MANAGER_OVERLAY} .pjm-badge--cnj { display: flex; min-width: 0; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat { grid-template-columns: 38px minmax(0, 1fr); }
-      #${ID_MANAGER_OVERLAY} .pjm-stat-icon {
-        grid-row: 1 / span 2;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 38px;
-        height: 38px;
-        border-radius: 999px;
-        background: #f1f5f9;
-        color: #475569;
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-stat-icon :is(i, .pj-suite-fa) { width: 16px; height: 16px; font-size: 16px; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat--active .pjm-stat-icon { background: #eff6ff; color: #2563eb; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat--global .pjm-stat-icon { background: #f5f3ff; color: #7c3aed; }
-      #${ID_MANAGER_OVERLAY} .pjm-stat--done .pjm-stat-icon { background: #f0fdf4; color: #15803d; }
-      @container pjm-manager (max-width: 1040px) {
-        #${ID_MANAGER_OVERLAY} .pjm-workspace-grid { grid-template-columns: minmax(0, 1fr); }
-        #${ID_MANAGER_OVERLAY} .pjm-detail { display: none; }
-      }
-      /* Painel compacto da página inicial: somente abas e listas, com tags sempre legíveis. */
-      #pj-todo.pj-todo-modern.pj-todo-home {
-        width: min(460px, calc(100vw - 24px));
-        height: min(660px, calc(100vh - 24px));
-        max-height: calc(100vh - 24px);
-      }
-      #pj-todo.pj-todo-modern.pj-todo-home .pj-home-layout { gap: 10px; }
-      #pj-todo.pj-todo-modern.pj-todo-home .pj-tags { display: flex; flex-wrap: wrap; max-width: 100%; overflow: visible; }
-      #pj-todo.pj-todo-modern.pj-todo-home .pj-tag { white-space: normal; overflow-wrap: anywhere; }
-      /* Acabamento compartilhado com Intimações: lateral, fila e espaçamento. */
-      #${ID_MANAGER_OVERLAY} .pjm-body { grid-template-columns: 196px minmax(0, 1fr); }
-      #${ID_MANAGER_OVERLAY} .pjm-rail {
-        display: flex;
-        flex-direction: column;
-        padding: 24px 14px 18px;
-        border-right: 1px solid #e2e8f0;
-        background: #fff;
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-label {
-        margin: 0 10px 12px;
-        padding: 0;
-        color: #94a3b8;
-        font-size: 10px;
-        font-weight: 800;
-        letter-spacing: .1em;
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-nav { display: grid; gap: 4px; }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-item {
-        min-height: 42px;
-        padding: 10px 11px;
-        border-radius: 10px;
-        background: transparent !important;
-        color: #64748b;
-        font-size: 13px;
-        font-weight: 600;
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-item .pj-suite-fa { width: 18px; color: #94a3b8; }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-item:hover { background: #f8fafc !important; color: #172033; }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-item[data-active="true"] { border-color: #dbeafe; background: #eff6ff !important; color: #1d4ed8; }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-item[data-active="true"] .pj-suite-fa { color: #2563eb; }
-      #${ID_MANAGER_OVERLAY} .pjm-nav-separator { margin: 16px 10px; background: #eef2f7; }
-      #${ID_MANAGER_OVERLAY} .pjm-rail::after { width: 42px; height: 4px; margin: auto 10px 0; background: #dbeafe; }
-      #${ID_MANAGER_OVERLAY} .pjm-workspace-grid { display: block; }
-      #${ID_MANAGER_OVERLAY} .pjm-detail { display: none !important; }
-      #${ID_MANAGER_OVERLAY} .pjm-filterbar--compact { grid-template-columns: minmax(0, 1fr) auto; gap: 9px; }
-      #${ID_MANAGER_OVERLAY} .pjm-filterbar--compact .pjm-select { min-width: 0; }
-      #${ID_MANAGER_OVERLAY} .pjm-table-wrap { overflow-x: hidden; overflow-y: visible; }
-      #${ID_MANAGER_OVERLAY} .pjm-task-list { min-width: 0; }
-      #${ID_MANAGER_OVERLAY} .pjm-task-row {
-        min-width: 0;
-        grid-template-columns: minmax(240px, 2fr) minmax(140px, 1fr) minmax(100px, .75fr) minmax(120px, 1fr) 76px;
-        column-gap: 16px;
-      }
-      #${ID_MANAGER_OVERLAY} .pjm-badge-row { min-width: 0; }
-      #${ID_MANAGER_OVERLAY} .pjm-queue-card .pjm-task-row + .pjm-task-row { margin-top: 0; }
-      #pj-todo.pj-todo-modern.pj-todo-home .pj-home-layout { gap: 14px; }
-      /* Ajustes finais: a lateral e o cabeçalho seguem a composição de Intimações. */
-      #${ID_MANAGER_OVERLAY} .pjm-nav-separator { display: none; }
-      #${ID_MANAGER_OVERLAY} .pjm-context-actions { flex-basis: 680px; }
-      #${ID_MANAGER_OVERLAY} .pjm-sort-select { flex: 0 0 164px; width: 164px; min-height: 40px; height: 40px; border-radius: 9px; font-size: 12px; }
-      #${ID_MANAGER_OVERLAY} .pjm-task-row { grid-template-columns: minmax(240px, 2fr) minmax(140px, 1fr) minmax(100px, .75fr) minmax(120px, 1fr) 132px; }
-      #${ID_MANAGER_OVERLAY} .pjm-task-cell:last-child { min-width: 132px; overflow: visible; }
-      #${ID_MANAGER_OVERLAY} .pjm-row-actions { width: 132px; justify-content: flex-end; gap: 4px; }
-      #${ID_MANAGER_OVERLAY} .pjm-queue-card .pjm-list-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-      #${ID_MANAGER_OVERLAY} .pjm-queue-card .pjm-list-head .pjm-btn--compact { min-height: 32px; height: 32px; padding: 6px 9px; border-radius: 8px; font-size: 11px; }
-      #pj-todo.pj-todo-modern.pj-todo-home .pj-home-panel .pj-section { gap: 12px; }
-      #pj-todo.pj-todo-modern.pj-todo-home .pj-home-composer { margin: 12px 12px 0; }
-      #pj-todo.pj-todo-modern.pj-todo-home .pj-home-toolbar { margin-bottom: 10px; }
-      #pj-todo.pj-todo-modern.pj-todo-home .pj-home-panel .pj-list { padding: 0 12px 12px; }
-      #pj-todo.pj-todo-modern.pj-todo-home :is(.pj-home-layout, .pj-process-layout) .pj-item { margin-bottom: 8px; border-radius: 12px; }
-      #pj-todo.pj-todo-modern.pj-todo-home :is(.pj-home-layout, .pj-process-layout) .pj-item:last-child { margin-bottom: 0; }
-      @container pjm-manager (max-width: 880px) {
-        #${ID_MANAGER_OVERLAY} .pjm-table-wrap { overflow-x: hidden; }
-        #${ID_MANAGER_OVERLAY} .pjm-task-row {
-          grid-template-columns: minmax(0, 1fr) auto;
-          gap: 9px 14px;
-          min-height: 0;
-          padding: 14px;
-        }
-        #${ID_MANAGER_OVERLAY} .pjm-task-cell:first-child,
-        #${ID_MANAGER_OVERLAY} .pjm-task-cell:nth-child(4),
-        #${ID_MANAGER_OVERLAY} .pjm-task-cell:nth-child(5) { grid-column: 1 / -1; }
-        #${ID_MANAGER_OVERLAY} .pjm-task-cell:not(:first-child)::before {
-          display: block;
-          margin-bottom: 3px;
-          color: #94a3b8;
-          font-size: 9px;
-          font-weight: 800;
-          letter-spacing: .06em;
-          text-transform: uppercase;
-          content: attr(data-label);
-        }
-      }
-      @container pjm-manager (max-width: 620px) {
-        #${ID_MANAGER_OVERLAY} .pjm-sort-select { flex-basis: auto; width: 100%; }
-        #${ID_MANAGER_OVERLAY} .pjm-context-actions .pjm-btn { width: 100%; }
-        #${ID_MANAGER_OVERLAY} .pjm-task-cell:last-child,
-        #${ID_MANAGER_OVERLAY} .pjm-row-actions { width: 100%; min-width: 0; }
-        #${ID_MANAGER_OVERLAY} .pjm-filterbar--compact { grid-template-columns: 1fr; }
-        #${ID_MANAGER_OVERLAY} .pjm-filterbar--compact .pjm-btn { width: 100%; }
-      }
       ${BACKUP_UI_CSS}
     `;
     document.head.appendChild(style);
   }
 
-  /**
-   * Trava a rolagem do painel, impedindo que a rolagem vaze para a página quando chega aos limites.
-   * @param {HTMLElement} panel - Elemento do painel a ser protegido.
-   * @returns {Function} Função de limpeza que remove o listener.
-   */
   function bindPanelScrollLock(panel) {
     const onWheel = e => {
       const getScrollable = start => {
@@ -3711,26 +2624,6 @@
     return () => panel.removeEventListener('wheel', onWheel);
   }
 
-  /**
-   * Fecha o painel ao pressionar a tecla Escape.
-   * @param {Function} onClose - Função chamada ao pressionar Escape.
-   * @returns {Function} Função de limpeza que remove o listener.
-   */
-  function bindEscapeClose(onClose) {
-    const onKeyDown = event => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      onClose();
-    };
-    document.addEventListener('keydown', onKeyDown, true);
-    return () => document.removeEventListener('keydown', onKeyDown, true);
-  }
-
-  /**
-   * Copia um texto para a área de transferência, com fallback via textarea temporária.
-   * @param {string} text - Texto a ser copiado.
-   * @returns {Promise<void>} Promise que resolve após a cópia ser tentada.
-   */
   async function copyToClipboard(text) {
     try {
       await navigator.clipboard.writeText(text);
@@ -3745,20 +2638,6 @@
     }
   }
 
-  /**
-   * Renderiza a lista de itens de tarefa com ações de alternância, edição, tags, movimentação e reordenação.
-   * @param {object} options - Opções de renderização.
-   * @param {HTMLElement} options.listEl - Elemento que recebe a lista.
-   * @param {Array} options.items - Itens de tarefa a exibir.
-   * @param {Function} options.onToggle - Callback ao alternar a conclusão (id, done).
-   * @param {Function} options.onDelete - Callback ao excluir (id).
-   * @param {Function} options.onEdit - Callback ao editar o texto (id, text).
-   * @param {Function} [options.onReorder] - Callback ao reordenar (fromId, toId).
-   * @param {Function} [options.onMove] - Callback ao mover (id).
-   * @param {Function} [options.onEditTags] - Callback ao editar tags (id, tagsRaw).
-   * @param {string} [options.emptyMessage] - Mensagem exibida quando a lista está vazia.
-   * @returns {void}
-   */
   function renderItemsList({ listEl, items, onToggle, onDelete, onEdit, onReorder, onMove, onEditTags, emptyMessage = 'Sem tarefas.' }) {
     listEl.innerHTML = '';
 
@@ -3832,15 +2711,6 @@
     }
   }
 
-  /**
-   * Habilita o arraste da janela do painel, perseguindo a posição salva.
-   * @param {object} options - Opções de arraste.
-   * @param {Function} options.loadUI - Função que carrega a posição atual.
-   * @param {Function} options.saveUI - Função que persiste a posição.
-   * @param {HTMLElement} options.panel - Elemento do painel a ser movido.
-   * @param {HTMLElement} options.handle - Alça que inicia o arraste.
-   * @returns {Function} Função de limpeza que remove os listeners.
-   */
   function enableDragWindow({ loadUI, saveUI, panel, handle }) {
     let dragging = false;
     let startX = 0;
@@ -3848,11 +2718,6 @@
     let startRight = 0;
     let startTop = 0;
 
-    /**
-     * Inicia o arraste da janela ao pressionar o mouse na alça.
-     * @param {MouseEvent} e - Evento de mousedown.
-     * @returns {void}
-     */
     function onDown(e) {
       const t = e.target;
       if (t && (t.classList?.contains('pj-todo-btn') || t.closest?.('.pj-todo-btn'))) return;
@@ -3867,11 +2732,6 @@
       e.preventDefault();
     }
 
-    /**
-     * Atualiza a posição da janela enquanto o mouse se move durante o arraste.
-     * @param {MouseEvent} e - Evento de mousemove.
-     * @returns {void}
-     */
     function onMove(e) {
       if (!dragging) return;
       const dx = e.clientX - startX;
@@ -3886,10 +2746,6 @@
       saveUI(ui);
     }
 
-    /**
-     * Finaliza o arraste da janela ao soltar o mouse.
-     * @returns {void}
-     */
     function onUp() {
       dragging = false;
       document.removeEventListener('mousemove', onMove);
@@ -3905,10 +2761,6 @@
     };
   }
 
-  /**
-   * Desmonta o estado atual, removendo painel, launcher e estado de UI.
-   * @returns {void}
-   */
   function unmount() {
     runPanelCleanup();
     const p = document.getElementById('pj-todo');
@@ -3920,12 +2772,6 @@
     state.ctxKey = null;
   }
 
-  /**
-   * Ajusta o tamanho do botão de launcher para acompanhar o elemento âncora.
-   * @param {HTMLElement} button - Botão do launcher de tarefas.
-   * @param {HTMLElement} anchor - Elemento âncora de referência.
-   * @returns {void}
-   */
   function matchProcessLauncherSize(button, anchor) {
     const anchorStyle = getComputedStyle(anchor);
     const anchorRect = anchor.getBoundingClientRect();
@@ -3942,12 +2788,6 @@
     button.style.setProperty('vertical-align', anchorStyle.verticalAlign || 'middle', 'important');
   }
 
-  /**
-   * Insere o botão de launcher de tarefas próximo ao botão de anotação/post-it do processo.
-   * @param {object} options - Opções de montagem.
-   * @param {Function} options.onOpen - Callback ao abrir o painel.
-   * @returns {boolean} true quando o botão foi montado.
-   */
   function mountProcessInlineButton({ onOpen }) {
     const existing = document.getElementById(ID_PROC_BTN);
     if (existing) return true;
@@ -4011,10 +2851,6 @@
     return true;
   }
 
-  /**
-   * Localiza um elemento âncora adequado no cabeçalho direto do processo.
-   * @returns {HTMLElement|null} Elemento âncora encontrado, ou null.
-   */
   function findDirectProcessHeaderAnchor() {
     const selectors = [
       'i.fa-thumbtack',
@@ -4033,12 +2869,6 @@
     return null;
   }
 
-  /**
-   * Insere o botão de launcher de tarefas no cabeçalho direto do processo.
-   * @param {object} options - Opções de montagem.
-   * @param {Function} options.onOpen - Callback ao abrir o painel.
-   * @returns {boolean} true quando o botão foi montado.
-   */
   function mountProcessHeaderButton({ onOpen }) {
     const existing = document.getElementById(ID_PROC_BTN);
     if (existing) return true;
@@ -4082,11 +2912,6 @@
     return true;
   }
 
-  /**
-   * Sincroniza a presença do launcher de tarefas para o contexto de processo atual.
-   * @param {object} ctx - Contexto do processo.
-   * @returns {void}
-   */
   function syncProcessLauncher(ctx) {
     const onOpen = () => openProcessPanel(ctx);
     if (document.getElementById('pj-todo')) return;
@@ -4096,12 +2921,6 @@
     scheduleEvaluate(350);
   }
 
-  /**
-   * Cria o bloco de ações do cabeçalho do painel (botão de fechar).
-   * @param {object} options - Opções de montagem.
-   * @param {Function} options.onClose - Callback ao fechar o painel.
-   * @returns {HTMLElement} Elemento com as ações do cabeçalho.
-   */
   function createHeaderActions({ onClose }) {
     const closeBtn = el('button', { className: 'pj-todo-btn pj-todo-close-btn', title: 'Fechar' }, [faIcon('fa-solid fa-xmark')]);
 
@@ -4110,16 +2929,6 @@
     return el('div', { id: 'pj-todo-actions' }, [closeBtn]);
   }
 
-  /**
-   * Cria o cabeçalho moderno de um painel de tarefas.
-   * @param {object} options - Opções do cabeçalho.
-   * @param {string} options.title - Título exibido.
-   * @param {string} [options.subtitle] - Subtítulo exibido.
-   * @param {string} options.icon - Classe do ícone do cabeçalho.
-   * @param {string} [options.tooltip] - Texto do tooltip.
-   * @param {Function} options.onClose - Callback ao fechar.
-   * @returns {HTMLElement} Elemento do cabeçalho.
-   */
   function createModernPanelHeader({ title, subtitle, icon, tooltip, onClose }) {
     return el('div', { id: 'pj-todo-header' }, [
       el('div', { className: 'pj-home-header-brand', title: tooltip || title }, [
@@ -4133,15 +2942,6 @@
     ]);
   }
 
-  /**
-   * Cria o compositor de nova tarefa com campos de texto, tags e botão de adicionar.
-   * @param {object} options - Opções do compositor.
-   * @param {string} options.label - Rótulo do compositor.
-   * @param {string} options.inputPlaceholder - Placeholder do campo de texto.
-   * @param {string} options.inputAriaLabel - Rótulo de acessibilidade do campo de texto.
-   * @param {string} options.tagsAriaLabel - Rótulo de acessibilidade do campo de tags.
-   * @returns {object} Objeto com root, input, tagsInput e addBtn.
-   */
   function createTaskComposer({ label, inputPlaceholder, inputAriaLabel, tagsAriaLabel }) {
     const input = el('input', { className: 'pj-input', type: 'text', placeholder: inputPlaceholder, 'aria-label': inputAriaLabel });
     const tagsInput = el('input', {
@@ -4162,17 +2962,13 @@
     return { root, input, tagsInput, addBtn };
   }
 
-  /**
-   * Abre o gerenciador geral de tarefas em um overlay.
-   * @returns {void}
-   */
   function openManagerPanel() {
     const existing = document.getElementById(ID_MANAGER_OVERLAY);
     if (existing) return;
 
     let backupSettings = loadBackupSettings();
     const overlay = el('div', { id: ID_MANAGER_OVERLAY });
-    const panel = el('div', { className: 'pjm-panel', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Gerenciador de tarefas' });
+    const panel = el('div', { className: 'pjm-panel', role: 'dialog', 'aria-modal': 'true' });
     panel.innerHTML = `
       <div class="pjm-head">
         <div class="pjm-head-row">
@@ -4183,30 +2979,59 @@
               <div class="pjm-sub">Pendências globais e por processo em um só lugar</div>
             </div>
           </div>
-          <div class="pjm-head-actions"><button type="button" class="pjm-close" data-pjm-action="close" title="Fechar" aria-label="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
+          <button type="button" class="pjm-close" data-pjm-action="close" title="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
         </div>
       </div>
       <div class="pjm-body">
         <aside class="pjm-rail">
-          <div class="pjm-nav-label">Workspace</div>
-          <nav class="pjm-nav" aria-label="Destinos das tarefas">
-            <button type="button" class="pjm-nav-item" data-pjm-destination="active"><i class="fa-solid fa-inbox" aria-hidden="true"></i><span>Em aberto</span><span class="pjm-nav-count" id="pjm-nav-active">0</span></button>
-            <button type="button" class="pjm-nav-item" data-pjm-destination="all"><i class="fa-solid fa-list" aria-hidden="true"></i><span>Todas</span><span class="pjm-nav-count" id="pjm-nav-all">0</span></button>
-            <button type="button" class="pjm-nav-item" data-pjm-destination="done"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span>Concluídas</span><span class="pjm-nav-count" id="pjm-nav-done">0</span></button>
-            <button type="button" class="pjm-nav-item" id="pjm-backup-open"><i class="fa-solid fa-cloud" aria-hidden="true"></i><span>Backup remoto</span></button>
-          </nav>
+          <section class="pjm-card pjm-card--summary">
+            <div class="pjm-section-title"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i><span>Painel principal</span></div>
+            <div class="pjm-summary-title" id="pjm-summary-title">0 tarefas em foco</div>
+            <div class="pjm-summary-sub" id="pjm-summary-sub">Nenhuma tarefa carregada.</div>
+            <div class="pjm-stat-grid">
+              <button type="button" class="pjm-stat pjm-stat--active" data-pjm-filter="active">
+                <i class="fa-solid fa-bolt" aria-hidden="true"></i>
+                <span class="pjm-stat-value" id="pjm-stat-active">0</span>
+                <span class="pjm-stat-label">Ativas</span>
+              </button>
+              <button type="button" class="pjm-stat pjm-stat--done" data-pjm-filter="done">
+                <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+                <span class="pjm-stat-value" id="pjm-stat-done">0</span>
+                <span class="pjm-stat-label">Concluídas</span>
+              </button>
+            </div>
+            <button class="pjm-btn pjm-backup-toggle" id="pjm-backup-open" type="button"><i class="fa-solid fa-cloud" aria-hidden="true"></i><span>Backup remoto</span></button>
+          </section>
+          <section class="pjm-card">
+            <div class="pjm-section-title"><i class="fa-solid fa-filter" aria-hidden="true"></i><span>Filtros</span></div>
+            <div class="pjm-field">
+              <label for="pjm-search">Busca</label>
+              <input class="pjm-input" id="pjm-search" placeholder="Texto, tag ou CNJ" />
+            </div>
+            <div class="pjm-field">
+              <label for="pjm-filter-state">Status</label>
+              <select class="pjm-select" id="pjm-filter-state">
+                <option value="active">Ativas</option>
+                <option value="done">Concluídas</option>
+                <option value="all">Todas</option>
+              </select>
+            </div>
+            <div class="pjm-action-grid">
+              <button class="pjm-btn" id="pjm-export"><i class="fa-solid fa-download" aria-hidden="true"></i><span>Baixar JSON</span></button>
+              <button class="pjm-btn" id="pjm-import"><i class="fa-solid fa-upload" aria-hidden="true"></i><span>Enviar JSON</span></button>
+            </div>
+          </section>
         </aside>
         <main class="pjm-main">
-          <div class="pjm-workspace">
-            <div class="pjm-context"><div><div class="pjm-context-kicker">Visão operacional</div><div class="pjm-summary-title" id="pjm-summary-title">Tarefas</div><div class="pjm-summary-sub" id="pjm-summary-sub">Carregando tarefas locais.</div></div><div class="pjm-context-actions"><div class="pjm-search-wrap"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input class="pjm-input" id="pjm-search" placeholder="Buscar por tarefa, tag ou processo" aria-label="Buscar tarefas" /></div><select class="pjm-select pjm-sort-select" id="pjm-sort" aria-label="Ordenar tarefas"><option value="newest">Mais recentes</option><option value="oldest">Mais antigas</option><option value="active">Ativas primeiro</option></select><button class="pjm-btn" id="pjm-export" type="button"><i class="fa-solid fa-download" aria-hidden="true"></i><span>Exportar</span></button></div></div>
-            <div class="pjm-stat-grid">
-              <button type="button" class="pjm-stat pjm-stat--active" data-pjm-filter="active"><span class="pjm-stat-icon"><i class="fa-solid fa-inbox" aria-hidden="true"></i></span><span class="pjm-stat-value" id="pjm-stat-active">0</span><span class="pjm-stat-label">Em aberto</span></button>
-              <button type="button" class="pjm-stat" data-pjm-filter="all"><span class="pjm-stat-icon"><i class="fa-solid fa-list" aria-hidden="true"></i></span><span class="pjm-stat-value" id="pjm-stat-all">0</span><span class="pjm-stat-label">Todas</span></button>
-              <button type="button" class="pjm-stat pjm-stat--global" data-pjm-filter="global"><span class="pjm-stat-icon"><i class="fa-solid fa-layer-group" aria-hidden="true"></i></span><span class="pjm-stat-value" id="pjm-stat-global">0</span><span class="pjm-stat-label">Globais</span></button>
-              <button type="button" class="pjm-stat pjm-stat--done" data-pjm-filter="done"><span class="pjm-stat-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span><span class="pjm-stat-value" id="pjm-stat-done">0</span><span class="pjm-stat-label">Concluídas</span></button>
+          <section class="pjm-card">
+            <div class="pjm-list-head">
+              <div>
+                <div class="pjm-section-title"><i class="fa-solid fa-layer-group" aria-hidden="true"></i><span>Tarefas monitoradas</span></div>
+                <div id="pjm-stats" class="pjm-item-meta"></div>
+              </div>
             </div>
-            <div class="pjm-workspace-grid"><div class="pjm-content-column"><section class="pjm-composer-card"><input class="pjm-input" id="pjm-new-text" placeholder="Criar tarefa global rápida" aria-label="Nova tarefa global" /><button class="pjm-btn pjm-btn--primary" id="pjm-new-add" type="button"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>Adicionar</span></button></section><section class="pjm-queue-card"><div class="pjm-list-head"><div><div class="pjm-section-title"><i class="fa-solid fa-list-check" aria-hidden="true"></i><span>Fila de tarefas</span></div><div id="pjm-stats" class="pjm-item-meta"></div></div><button class="pjm-btn pjm-btn--compact" id="pjm-import" type="button"><i class="fa-solid fa-upload" aria-hidden="true"></i><span>Importar</span></button></div><div class="pjm-queue"><div class="pjm-table-wrap" id="pjm-list"></div></div></section></div></div>
-          </div>
+            <div id="pjm-list" class="pjm-list"></div>
+          </section>
         </main>
         <div class="pjm-backup-popover pj-backup-ui__popover" id="pjm-backup-popover">
           <section class="pjm-card pjm-backup-dialog pj-backup-ui__dialog" role="dialog" aria-modal="true" aria-labelledby="pjm-backup-title">
@@ -4257,6 +3082,7 @@
     const summarySubEl = panel.querySelector('#pjm-summary-sub');
     const statActiveEl = panel.querySelector('#pjm-stat-active');
     const statDoneEl = panel.querySelector('#pjm-stat-done');
+    const stateFilterEl = panel.querySelector('#pjm-filter-state');
     const searchEl = panel.querySelector('#pjm-search');
     const backupOpen = panel.querySelector('#pjm-backup-open');
     const backupPopover = panel.querySelector('#pjm-backup-popover');
@@ -4290,30 +3116,16 @@
       backupAuto.checked = backupSettings.autoBackupOnSave;
     }
 
-    /**
-     * Exibe a mensagem de status do backup com o tom informado.
-     * @param {string} message - Mensagem a exibir.
-     * @param {string} [tone] - Tom visual (err, ok ou outro).
-     * @returns {void}
-     */
     function showBackupStatus(message, tone) {
       if (!hasBackupUi) return;
       backupStatus.textContent = message || '';
       backupStatus.dataset.state = !message ? 'idle' : tone === 'err' ? 'error' : tone === 'ok' ? 'success' : 'progress';
     }
-    /**
-     * Atualiza o rótulo do último backup exibido no painel.
-     * @returns {void}
-     */
     function updateBackupLast() {
       if (!hasBackupUi) return;
       backupLast.textContent = formatLastBackupLabel(backupSettings.lastBackupAt);
     }
 
-    /**
-     * Lê as configurações de backup dos campos do painel.
-     * @returns {object} Configurações de backup normalizadas vindas da interface.
-     */
     function readBackupSettingsFromPanel() {
       if (!hasBackupUi) return backupSettings;
       return normalizeBackupSettings({
@@ -4325,10 +3137,6 @@
       });
     }
 
-    /**
-     * Envia um backup remoto imediatamente a partir das configurações atuais do painel.
-     * @returns {Promise<void>} Promise que resolve após o envio ser concluído.
-     */
     async function runBackupNow() {
       backupSettings = saveBackupSettings(readBackupSettingsFromPanel());
       showBackupStatus('Enviando backup...', 'muted');
@@ -4342,10 +3150,6 @@
     }
     updateBackupLast();
 
-    /**
-     * Limpa as configurações de backup salvas e sincroniza os campos do painel.
-     * @returns {void}
-     */
     function clearBackupSettingsFromPanel() {
       backupSettings = saveBackupSettings(DEFAULT_BACKUP_SETTINGS);
       backupEnabled.checked = backupSettings.enabled;
@@ -4357,11 +3161,6 @@
       showBackupStatus('Configuração de backup removida.', 'ok');
     }
 
-    /**
-     * Persiste as alterações de uma linha de tarefa no escopo apropriado.
-     * @param {object} row - Linha de tarefa com os dados atualizados.
-     * @returns {void}
-     */
     function persistRow(row) {
       if (row.scopeType === 'global') {
         const items = loadGlobalItems();
@@ -4379,11 +3178,6 @@
       if (row.cnj) touchIndex({ key: row.key, cnj: row.cnj });
     }
 
-    /**
-     * Remove uma linha de tarefa do escopo apropriado, atualizando o índice se necessário.
-     * @param {object} row - Linha de tarefa a ser removida.
-     * @returns {void}
-     */
     function removeRow(row) {
       if (row.scopeType === 'global') {
         saveGlobalItems(loadGlobalItems().filter(x => x.id !== row.id));
@@ -4400,11 +3194,6 @@
       backupClear.addEventListener('click', clearBackupSettingsFromPanel);
     }
 
-    /**
-     * Abre ou fecha o popover de backup remoto.
-     * @param {boolean} open - true para abrir, false para fechar.
-     * @returns {void}
-     */
     function setBackupOpen(open) {
       if (backupPopover instanceof HTMLElement) backupPopover.dataset.open = open ? 'true' : 'false';
     }
@@ -4419,128 +3208,107 @@
       btn.addEventListener('click', () => setBackupOpen(false));
     });
 
-    const statAllEl = panel.querySelector('#pjm-stat-all');
-    const statGlobalEl = panel.querySelector('#pjm-stat-global');
-    const sortEl = panel.querySelector('#pjm-sort');
-    const newTextEl = panel.querySelector('#pjm-new-text');
-    const newAddEl = panel.querySelector('#pjm-new-add');
-    let activeFilter = 'active';
-    let selectedRowId = null;
-
-    /**
-     * Aplica uma ação a uma linha de tarefa com base no tipo da ação.
-     * @param {object} row - Linha de tarefa alvo.
-     * @param {string} action - Tipo de ação (toggle, edit, tags ou delete).
-     * @returns {Promise<void>|void} Promise ou void conforme a ação executada.
-     */
-    function applyRowAction(row, action) {
-      if (action === 'toggle') {
-        toggleDoneState(row, !row.done);
-      } else if (action === 'edit') {
-        const next = prompt('Editar tarefa:', row.text || '');
-        if (next === null) return;
-        updateItemText(row, next);
-        if (!row.text) return;
-      } else if (action === 'tags') {
-        const next = prompt('Tags (separadas por vírgula):', (row.tags || []).join(', '));
-        if (next === null) return;
-        updateItemTags(row, next);
-      } else if (action === 'delete') {
-        if (!confirm('Excluir esta tarefa?')) return;
-        removeRow(row);
-        selectedRowId = null;
-        renderManagerRows();
-        scheduleEvaluate(50);
-        return;
-      }
-      persistRow(row);
-      selectedRowId = row.id;
-      renderManagerRows();
-      scheduleEvaluate(50);
-    }
-
-    /**
-     * Copia o CNJ e abre o processo de uma linha de tarefa.
-     * @param {object} row - Linha de tarefa com o CNJ e URL do processo.
-     * @returns {void}
-     */
-    function openRowProcess(row) {
-      copyToClipboard(row.cnj).then(() => {
-        if (!openProcessFromCnj(row.cnj, row.processUrl)) {
-          alert('CNJ copiado. Não encontrei um link salvo nem o campo de busca de processo nesta tela.');
-        }
-      });
-    }
-
-    /**
-     * Renderiza as linhas do gerenciador aplicando filtros, busca e ordenação.
-     * @returns {void}
-     */
     function renderManagerRows() {
       const allRows = collectTaskRows();
-      const filterState = activeFilter;
+      const filterState = stateFilterEl.value;
       const q = String(searchEl.value || '').trim().toLowerCase();
       const stats = buildTaskStats();
       const total = stats.active + stats.completed;
-      const globalTotal = allRows.filter(row => row.scopeType === 'global').length;
       if (statActiveEl) statActiveEl.textContent = String(stats.active);
       if (statDoneEl) statDoneEl.textContent = String(stats.completed);
-      if (statAllEl) statAllEl.textContent = String(total);
-      if (statGlobalEl) statGlobalEl.textContent = String(globalTotal);
-      panel.querySelector('#pjm-nav-active').textContent = String(stats.active);
-      panel.querySelector('#pjm-nav-all').textContent = String(total);
-      panel.querySelector('#pjm-nav-done').textContent = String(stats.completed);
-      const filterCopy = {
-        active: ['Em aberto', 'pendência em aberto', 'pendências em aberto'],
-        all: ['Todas as tarefas', 'tarefa cadastrada', 'tarefas cadastradas'],
-        global: ['Tarefas globais', 'tarefa global', 'tarefas globais'],
-        done: ['Tarefas concluídas', 'tarefa concluída', 'tarefas concluídas']
-      }[filterState] || ['Tarefas', 'tarefa', 'tarefas'];
-      const scopeRows = allRows.filter(row => filterState === 'all' || (filterState === 'global' && row.scopeType === 'global') || (filterState === 'active' && !row.done) || (filterState === 'done' && row.done));
-      if (summaryTitleEl) summaryTitleEl.textContent = scopeRows.length ? `${formatCount(scopeRows.length, filterCopy[1], filterCopy[2])}` : `Nenhuma ${filterCopy[1]}`;
-      if (summarySubEl) summarySubEl.textContent = total ? `${formatCount(total, 'tarefa cadastrada', 'tarefas cadastradas')} neste navegador. Visualizando ${filterCopy[0].toLowerCase()}.` : 'Crie a primeira tarefa para começar.';
-      panel.querySelectorAll('[data-pjm-filter], [data-pjm-destination]').forEach(button => {
-        if (button instanceof HTMLElement) button.dataset.active = (button.dataset.pjmFilter || button.dataset.pjmDestination) === filterState ? 'true' : 'false';
+      if (summaryTitleEl) summaryTitleEl.textContent = `${formatCount(total, 'tarefa', 'tarefas')} no painel`;
+      if (summarySubEl) {
+        summarySubEl.textContent = stats.active
+          ? `${formatCount(stats.active, 'ativa', 'ativas')} aguardando providência.`
+          : 'Tudo concluído no momento.';
+      }
+      panel.querySelectorAll('[data-pjm-filter]').forEach(btn => {
+        if (btn instanceof HTMLElement) btn.dataset.active = btn.dataset.pjmFilter === filterState ? 'true' : 'false';
       });
-      let rows = scopeRows;
-      if (q) rows = rows.filter(row => row.text.toLowerCase().includes(q) || (row.cnj || '').toLowerCase().includes(q) || (row.tags || []).some(tag => tag.toLowerCase().includes(q)));
-      if (sortEl.value === 'oldest') rows.sort((a, b) => Number(a.createdAt || 0) - Number(b.createdAt || 0));
-      if (sortEl.value === 'active') rows.sort((a, b) => Number(a.done) - Number(b.done) || Number(b.createdAt || 0) - Number(a.createdAt || 0));
+      let rows = allRows;
+      if (filterState === 'active') rows = rows.filter(r => !r.done);
+      if (filterState === 'done') rows = rows.filter(r => r.done);
+      if (q) {
+        rows = rows.filter(r =>
+          r.text.toLowerCase().includes(q) ||
+          (r.cnj || '').toLowerCase().includes(q) ||
+          (r.tags || []).some(tag => tag.toLowerCase().includes(q))
+        );
+      }
       statsEl.textContent = `${formatCount(rows.length, 'tarefa exibida', 'tarefas exibidas')} de ${formatCount(total, 'cadastrada', 'cadastradas')}`;
-      if (selectedRowId && !rows.some(row => row.id === selectedRowId)) selectedRowId = null;
-      const selectedRow = rows.find(row => row.id === selectedRowId) || rows[0] || null;
-      if (!selectedRowId && selectedRow) selectedRowId = selectedRow.id;
+
       listEl.innerHTML = '';
       if (!rows.length) {
-        listEl.appendChild(el('div', { className: 'pjm-empty' }, ['Sem tarefas para este filtro.']));
+        listEl.appendChild(el('div', { className: 'pj-empty' }, ['Sem tarefas para este filtro.']));
         return;
       }
-      const taskList = el('div', { className: 'pjm-task-list', role: 'list', 'aria-label': 'Fila de tarefas' });
-      rows.forEach(row => {
-        const item = el('div', { className: 'pjm-task-row', role: 'listitem', tabindex: '0', 'data-selected': row.id === selectedRowId ? 'true' : 'false', 'aria-label': `Selecionar tarefa ${row.text}` });
-        const taskCell = el('div', { className: 'pjm-task-cell', 'data-label': 'Tarefa' }, [el('div', { className: 'pjm-row-title', title: row.text }, [row.text]), el('div', { className: 'pjm-row-sub' }, [`Criada em ${formatDateTime(row.createdAt)}`])]);
-        const destination = el('div', { className: 'pjm-task-cell', 'data-label': 'Destino' }, [row.cnj ? el('button', { className: 'pjm-badge pjm-badge--cnj', type: 'button', title: 'Copiar CNJ e abrir processo' }, [row.cnj]) : el('span', { className: 'pjm-badge' }, ['Global'])]);
-        if (row.cnj) destination.firstChild.addEventListener('click', event => { event.stopPropagation(); openRowProcess(row); });
-        const status = el('div', { className: 'pjm-task-cell', 'data-label': 'Status' }, [el('span', { className: `pjm-badge ${row.done ? 'pjm-badge--done' : 'pjm-badge--active'}` }, [row.done ? 'Concluída' : 'Em aberto'])]);
-        const tags = el('div', { className: 'pjm-task-cell', 'data-label': 'Tags' }, [(row.tags || []).length ? el('div', { className: 'pjm-badge-row' }, row.tags.slice(0, 2).map(tag => el('span', { className: 'pjm-badge' }, [`#${tag}`]))) : el('span', { className: 'pjm-row-sub' }, ['—'])]);
-        const actions = el('div', { className: 'pjm-task-cell', 'data-label': 'Ações' }, [el('div', { className: 'pjm-row-actions' }, [])]);
-        [['toggle', row.done ? 'Reabrir' : 'Concluir', row.done ? 'fa-rotate-left' : 'fa-check'], ['edit', 'Editar', 'fa-pen'], ['tags', 'Editar tags', 'fa-tags'], ['delete', 'Excluir', 'fa-trash-can']].forEach(([action, label, icon]) => {
-          const button = el('button', { className: `pjm-icon-btn${action === 'delete' ? ' pjm-icon-btn--danger' : ''}`, type: 'button', title: label, 'aria-label': label }, [faIcon(`fa-solid ${icon}`)]);
-          button.addEventListener('click', event => { event.stopPropagation(); applyRowAction(row, action); });
-          actions.firstChild.appendChild(button);
-        });
-        item.append(taskCell, destination, status, tags, actions);
-        item.addEventListener('click', event => { if (!event.target.closest('button')) { selectedRowId = row.id; renderManagerRows(); } });
-        item.addEventListener('keydown', event => {
-          if (event.target !== item) return;
-          if (event.key !== 'Enter' && event.key !== ' ') return;
-          event.preventDefault();
-          selectedRowId = row.id;
+
+      for (const row of rows) {
+        const item = el('div', { className: `pjm-item${row.done ? ' pjm-item--done' : ''}` });
+        const title = el('div', { className: 'pjm-item-title' }, [row.text]);
+        const meta = el('div', { className: 'pjm-item-meta' }, [
+          `${row.scopeLabel} • Criada: ${formatDateTime(row.createdAt)}${row.done ? ` • Concluída: ${formatDateTime(row.completedAt)}` : ''}`
+        ]);
+        const badges = el('div', { className: 'pjm-badge-row' }, [
+          el('span', { className: `pjm-badge ${row.done ? 'pjm-badge--done' : 'pjm-badge--active'}` }, [row.done ? 'Concluída' : 'Ativa'])
+        ]);
+        if (row.cnj) {
+          const cnjBadge = el('button', { className: 'pjm-badge pjm-badge--cnj', type: 'button', title: 'Copiar CNJ e abrir processo' }, [
+            el('span', {}, [row.cnj]),
+            faIcon('fa-solid fa-arrow-up-right-from-square')
+          ]);
+          cnjBadge.addEventListener('click', async () => {
+            await copyToClipboard(row.cnj);
+            if (!openProcessFromCnj(row.cnj, row.processUrl)) {
+              alert('CNJ copiado. Não encontrei um link salvo nem o campo de busca de processo nesta tela.');
+            }
+          });
+          badges.appendChild(cnjBadge);
+        }
+        for (const tag of row.tags || []) badges.appendChild(el('span', { className: 'pjm-badge' }, [`#${tag}`]));
+
+        const left = el('div', { className: 'pjm-item-main' }, [title, meta, badges]);
+
+        const btnToggle = el('button', { className: 'pjm-btn pjm-btn--primary' }, [faIcon(row.done ? 'fa-solid fa-rotate-left' : 'fa-solid fa-check'), row.done ? 'Reabrir' : 'Concluir']);
+        const btnEdit = el('button', { className: 'pjm-btn' }, [faIcon('fa-solid fa-pen'), 'Editar']);
+        const btnTags = el('button', { className: 'pjm-btn' }, [faIcon('fa-solid fa-tags'), 'Tags']);
+        const btnDelete = el('button', { className: 'pjm-btn pjm-btn--danger' }, [faIcon('fa-solid fa-trash-can'), 'Excluir']);
+        const actions = el('div', { className: 'pjm-actions' }, [btnToggle, btnEdit, btnTags, btnDelete]);
+
+        btnToggle.addEventListener('click', () => {
+          row.done = !row.done;
+          toggleDoneState(row, row.done);
+          persistRow(row);
           renderManagerRows();
+          scheduleEvaluate(50);
         });
-        taskList.appendChild(item);
-      });
-      listEl.appendChild(taskList);
+        btnTags.addEventListener('click', () => {
+          const next = prompt('Tags (separadas por vírgula):', (row.tags || []).join(', '));
+          if (next === null) return;
+          updateItemTags(row, next);
+          persistRow(row);
+          renderManagerRows();
+          scheduleEvaluate(50);
+        });
+        btnEdit.addEventListener('click', () => {
+          const next = prompt('Editar tarefa:', row.text || '');
+          if (next === null) return;
+          updateItemText(row, next);
+          if (!row.text) return;
+          persistRow(row);
+          renderManagerRows();
+          scheduleEvaluate(50);
+        });
+        btnDelete.addEventListener('click', () => {
+          if (!confirm('Excluir esta tarefa?')) return;
+          removeRow(row);
+          renderManagerRows();
+          scheduleEvaluate(50);
+        });
+
+        item.appendChild(el('div', { className: 'pjm-item-top' }, [left, actions]));
+        listEl.appendChild(item);
+      }
     }
 
     panel.querySelector('#pjm-export').addEventListener('click', exportTodoData);
@@ -4570,71 +3338,26 @@
         }
       });
     }
+    stateFilterEl.addEventListener('change', renderManagerRows);
     searchEl.addEventListener('input', renderManagerRows);
-    sortEl.addEventListener('change', renderManagerRows);
     panel.querySelectorAll('[data-pjm-filter]').forEach(btn => {
       btn.addEventListener('click', event => {
         const target = event.currentTarget;
         if (!(target instanceof HTMLElement)) return;
-        activeFilter = target.dataset.pjmFilter || 'active';
+        stateFilterEl.value = target.dataset.pjmFilter || 'active';
         renderManagerRows();
       });
     });
-    panel.querySelectorAll('[data-pjm-destination]').forEach(btn => {
-      btn.addEventListener('click', event => {
-        const target = event.currentTarget;
-        if (!(target instanceof HTMLElement)) return;
-        activeFilter = target.dataset.pjmDestination || 'active';
-        renderManagerRows();
-      });
-    });
-    const addQuickTask = () => {
-      const text = String(newTextEl.value || '').trim();
-      if (!text) {
-        newTextEl.focus();
-        return;
-      }
-      const items = loadGlobalItems();
-      items.unshift(normalizeTodoItem({ id: uid(), text, done: false, createdAt: Date.now(), tags: [] }));
-      saveGlobalItems(items);
-      newTextEl.value = '';
-      activeFilter = 'active';
-      renderManagerRows();
-      scheduleEvaluate(50);
-    };
-    newAddEl.addEventListener('click', addQuickTask);
-    newTextEl.addEventListener('keydown', event => {
-      if (event.key === 'Enter') addQuickTask();
-    });
-    const workspace = panel.querySelector('.pjm-workspace');
-    const modalBody = panel.querySelector('.pjm-body');
-    modalBody.addEventListener('wheel', event => {
-      if (!workspace || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
-      if (event.target instanceof Element && event.target.closest('.pjm-backup-dialog')) return;
-      if (event.target === workspace || workspace.contains(event.target)) return;
-      workspace.scrollTop += event.deltaY;
-      event.preventDefault();
-    }, { passive: false });
-    let cleanupManagerEscape = () => {};
-    const closeManager = () => {
-      cleanupManagerEscape();
-      overlay.remove();
-    };
-    cleanupManagerEscape = bindEscapeClose(closeManager);
     panel.querySelectorAll('[data-pjm-action="close"]').forEach(btn => {
-      btn.addEventListener('click', closeManager);
+      btn.addEventListener('click', () => overlay.remove());
     });
     overlay.addEventListener('click', e => {
-      if (e.target === overlay) closeManager();
+      if (e.target === overlay) overlay.remove();
     });
 
     renderManagerRows();
   }
 
-  /**
-   * Registra o comando de menu do gestor de userscript, apenas no frame do topo.
-   * @returns {void}
-   */
   function registerMenuCommand() {
     if (state.menuRegistered) return;
     if (typeof gmRegisterMenuCommand !== 'function') return;
@@ -4648,11 +3371,6 @@
     } catch (_) {}
   }
 
-  /**
-   * Monta o modo de processo, preparando estilos e launcher.
-   * @param {object} ctx - Contexto do processo.
-   * @returns {void}
-   */
   function mountProcess(ctx) {
     injectStyles();
     state.mounted = true;
@@ -4661,11 +3379,6 @@
     syncProcessLauncher(ctx);
   }
 
-  /**
-   * Abre o painel de tarefas específico de um processo.
-   * @param {object} ctx - Contexto do processo.
-   * @returns {void}
-   */
   function openProcessPanel(ctx) {
     const cnjLabel = ctx.shortCnj || ctx.cnj;
     const getUI = () => loadUIByKey(ctx.key);
@@ -4715,10 +3428,6 @@
     panel.style.right = `${ui.right}px`;
     panel.style.top = `${ui.top}px`;
 
-    /**
-     * Re-renderiza a lista de pendências do processo após alterações.
-     * @returns {void}
-     */
     function rerender() {
       const items = loadItemsByKey(ctx.key).filter(x => !x.done);
       pendingCount.textContent = String(items.length);
@@ -4781,10 +3490,6 @@
       });
     }
 
-    /**
-     * Adiciona uma nova tarefa ao processo a partir do compositor.
-     * @returns {void}
-     */
     function addItem() {
       const text = String(input.value || '').trim();
       if (!text) return;
@@ -4814,8 +3519,7 @@
 
     const cleanupDrag = enableDragWindow({ loadUI: getUI, saveUI: setUI, panel, handle: header });
     const cleanupScroll = bindPanelScrollLock(panel);
-    const cleanupEscape = bindEscapeClose(onClose);
-    setPanelCleanup(composeCleanups(cleanupDrag, cleanupScroll, cleanupEscape));
+    setPanelCleanup(composeCleanups(cleanupDrag, cleanupScroll));
 
     document.body.appendChild(panel);
     renderFontAwesome(panel);
@@ -4823,10 +3527,6 @@
     rerender();
   }
 
-  /**
-   * Monta o modo de dashboard inicial, preparando estilos e estado global.
-   * @returns {void}
-   */
   function mountHomeDashboard() {
     injectStyles();
     state.mounted = true;
@@ -4834,10 +3534,6 @@
     state.ctxKey = 'global';
   }
 
-  /**
-   * Abre o painel de visão geral (home) com tarefas globais e por processo.
-   * @returns {void}
-   */
   function openHomePanel() {
     const getUI = () => loadGlobalUI();
     const setUI = u => saveGlobalUI(u);
@@ -4889,10 +3585,19 @@
     const tabGlobal = el('div', { className: 'pj-home-tab active', role: 'tab', tabIndex: 0, ariaSelected: 'true' }, [faIcon('fa-solid fa-layer-group'), 'Globais', globalCount]);
     const tabProcess = el('div', { className: 'pj-home-tab', role: 'tab', tabIndex: 0, ariaSelected: 'false' }, [faIcon('fa-solid fa-scale-balanced'), 'Processos', processCount]);
     const tabs = el('div', { className: 'pj-home-tabs', role: 'tablist', 'aria-label': 'Escopo das tarefas' }, [tabGlobal, tabProcess]);
+    const summaryTitle = el('div', { className: 'pj-home-summary-title' }, ['Seu dia em ordem']);
+    const summarySub = el('div', { className: 'pj-home-summary-sub' }, ['Carregando suas pendências...']);
+    const summary = el('div', { className: 'pj-home-summary' }, [
+      el('div', { className: 'pj-home-summary-copy' }, [
+        el('div', { className: 'pj-home-eyebrow' }, ['Agora']),
+        summaryTitle,
+        summarySub
+      ])
+    ]);
     const globalPanel = el('div', { className: 'pj-home-panel active' }, [globalSection]);
     const processPanel = el('div', { className: 'pj-home-panel' }, [procSection]);
     const stack = el('div', { className: 'pj-home-stack' }, [globalPanel, processPanel]);
-    const homeLayout = el('div', { className: 'pj-home-layout' }, [tabs, stack]);
+    const homeLayout = el('div', { className: 'pj-home-layout' }, [summary, tabs, stack]);
 
     const body = el('div', { id: 'pj-todo-body' }, [homeLayout]);
     const panel = el('div', { id: 'pj-todo', className: 'pj-todo-modern pj-todo-home' }, [header, body]);
@@ -4901,10 +3606,6 @@
     panel.style.right = `${ui.right}px`;
     panel.style.top = `${ui.top}px`;
 
-    /**
-     * Coleta as linhas de processos com pendências ativas.
-     * @returns {Array} Lista de processos com CNJ, chave, URL e pendências.
-     */
     function collectProcessPendingRows() {
       const rows = [];
       for (const entry of loadIndex()) {
@@ -4916,22 +3617,19 @@
       return rows;
     }
 
-    /**
-     * Atualiza os contadores resumidos de pendências globais e por processo.
-     * @returns {void}
-     */
     function updateOverviewCounts() {
       const globalActive = loadGlobalItems().filter(x => !x.done).length;
       const processRows = collectProcessPendingRows();
       const processActive = processRows.reduce((sum, row) => sum + row.pending.length, 0);
+      const total = globalActive + processActive;
       globalCount.textContent = String(globalActive);
       processCount.textContent = String(processRows.length);
+      summaryTitle.textContent = total ? `${formatCount(total, 'pendência', 'pendências')} em aberto` : 'Seu dia está em ordem';
+      summarySub.textContent = total
+        ? `${formatCount(globalActive, 'global', 'globais')} e ${formatCount(processActive, 'vinculada a processo', 'vinculadas a processos')}.`
+        : 'Nenhuma tarefa aguardando providência.';
     }
 
-    /**
-     * Renderiza a lista de pendências globais aplicando o filtro de busca.
-     * @returns {void}
-     */
     function renderGlobal() {
       const query = String(globalSearch.value || '').trim().toLowerCase();
       let items = loadGlobalItems().filter(x => !x.done);
@@ -4995,10 +3693,6 @@
       updateOverviewCounts();
     }
 
-    /**
-     * Renderiza as pendências agrupadas por processo, aplicando busca e ordenação.
-     * @returns {void}
-     */
     function renderProcessesPending() {
       procList.innerHTML = '';
       const query = String(processSearch.value || '').trim().toLowerCase();
@@ -5108,10 +3802,6 @@
       updateOverviewCounts();
     }
 
-    /**
-     * Adiciona uma nova tarefa global a partir do compositor.
-     * @returns {void}
-     */
     function addGlobal() {
       const text = String(globalInput.value || '').trim();
       if (!text) return;
@@ -5139,11 +3829,6 @@
       if (e.key === 'Enter') addGlobal();
     });
 
-    /**
-     * Alterna a aba ativa entre escopos global e por processo.
-     * @param {string} which - Escopo a ativar ('global' ou 'process').
-     * @returns {void}
-     */
     function setHomeTab(which) {
       const isGlobal = which === 'global';
       tabGlobal.classList.toggle('active', isGlobal);
@@ -5174,8 +3859,7 @@
 
     const cleanupDrag = enableDragWindow({ loadUI: getUI, saveUI: setUI, panel, handle: header });
     const cleanupScroll = bindPanelScrollLock(panel);
-    const cleanupEscape = bindEscapeClose(onClose);
-    setPanelCleanup(composeCleanups(cleanupDrag, cleanupScroll, cleanupEscape));
+    setPanelCleanup(composeCleanups(cleanupDrag, cleanupScroll));
 
     document.body.appendChild(panel);
     renderFontAwesome(panel);
@@ -5183,10 +3867,6 @@
     renderProcessesPending();
   }
 
-  /**
-   * Avalia a página atual e monta/desmonta o modo apropriado (home, processo ou inativo).
-   * @returns {void}
-   */
   function evaluate() {
     registerMenuCommand();
     ensureHeaderMenuEntry();
@@ -5212,6 +3892,7 @@
     }
 
     const cnj = getCNJFromDocument(document);
+    state.lastCnj = cnj || null;
     if (cnj) {
       const ctx = processCtxFromCnj(cnj, getCurrentProcessUrl(document));
       if (!ctx) return;
@@ -5228,11 +3909,6 @@
     if (state.mounted) unmount();
   }
 
-  /**
-   * Verifica se um nó pertence à interface do próprio script.
-   * @param {Node} node - Nó a ser verificado.
-   * @returns {boolean} true quando o nó pertence à UI do script.
-   */
   function isOwnUiNode(node) {
     if (!(node instanceof Element)) return false;
     if (node.id === 'pj-todo' || node.id === ID_PROC_BTN) return true;
@@ -5240,11 +3916,6 @@
     return !!node.closest?.(`#pj-todo, #${ID_PROC_BTN}`);
   }
 
-  /**
-   * Decide se um conjunto de mutações pode ser ignorado pelo observador de DOM.
-   * @param {Array} mutations - Lista de mutações observadas.
-   * @returns {boolean} true quando as mutações não exigem reavaliação.
-   */
   function shouldIgnoreMutations(mutations) {
     if (!mutations || !mutations.length) return true;
     for (const m of mutations) {

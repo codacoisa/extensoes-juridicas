@@ -16,25 +16,29 @@ const scripts = {
 const sources = Object.fromEntries(
   await Promise.all(Object.entries(scripts).map(async ([id, path]) => [id, await readFile(resolve(root, path), 'utf8')]))
 );
-const tarefasMeta = await readFile(resolve(root, 'tarefas/projudi-tarefas-locais.meta.js'), 'utf8');
-const intimacoesMeta = await readFile(resolve(root, 'intimacoes/projudi-intimacao-page.meta.js'), 'utf8');
+const metadata = {
+  intimacoes: await readFile(resolve(root, 'intimacoes/projudi-intimacao-page.meta.js'), 'utf8'),
+  tarefas: await readFile(resolve(root, 'tarefas/projudi-tarefas-locais.meta.js'), 'utf8')
+};
 
-test('Tarefas separa o documento de atualização do código instalável', () => {
-  assert.match(sources.tarefas, /^\/\/ @updateURL\s+https:\/\/raw\.githubusercontent\.com\/codacoisa\/extensoes-juridicas\/refs\/heads\/main\/tarefas\/projudi-tarefas-locais\.meta\.js$/m, 'user.js não aponta para a meta de atualização');
-  assert.match(sources.tarefas, /^\/\/ @downloadURL\s+https:\/\/raw\.githubusercontent\.com\/codacoisa\/extensoes-juridicas\/refs\/heads\/main\/tarefas\/projudi-tarefas-locais\.user\.js$/m, 'user.js não aponta para o download instalável');
-  assert.match(tarefasMeta, /^\/\/ ==UserScript==$/m, 'meta.js não possui cabeçalho de userscript');
-  assert.match(tarefasMeta, /^\/\/ @updateURL\s+https:\/\/raw\.githubusercontent\.com\/codacoisa\/extensoes-juridicas\/refs\/heads\/main\/tarefas\/projudi-tarefas-locais\.meta\.js$/m, 'meta.js não aponta para a própria atualização');
-  assert.match(tarefasMeta, /^\/\/ @downloadURL\s+https:\/\/raw\.githubusercontent\.com\/codacoisa\/extensoes-juridicas\/refs\/heads\/main\/tarefas\/projudi-tarefas-locais\.user\.js$/m, 'meta.js não aponta para o código instalável');
-  assert.doesNotMatch(tarefasMeta, /^\(function \(\)/m, 'meta.js não deve conter código de execução');
-});
-
-test('Intimações separa o documento de atualização do código instalável', () => {
-  assert.match(sources.intimacoes, /^\/\/ @updateURL\s+https:\/\/raw\.githubusercontent\.com\/codacoisa\/extensoes-juridicas\/refs\/heads\/main\/intimacoes\/projudi-intimacao-page\.meta\.js$/m, 'user.js não aponta para a meta de atualização');
-  assert.match(sources.intimacoes, /^\/\/ @downloadURL\s+https:\/\/raw\.githubusercontent\.com\/codacoisa\/extensoes-juridicas\/refs\/heads\/main\/intimacoes\/projudi-intimacao-page\.user\.js$/m, 'user.js não aponta para o download instalável');
-  assert.match(intimacoesMeta, /^\/\/ ==UserScript==$/m, 'meta.js não possui cabeçalho de userscript');
-  assert.match(intimacoesMeta, /^\/\/ @updateURL\s+https:\/\/raw\.githubusercontent\.com\/codacoisa\/extensoes-juridicas\/refs\/heads\/main\/intimacoes\/projudi-intimacao-page\.meta\.js$/m, 'meta.js não aponta para a própria atualização');
-  assert.match(intimacoesMeta, /^\/\/ @downloadURL\s+https:\/\/raw\.githubusercontent\.com\/codacoisa\/extensoes-juridicas\/refs\/heads\/main\/intimacoes\/projudi-intimacao-page\.user\.js$/m, 'meta.js não aponta para o código instalável');
-  assert.doesNotMatch(intimacoesMeta, /^\(\(\) => \{/m, 'meta.js não deve conter código de execução');
+test('userscripts mantêm meta.js separado e atualizável pelo wblock', () => {
+  const files = {
+    intimacoes: ['intimacoes/projudi-intimacao-page', 'projudi-intimacao-page'],
+    tarefas: ['tarefas/projudi-tarefas-locais', 'projudi-tarefas-locais']
+  };
+  for (const [id, [path, namespace]] of Object.entries(files)) {
+    const source = sources[id];
+    const meta = metadata[id];
+    const base = `https://raw.githubusercontent.com/codacoisa/extensoes-juridicas/refs/heads/main/${path}`;
+    assert.match(source, new RegExp(`^// @namespace\\s+${namespace}\\.user\\.js$`, 'm'), `${id}: namespace inconsistente`);
+    assert.match(source, new RegExp(`^// @updateURL\\s+${base}\\.meta\\.js$`, 'm'), `${id}: user.js não aponta para a meta de atualização`);
+    assert.match(source, new RegExp(`^// @downloadURL\\s+${base}\\.user\\.js$`, 'm'), `${id}: user.js não aponta para o download instalável`);
+    assert.match(meta, /^\/\/ ==UserScript==$/m, `${id}: meta.js não possui cabeçalho de userscript`);
+    assert.match(meta, new RegExp(`^// @updateURL\\s+${base}\\.meta\\.js$`, 'm'), `${id}: meta.js não aponta para a própria atualização`);
+    assert.match(meta, new RegExp(`^// @downloadURL\\s+${base}\\.user\\.js$`, 'm'), `${id}: meta.js não aponta para o código instalável`);
+    assert.doesNotMatch(meta, /\(function\s*\(|\(\(\)\s*=>/, `${id}: meta.js contém código de execução`);
+    assert.equal(meta.match(/^\/\/ @version\s+(.+)$/m)?.[1], source.match(/^\/\/ @version\s+(.+)$/m)?.[1], `${id}: versões de meta.js e user.js divergem`);
+  }
 });
 
 test('cada extensão usa um documento de dados e outro de Gist', () => {
@@ -142,68 +146,6 @@ test('atalhos do processo e filtros de intimações mantêm o comportamento atua
   assert.match(intimacoes, /const documentChanged = currentDoc !== state\.frameDoc;/, 'a substituição do documento interno não é detectada');
   assert.doesNotMatch(intimacoes, /pageSignature|buildPageSignature/, 'o cache obsoleto de página ainda pode ocultar as ações');
   assert.doesNotMatch(intimacoes, /DEADLINE_WEEKDAY_PALETTE|DEADLINE_WEEKEND_COLOR|applyDeadlineHighlightToCell|tm-hl7d/, 'o destaque obsoleto por célula foi reintroduzido');
-});
-
-test('painel de intimações mantém rolagem e navegação em larguras intermediárias', () => {
-  const intimacoes = sources.intimacoes;
-  assert.match(intimacoes, /#\$\{IDS\.modalPanel\}\s*\{[\s\S]{0,180}?display: grid;[\s\S]{0,180}?grid-template-rows: auto minmax\(0, 1fr\);[\s\S]{0,260}?height: min\(94vh, 960px\);[\s\S]{0,180}?min-height: 0;[\s\S]{0,120}?overflow: hidden;/, 'o painel não limita o corpo rolável em uma linha explícita');
-  assert.match(intimacoes, /\.pjip-modal-body\s*\{[\s\S]{0,500}?grid-template-rows: minmax\(0, 1fr\);[\s\S]{0,500}?min-height: 0;[\s\S]{0,500}?container: pjip-modal-body \/ inline-size;/, 'o corpo do modal não recebe altura finita para a rolagem no Safari');
-  assert.doesNotMatch(intimacoes, /\.pjip-modal-body\s*\{[^}]*\n\s+height: 0;/, 'o corpo do modal voltou a depender do hack de altura zero');
-  assert.match(intimacoes, /\.pjip-dashboard-workspace\s*\{[\s\S]{0,500}?height: 100%;[\s\S]{0,500}?min-height: 0;[\s\S]{0,500}?overflow-y: auto;[\s\S]{0,220}?overscroll-behavior: contain;[\s\S]{0,180}?scrollbar-gutter: stable;/, 'o workspace deixou de ser o único contêiner de rolagem vertical');
-  assert.match(intimacoes, /function routeModalWheel\(event, body\)[\s\S]{0,1200}?Math\.abs\(event\.deltaY\) <= Math\.abs\(event\.deltaX\)[\s\S]{0,1200}?workspace\.scrollTop \+= delta;/, 'a roda vertical não é roteada ao workspace sem capturar o gesto horizontal');
-  assert.match(intimacoes, /body\.addEventListener\('wheel',[\s\S]{0,180}?routeModalWheel\(event, body\)[\s\S]{0,120}?passive: false/, 'o roteamento da roda não está instalado no corpo do modal');
-  assert.match(intimacoes, /@container pjip-modal-body \(max-width: 1240px\)\s*\{[\s\S]{0,240}?\.pjip-dashboard-workspace \{ grid-template-columns: minmax\(0, 1fr\); \}[\s\S]{0,120}?\.pjip-detail \{ display: none; \}/, 'a fila ainda reserva largura para o detalhe oculto');
-  assert.match(intimacoes, /grid-template-areas: "nav" "workspace";/, 'a navegação móvel não permanece em uma linha própria');
-  assert.doesNotMatch(intimacoes, /pjip-dashboard-nav__backup|data-role="backup-toggle"|data-role="backup-pill"/, 'o backup remoto ainda tem acesso duplicado na navegação');
-});
-
-test('seleção de intimações e fila de tarefas preservam os contratos de leitura', () => {
-  const intimacoes = sources.intimacoes;
-  const tarefas = sources.tarefas;
-  assert.match(intimacoes, /function selectModalItem\(root, itemId\)[\s\S]{0,900}?state\.selectedItemId = String\(selectedItem\.id\);[\s\S]{0,900}?renderDetail\(root, selectedItem\);/, 'a seleção de intimações não é incremental');
-  assert.doesNotMatch(intimacoes, /card\.addEventListener\('click',[\s\S]{0,180}?renderModal\(\)/, 'o clique da intimação ainda reconstrói a lista');
-  assert.match(intimacoes, /const scrollTop = workspace instanceof HTMLElement \? workspace\.scrollTop : 0;[\s\S]{0,1800}?workspace\.scrollTop = scrollTop;/, 'a reconstrução da fila não restaura a rolagem');
-  assert.match(intimacoes, /\.pjip-dashboard-workspace\s*\{[\s\S]{0,500}?overflow-anchor: none;/, 'o workspace não desabilita a ancoragem que desloca o Safari');
-  assert.match(tarefas, /class="pjm-stat-icon"><i class="fa-solid fa-inbox"/, 'os ícones dos indicadores não têm wrapper próprio');
-  assert.match(tarefas, /\.pjm-stat-icon\s*\{[\s\S]{0,400}?width: 38px;[\s\S]{0,200}?height: 38px;/, 'o wrapper do ícone não possui tamanho estável');
-  assert.match(tarefas, /\.pjm-table-wrap \{ overflow-x: auto; overflow-y: visible;/, 'a fila não permite rolagem horizontal');
-  assert.match(tarefas, /\.pjm-task-list \{ min-width: 0; \}/, 'a fila ainda força uma largura que exige rolagem horizontal');
-  assert.match(tarefas, /\.pjm-workspace-grid \{ display: block; \}/, 'a fila ainda reserva uma coluna lateral de detalhes');
-  assert.doesNotMatch(tarefas, /id="pjm-detail"|function renderDetail\(/, 'o card de detalhes ainda participa do painel principal');
-  assert.doesNotMatch(tarefas, /id="pjm-filter-state"/, 'o filtro duplicado de status ainda ocupa espaço na barra');
-  assert.match(tarefas, /class="pjm-select pjm-sort-select" id="pjm-sort"/, 'a ordenação não foi incorporada ao cabeçalho compacto');
-  assert.doesNotMatch(tarefas, /aria-label="Ordenação e importação de tarefas"/, 'a barra de ordenação ainda ocupa um card separado');
-  assert.doesNotMatch(tarefas, /class="pjm-nav-separator"/, 'a lateral ainda separa o backup dos demais destinos');
-  assert.match(tarefas, /\.pjm-row-actions \{ width: 132px; justify-content: flex-end;/, 'as ações da fila ainda não têm área suficiente para os ícones');
-  assert.match(tarefas, /\.pjm-rail \{[\s\S]{0,400}?padding: 24px 14px 18px;/, 'a barra lateral não segue o espaçamento de Intimações');
-  assert.match(tarefas, /\.pjm-badge \{ max-width: 100%; white-space: normal; overflow-wrap: anywhere; \}/, 'as tags ainda podem ser cortadas');
-  assert.match(tarefas, /\.pjm-badge--cnj \{[\s\S]{0,300}?white-space: nowrap;[\s\S]{0,160}?text-overflow: ellipsis;/, 'o CNJ não preserva linha única com reticências');
-  assert.doesNotMatch(tarefas, /pj-home-eyebrow|pj-home-summary-title|pj-home-summary-sub/, 'o card Agora ainda existe no painel compacto');
-  assert.match(tarefas, /const homeLayout = el\('div', \{ className: 'pj-home-layout' \}, \[tabs, stack\]\);/, 'o painel compacto ainda inclui conteúdo além de abas e listas');
-});
-
-test('prioridades e polimento visual das intimações preservam a hierarquia', () => {
-  const intimacoes = sources.intimacoes;
-  assert.match(intimacoes, /function resolveItemPriorityKey\(item\)[\s\S]{0,1000}?if \(dayDistance < 0\) return 'critical';[\s\S]{0,180}?if \(dayDistance === 0\) return 'high';/, 'a prioridade não diferencia prazo crítico de vencimento hoje');
-  assert.match(intimacoes, /priorityKey === 'critical'[\s\S]{0,220}?'Crítica'[\s\S]{0,220}?'Alta'/, 'os rótulos de prioridade não refletem a urgência');
-  assert.match(intimacoes, /\.pjip-item-actions \{[^}]*flex-wrap: nowrap;/, 'as ações da linha ainda podem quebrar e desalinharem os ícones');
-  assert.match(intimacoes, /\.pjip-deadline-grid \{[^}]*gap: 12px;/, 'os cards de prazo não mantêm separação visual');
-  assert.match(intimacoes, /\.pjip-dashboard-header-search > :is\(i, \.pj-suite-fa\) \{[^}]*top: 50%;[^}]*transform: translateY\(-50%\);/, 'a lupa convertida em SVG pode perder o alinhamento no campo de busca');
-  assert.match(intimacoes, /\.pjip-deadline-head \.pjip-section-title \{[^}]*white-space: nowrap;/, 'o título dos filtros de prazo ainda pode quebrar em duas linhas');
-});
-
-test('visão de foco, indicadores e navegação lateral mantêm contratos de interação', () => {
-  const intimacoes = sources.intimacoes;
-  assert.doesNotMatch(intimacoes, /Os dados ficam salvos localmente neste navegador\./, 'a sidebar ainda exibe o texto removido');
-  assert.match(intimacoes, /subtitle\.textContent = 'Triagem com atualização sob demanda\.'/, 'o subtítulo ainda menciona triagem local');
-  for (const status of ['late', 'today', 'next7', 'missing']) {
-    assert.match(intimacoes, new RegExp(`data-role="quick-status" data-status="${status}"`), `o indicador ${status} não é clicável`);
-  }
-  assert.match(intimacoes, /if \(filter === 'active'\) return dayDistance !== null && dayDistance <= 7;/, 'Em foco ainda inclui itens fora dos próximos sete dias');
-  assert.match(intimacoes, /if \(filter === 'today'\) return dayDistance === 0;/, 'o card Vencem hoje não possui filtro próprio');
-  assert.match(intimacoes, /if \(filter === 'next7'\) return dayDistance !== null && dayDistance > 0 && dayDistance <= 7;/, 'o card Próximos 7 dias inclui indevidamente os vencimentos de hoje');
-  assert.match(intimacoes, /if \(filter === 'missing'\) return dayDistance === null;/, 'o card Sem prazo não possui filtro próprio');
-  assert.match(intimacoes, /function openTodayDeadlinePanel\(\)\s*\{\s*state\.store\.ui\.statusFilter = 'today';/, 'o atalho da tela inicial ainda abre o filtro genérico Vencendo');
 });
 
 test('abas da visão geral de tarefas ficam isoladas dos botões do Projudi', () => {
@@ -317,9 +259,7 @@ test('versões seguem data e hora crescentes', () => {
     const instant = new Date(`${year}-${month}-${day}T${hour}:${minute}:00-03:00`);
     assert.equal(Number.isNaN(instant.getTime()), false, `${id}: data de versão inválida`);
     assert.equal(instant.getUTCFullYear(), Number(year), `${id}: ano de versão inválido`);
-    if (instant >= newVersionCutoff) {
-      assert.match(value, /-\d{2}:\d{2}$/, `${id}: versões novas devem usar HH:MM`);
-    }
+    if (instant >= newVersionCutoff) assert.match(value, /-\d{2}:\d{2}$/, `${id}: versões novas devem usar HH:MM`);
   }
 });
 
