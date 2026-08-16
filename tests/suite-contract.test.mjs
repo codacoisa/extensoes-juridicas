@@ -17,12 +17,14 @@ const sources = Object.fromEntries(
   await Promise.all(Object.entries(scripts).map(async ([id, path]) => [id, await readFile(resolve(root, path), 'utf8')]))
 );
 const metadata = {
+  'central-guias': await readFile(resolve(root, 'centraldeguias/projudi-central-guias.meta.js'), 'utf8'),
   intimacoes: await readFile(resolve(root, 'intimacoes/projudi-intimacao-page.meta.js'), 'utf8'),
   tarefas: await readFile(resolve(root, 'tarefas/projudi-tarefas-locais.meta.js'), 'utf8')
 };
 
 test('userscripts mantêm meta.js separado e atualizável pelo wblock', () => {
   const files = {
+    'central-guias': ['centraldeguias/projudi-central-guias', 'projudi-central-guias'],
     intimacoes: ['intimacoes/projudi-intimacao-page', 'projudi-intimacao-page'],
     tarefas: ['tarefas/projudi-tarefas-locais', 'projudi-tarefas-locais']
   };
