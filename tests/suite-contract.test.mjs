@@ -79,12 +79,15 @@ test('restaurações exigem schema e identidade da extensão', () => {
 test('Central de Guias resume os polos do processo', () => {
   const source = sources['central-guias'];
   assert.match(source, /function extractPartyNames\(/, 'central-guias: extração de partes ausente');
+  assert.match(source, /function findPartyContainer\(/, 'central-guias: fallback de container das partes ausente');
   assert.match(source, /function summarizePartyNames\(/, 'central-guias: resumo de partes ausente');
   assert.match(source, /unique\.length > 1 \? `\$\{unique\[0\]\} e outro\(s\)`/, 'central-guias: múltiplas partes não são resumidas');
   assert.match(source, /activeParty: summarizePartyNames\(extractPartyNames\(doc, 'Polo Ativo'\)\)/, 'central-guias: polo ativo não é capturado');
   assert.match(source, /passiveParty: summarizePartyNames\(extractPartyNames\(doc, 'Polo Passivo'\)\)/, 'central-guias: polo passivo não é capturado');
   assert.match(source, /activeParty: proc\.activeParty \|\| ''/, 'central-guias: polo ativo não entra no backup');
   assert.match(source, /passiveParty: proc\.passiveParty \|\| ''/, 'central-guias: polo passivo não entra no backup');
+  assert.match(source, /function updatePartyFieldsForMatchingProcesses\(/, 'central-guias: polos não são reconciliados entre registros equivalentes');
+  assert.match(source, /updatePartyFieldsForMatchingProcesses\(db, ctx\)/, 'central-guias: captura atual não atualiza registros equivalentes');
   assert.match(source, /function renderProcessParties\(/, 'central-guias: painel não renderiza as partes');
   assert.match(source, /getProcessPartySearchText\(/, 'central-guias: busca não considera as partes');
 });
@@ -93,10 +96,25 @@ test('Central de Guias mantém o cartão do processo compacto', () => {
   const source = sources['central-guias'];
   const processCard = source.match(/function mountProcessCard\(\) \{([\s\S]*?)\n  \}\n\n  function syncGuidesFromDocument/)?.[1] || '';
   assert.match(processCard, /pj-guides-inline--process/, 'central-guias: cartão do processo não possui variante própria');
-  assert.match(processCard, /createIconButton\(\s*'fa-solid fa-arrows-rotate'/, 'central-guias: ação compacta de consulta não usa Font Awesome');
-  assert.match(processCard, /'Consultar Guias'/, 'central-guias: ícone não possui rótulo de consulta');
-  assert.doesNotMatch(processCard, /createTextButton\('Consultar Guias'/, 'central-guias: botão textual de consulta ainda está no cartão do processo');
-  assert.doesNotMatch(processCard, /createTextButton\('Abrir Painel'/, 'central-guias: botão textual de painel ainda está no cartão do processo');
+  assert.match(processCard, /createIconButton\(\s*'fa-solid fa-file-invoice-dollar'/, 'central-guias: ação compacta de consulta não usa ícone de guia');
+  assert.match(processCard, /'Abrir guias do processo'/, 'central-guias: ícone não possui rótulo de abertura');
+  assert.doesNotMatch(processCard, /renderProcessParties\(processRecord\)/, 'central-guias: cartão do processo ainda repete Autor/Réu');
+  assert.doesNotMatch(processCard, /createTextButton\(/, 'central-guias: cartão do processo ainda possui botão textual');
+});
+
+test('Central de Guias harmoniza o cartão da página de guias', () => {
+  const source = sources['central-guias'];
+  const guidesCard = source.match(/function mountGuidesCard\(\) \{([\s\S]*?)\n  \}\n\n  function mountHomePanel/)?.[1] || '';
+  assert.match(guidesCard, /pj-guides-inline__tools/, 'central-guias: cartão de guias não possui área de ferramentas');
+  assert.match(guidesCard, /createIconButton\('fa-solid fa-arrows-rotate', 'Sincronizar guias'/, 'central-guias: sincronização não está representada por ícone');
+  assert.match(guidesCard, /createIconButton\('fa-solid fa-table-columns', 'Abrir painel completo'/, 'central-guias: abertura do painel não está representada por ícone');
+  assert.doesNotMatch(guidesCard, /createTextButton\(/, 'central-guias: cartão de guias ainda possui botão textual');
+});
+
+test('Central de Guias reserva espaço para a data de vencimento', () => {
+  const source = sources['central-guias'];
+  assert.match(source, /\.pj-guides-col-due \{ width: 11%; \}/, 'central-guias: coluna de vencimento continua estreita');
+  assert.match(source, /class="pj-guides-due"/, 'central-guias: vencimento não preserva a data em uma linha');
 });
 
 test('Font Awesome usa sprite SVG 7.3.1 sem runtime ou webfont global', () => {

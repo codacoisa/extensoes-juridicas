@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Central de Guias
 // @namespace    projudi-central-guias.user.js
-// @version      2026.08.16-16:38
+// @version      2026.08.16-17:02
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Central local para sincronizar, acompanhar e alertar sobre guias de pagamento no Projudi.
 // @author       lourencosv
@@ -834,6 +834,25 @@
     return normalized;
   }
 
+  function updatePartyFieldsForMatchingProcesses(db, identity) {
+    if (!db || !identity) return false;
+    const candidates = [identity.processId, identity.cnj, identity.shortNumber].filter(Boolean);
+    if (!candidates.length || (!identity.activeParty && !identity.passiveParty)) return false;
+    let changed = false;
+    Object.values(db.processes || {}).forEach(proc => {
+      if (!candidates.some(candidate => processMatchesCandidate(proc, candidate))) return;
+      if (identity.activeParty && proc.activeParty !== identity.activeParty) {
+        proc.activeParty = identity.activeParty;
+        changed = true;
+      }
+      if (identity.passiveParty && proc.passiveParty !== identity.passiveParty) {
+        proc.passiveParty = identity.passiveParty;
+        changed = true;
+      }
+    });
+    return changed;
+  }
+
   function findProcessRecord(db, matcher) {
     const values = Object.values(db.processes || {});
     return values.find(proc => (
@@ -941,15 +960,36 @@
     }) || null;
   }
 
-  function extractPartyNames(doc, poloLabel) {
+  function findPartyContainer(doc, poloLabel) {
     const fieldset = findFieldsetByLegend(doc, poloLabel);
-    if (!fieldset) return [];
-    const namesFromTitle = Array.from(fieldset.querySelectorAll('[title="Nome da Parte"], [alt="Nome da Parte"]'))
+    if (fieldset) return fieldset;
+    const normalizedMatch = normalizePartyText(poloLabel).toLowerCase();
+    const headings = Array.from(doc.querySelectorAll('legend, h1, h2, h3, h4, div, span'))
+      .filter(element => {
+        const text = normalizePartyText(element.textContent).toLowerCase();
+        return text.startsWith(normalizedMatch) && text.length <= 96;
+      });
+    for (const heading of headings) {
+      let candidate = heading.parentElement;
+      for (let depth = 0; candidate && depth < 5; depth += 1, candidate = candidate.parentElement) {
+        if (candidate.querySelector('[title="Nome da Parte"], [alt="Nome da Parte"]')) return candidate;
+        const hasNameLabel = Array.from(candidate.querySelectorAll('div, label'))
+          .some(element => normalizePartyText(element.textContent).toLowerCase() === 'nome');
+        if (hasNameLabel) return candidate;
+      }
+    }
+    return null;
+  }
+
+  function extractPartyNames(doc, poloLabel) {
+    const container = findPartyContainer(doc, poloLabel);
+    if (!container) return [];
+    const namesFromTitle = Array.from(container.querySelectorAll('[title="Nome da Parte"], [alt="Nome da Parte"]'))
       .map(element => normalizePartyText(element.textContent))
       .filter(Boolean);
     let names = namesFromTitle;
     if (!names.length) {
-      names = Array.from(fieldset.querySelectorAll('div, label'))
+      names = Array.from(container.querySelectorAll('div, label'))
         .filter(element => normalizePartyText(element.textContent).toLowerCase() === 'nome')
         .map(element => extractNextMeaningfulText(element))
         .filter(Boolean);
@@ -1299,9 +1339,12 @@
         display: flex;
         align-items: flex-start;
         flex: 0 0 auto;
+        gap: 12px;
         padding-top: 1px;
       }
-      .pj-guides-inline__sync-button {
+      .pj-guides-inline__guides-button,
+      .pj-guides-inline__sync-button,
+      .pj-guides-inline__panel-button {
         margin: 0;
       }
       .pj-guides-stats {
@@ -1329,16 +1372,12 @@
         font-weight: 700;
         color: #17365d;
       }
-      .pj-guides-inline__actions,
       .pj-guides-home__actions {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
         margin-top: 6px;
         justify-content: flex-start;
-      }
-      .pj-guides-inline__actions {
-        justify-content: center;
       }
       .pj-guides-btn {
         display: inline-flex;
@@ -1389,26 +1428,6 @@
       .pj-guides-btn--icon.pj-guides-btn--danger {
         padding: 0;
       }
-      .pj-guides-btn--inline-action {
-        min-width: 118px;
-        min-height: 26px;
-        padding: 4px 18px;
-        border: 1px solid #2b69aa;
-        border-radius: 5px;
-        background: #2b69aa;
-        color: #fff;
-        font-size: 12px;
-        font-weight: 700;
-        line-height: 1.1;
-        text-align: center;
-        letter-spacing: 0;
-        box-shadow: none;
-      }
-      .pj-guides-btn--inline-action:hover {
-        background: #245a92;
-        border-color: #245a92;
-        color: #fff;
-      }
       .pj-guides-btn--tool {
         width: auto;
         min-width: 0;
@@ -1430,8 +1449,7 @@
         background: transparent;
         color: #496b95;
       }
-      .pj-guides-home__actions .pj-guides-btn--tool,
-      .pj-guides-inline__actions .pj-guides-btn--tool {
+      .pj-guides-home__actions .pj-guides-btn--tool {
         font-size: 22px;
       }
       .pj-guides-sr-only {
@@ -1968,12 +1986,12 @@
         overflow: visible;
         background: #ffffff;
       }
-      .pj-guides-col-process { width: 18%; }
-      .pj-guides-col-guide { width: 15%; }
-      .pj-guides-col-type { width: 16%; }
-      .pj-guides-col-due { width: 8%; }
-      .pj-guides-col-status { width: 15%; }
-      .pj-guides-col-sync { width: 11%; }
+      .pj-guides-col-process { width: 17%; }
+      .pj-guides-col-guide { width: 14%; }
+      .pj-guides-col-type { width: 15%; }
+      .pj-guides-col-due { width: 11%; }
+      .pj-guides-col-status { width: 14%; }
+      .pj-guides-col-sync { width: 12%; }
       .pj-guides-col-actions { width: 17%; }
       .pj-guides-process-main {
         display: block;
@@ -2030,6 +2048,10 @@
         white-space: nowrap;
         display: inline-block;
         padding-right: 18px;
+      }
+      .pj-guides-due {
+        display: inline-block;
+        white-space: nowrap;
       }
       .pj-guides-sync {
         white-space: nowrap;
@@ -2277,17 +2299,6 @@
     return btn;
   }
 
-  function createTextButton(label, className, onClick) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = className;
-    btn.textContent = label;
-    btn.title = label;
-    btn.setAttribute('aria-label', label);
-    btn.addEventListener('click', onClick);
-    return btn;
-  }
-
   function getCompactInstallmentText(guide) {
     if (guide.installmentNumber && guide.installmentTotal) {
       return `Parcela ${guide.installmentNumber} de ${guide.installmentTotal}`;
@@ -2348,6 +2359,7 @@
     if (!ctx) return;
     const db = loadDb();
     const processRecord = ensureProcessRecord(db, ctx);
+    updatePartyFieldsForMatchingProcesses(db, ctx);
     saveDbIfChanged(db);
     const summary = computeProcessSummary(processRecord);
 
@@ -2369,7 +2381,6 @@
         <div>
           <div class="pj-guides-inline__title">Central de Guias</div>
           <div class="pj-guides-inline__meta">${htmlEscape(staleText)}</div>
-          ${renderProcessParties(processRecord)}
         </div>
         <div class="pj-guides-inline__tools"></div>
       </div>
@@ -2380,9 +2391,9 @@
 
     card.querySelector('.pj-guides-inline__tools').appendChild(
       createIconButton(
-        'fa-solid fa-arrows-rotate',
-        'Consultar Guias',
-        'pj-guides-btn pj-guides-btn--tool pj-guides-inline__sync-button',
+        'fa-solid fa-file-invoice-dollar',
+        'Abrir guias do processo',
+        'pj-guides-btn pj-guides-btn--tool pj-guides-inline__guides-button',
         () => navigateToUrl('GuiaEmissao?PaginaAtual=6')
       )
     );
@@ -2503,23 +2514,22 @@
           <div class="pj-guides-inline__title">Central de Guias</div>
           <div class="pj-guides-inline__meta">Sincronização local desta página. Última leitura: ${formatDateTime(processRecord.lastGuidesSyncAt)}</div>
         </div>
+        <div class="pj-guides-inline__tools"></div>
       </div>
       ${buildSummaryStats(summary)}
       ${summary.overdue > 0 ? `<div class="pj-guides-banner pj-guides-banner--danger">${summary.overdue} guia(s) vencida(s) detectada(s).</div>` : ''}
       ${summary.dueToday + summary.dueSoon > 0 ? `<div class="pj-guides-banner">${summary.dueToday + summary.dueSoon} guia(s) vencem em até ${ALERT_BUSINESS_DAYS} dias úteis.</div>` : ''}
     `;
 
-    const actions = document.createElement('div');
-    actions.className = 'pj-guides-inline__actions';
-    actions.appendChild(createTextButton('Sincronizar', 'pj-guides-btn pj-guides-btn--inline-action', () => {
+    const tools = card.querySelector('.pj-guides-inline__tools');
+    tools.appendChild(createIconButton('fa-solid fa-arrows-rotate', 'Sincronizar guias', 'pj-guides-btn pj-guides-btn--tool pj-guides-inline__sync-button', () => {
       const result = syncGuidesFromPage();
       if (!result) return;
       card.remove();
       state.guidesMounted = false;
       mountGuidesCard();
     }));
-    actions.appendChild(createTextButton('Abrir Painel', 'pj-guides-btn pj-guides-btn--inline-action', () => openManager(processRecord.key)));
-    card.appendChild(actions);
+    tools.appendChild(createIconButton('fa-solid fa-table-columns', 'Abrir painel completo', 'pj-guides-btn pj-guides-btn--tool pj-guides-inline__panel-button', () => openManager(processRecord.key)));
 
     target.insertAdjacentElement('afterbegin', card);
     renderFontAwesome(card);
@@ -3303,7 +3313,7 @@
                       ${getCompactInstallmentText(guide) ? `<span class="pj-guides-guide-sub">${htmlEscape(getCompactInstallmentText(guide))}</span>` : ''}
                     </td>
                     <td><span class="pj-guides-guide-type">${htmlEscape(guide.type)}</span></td>
-                    <td>${formatDate(guide.dueDate)}</td>
+                    <td><span class="pj-guides-due">${formatDate(guide.dueDate)}</span></td>
                     <td>
                       <div class="pj-guides-status-cell">
                         <span class="pj-guides-badge pj-guides-badge--${row.status}">${htmlEscape(getStatusLabel(row.status))}</span>
