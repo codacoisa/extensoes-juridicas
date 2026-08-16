@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Central de Guias
 // @namespace    projudi-central-guias.user.js
-// @version      2026.07.20-1416
+// @version      2026.08.16-16:31
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Central local para sincronizar, acompanhar e alertar sobre guias de pagamento no Projudi.
 // @author       lourencosv (GPT)
@@ -199,6 +199,8 @@
   const MAX_ALERTS_TRACKED = 200;
   const AUTO_BACKUP_IDLE_DELAY_MS = 30000;
   const AUTO_BACKUP_MIN_INTERVAL_MS = 15 * 60 * 1000;
+  const AUTO_GUIDES_SYNC_TIMEOUT_MS = 20000;
+  const AUTO_GUIDES_QUERY_PARAM = 'pj_central_guias_auto';
   const CNJ_REGEX = /\b\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\b/;
   const SHORT_PROC_REGEX = /\b\d{7}-\d{2}\b/;
   const MSG_OPEN_MANAGER = 'pj-guides-open-manager';
@@ -216,7 +218,10 @@
     alertsShown: new Set(),
     wasHomePage: false,
     homeAlertShown: false,
-    backupTimer: null
+    backupTimer: null,
+    automaticGuidesSyncProcessKey: '',
+    automaticGuidesSyncFrame: null,
+    automaticGuidesSyncTimer: null
   };
 
   const storage = {
@@ -386,6 +391,8 @@
         serventia: proc.serventia || '',
         classe: proc.classe || '',
         assunto: proc.assunto || '',
+        activeParty: proc.activeParty || '',
+        passiveParty: proc.passiveParty || '',
         processUrl: proc.processUrl || '',
         guides: (Array.isArray(proc.guides) ? proc.guides : [])
           .slice()
@@ -654,6 +661,8 @@
         serventia: String(proc.serventia || '').trim(),
         classe: String(proc.classe || '').trim(),
         assunto: String(proc.assunto || '').trim(),
+        activeParty: String(proc.activeParty || '').trim(),
+        passiveParty: String(proc.passiveParty || '').trim(),
         processUrl: String(proc.processUrl || '').trim(),
         lastProcessSeenAt: String(proc.lastProcessSeenAt || '').trim(),
         lastGuidesSyncAt: String(proc.lastGuidesSyncAt || '').trim(),
@@ -801,6 +810,8 @@
       serventia: identity.serventia || existing.serventia || '',
       classe: identity.classe || existing.classe || '',
       assunto: identity.assunto || existing.assunto || '',
+      activeParty: identity.activeParty || existing.activeParty || '',
+      passiveParty: identity.passiveParty || existing.passiveParty || '',
       processUrl: identity.processUrl || existing.processUrl || '',
       lastProcessSeenAt: identity.lastProcessSeenAt || existing.lastProcessSeenAt || '',
       lastGuidesSyncAt: existing.lastGuidesSyncAt || '',
@@ -836,6 +847,10 @@
     } catch (_) {
       return '';
     }
+  }
+
+  function isAutomaticGuidesFrame() {
+    return getQueryParam(AUTO_GUIDES_QUERY_PARAM) === '1';
   }
 
   function buildProcessLookupUrl(identity) {
@@ -877,6 +892,8 @@
       serventia,
       classe,
       assunto,
+      activeParty: summarizePartyNames(extractPartyNames(doc, 'Polo Ativo')),
+      passiveParty: summarizePartyNames(extractPartyNames(doc, 'Polo Passivo')),
       processUrl: processId ? `BuscaProcesso?Id_Processo=${encodeURIComponent(processId)}` : '',
       lastProcessSeenAt: nowIso()
     };
@@ -888,6 +905,60 @@
     const regex = new RegExp(`${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+(.*?)(?=(Serventia|Classe|Assunto\\(s\\)|Valor da Causa|Valor Condenação|Processo Originário|Fase Processual|Dt\\. Distribuição|Segredo de Justiça|Status|Prioridade|Efeito Suspensivo|Julgado 2º Grau|Custas|Penhora no Rosto)\\s|$)`, 'i');
     const match = source.match(regex);
     return match ? match[1].trim() : '';
+  }
+
+  function normalizePartyText(value) {
+    return String(value || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function extractNextMeaningfulText(node) {
+    if (!node) return '';
+    let cursor = node.nextSibling;
+    while (cursor) {
+      if (cursor.nodeType === 3) {
+        const text = normalizePartyText(cursor.textContent);
+        if (text) return text;
+      } else if (cursor.nodeType === 1) {
+        const tag = String(cursor.tagName || '').toUpperCase();
+        if (tag !== 'BR' && tag !== 'SCRIPT' && tag !== 'STYLE') {
+          const text = normalizePartyText(cursor.textContent);
+          if (text) return text;
+        }
+      }
+      cursor = cursor.nextSibling;
+    }
+    return '';
+  }
+
+  function findFieldsetByLegend(doc, textMatch) {
+    const normalizedMatch = normalizePartyText(textMatch).toLowerCase();
+    if (!doc || !normalizedMatch) return null;
+    return Array.from(doc.querySelectorAll('fieldset')).find(fieldset => {
+      const legend = fieldset.querySelector('legend');
+      return legend && normalizePartyText(legend.textContent).toLowerCase().includes(normalizedMatch);
+    }) || null;
+  }
+
+  function extractPartyNames(doc, poloLabel) {
+    const fieldset = findFieldsetByLegend(doc, poloLabel);
+    if (!fieldset) return [];
+    const namesFromTitle = Array.from(fieldset.querySelectorAll('[title="Nome da Parte"], [alt="Nome da Parte"]'))
+      .map(element => normalizePartyText(element.textContent))
+      .filter(Boolean);
+    let names = namesFromTitle;
+    if (!names.length) {
+      names = Array.from(fieldset.querySelectorAll('div, label'))
+        .filter(element => normalizePartyText(element.textContent).toLowerCase() === 'nome')
+        .map(element => extractNextMeaningfulText(element))
+        .filter(Boolean);
+    }
+    return [...new Set(names.map(normalizePartyText).filter(Boolean))];
+  }
+
+  function summarizePartyNames(names) {
+    const unique = [...new Set((Array.isArray(names) ? names : []).map(normalizePartyText).filter(Boolean))];
+    if (!unique.length) return '';
+    return unique.length > 1 ? `${unique[0]} e outro(s)` : unique[0];
   }
 
   function isGuidesPage(doc = document) {
@@ -1883,13 +1954,13 @@
         overflow: visible;
         background: #ffffff;
       }
-      .pj-guides-col-process { width: 14%; }
-      .pj-guides-col-guide { width: 17%; }
-      .pj-guides-col-type { width: 18%; }
-      .pj-guides-col-due { width: 9%; }
-      .pj-guides-col-status { width: 16%; }
-      .pj-guides-col-sync { width: 12%; }
-      .pj-guides-col-actions { width: 16%; }
+      .pj-guides-col-process { width: 18%; }
+      .pj-guides-col-guide { width: 15%; }
+      .pj-guides-col-type { width: 16%; }
+      .pj-guides-col-due { width: 8%; }
+      .pj-guides-col-status { width: 15%; }
+      .pj-guides-col-sync { width: 11%; }
+      .pj-guides-col-actions { width: 17%; }
       .pj-guides-process-main {
         display: block;
         font-weight: 700;
@@ -1897,6 +1968,34 @@
         font-size: 14px;
         line-height: 1.15;
         white-space: nowrap;
+      }
+      .pj-guides-process-parties {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+        max-width: 100%;
+        margin-top: 5px;
+      }
+      .pj-guides-process-party {
+        display: block;
+        overflow: hidden;
+        color: #5d7189;
+        font-size: 11px;
+        line-height: 1.25;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .pj-guides-process-party strong {
+        color: #294766;
+        font-weight: 750;
+      }
+      .pj-guides-process-party--active strong { color: #1f5d97; }
+      .pj-guides-process-party--passive strong { color: #8b4d1b; }
+      .pj-guides-inline .pj-guides-process-parties {
+        margin-top: 7px;
+      }
+      .pj-guides-inline .pj-guides-process-party {
+        font-size: 12px;
       }
       .pj-guides-guide-main {
         display: block;
@@ -2105,6 +2204,7 @@
   }
 
   function clearDynamicUi() {
+    cancelAutomaticGuidesSync();
     ['pj-guides-home-panel', 'pj-guides-process-card', 'pj-guides-guide-card'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.remove();
@@ -2181,6 +2281,26 @@
     return guide.installmentText || '';
   }
 
+  function getProcessPartyValue(processRecord, field) {
+    const value = normalizePartyText(processRecord && processRecord[field]);
+    return value || 'não capturado';
+  }
+
+  function renderProcessParties(processRecord) {
+    const activeParty = getProcessPartyValue(processRecord, 'activeParty');
+    const passiveParty = getProcessPartyValue(processRecord, 'passiveParty');
+    return `
+      <div class="pj-guides-process-parties" title="Autor: ${htmlEscape(activeParty)} | Réu: ${htmlEscape(passiveParty)}">
+        <span class="pj-guides-process-party pj-guides-process-party--active"><strong>Autor:</strong> ${htmlEscape(activeParty)}</span>
+        <span class="pj-guides-process-party pj-guides-process-party--passive"><strong>Réu:</strong> ${htmlEscape(passiveParty)}</span>
+      </div>
+    `;
+  }
+
+  function getProcessPartySearchText(processRecord) {
+    return [processRecord && processRecord.activeParty, processRecord && processRecord.passiveParty].join(' ');
+  }
+
   function maybeAlertForProcess(processRecord, summary) {
     if (!processRecord) return;
     const signature = `${processRecord.key}:${summary.overdue}:${summary.dueToday}:${summary.dueSoon}:${summary.nearestDueDate ? summary.nearestDueDate.toISOString() : ''}`;
@@ -2235,6 +2355,7 @@
         <div>
           <div class="pj-guides-inline__title">Central de Guias</div>
           <div class="pj-guides-inline__meta">${htmlEscape(staleText)}</div>
+          ${renderProcessParties(processRecord)}
         </div>
       </div>
       ${buildSummaryStats(summary)}
@@ -2252,18 +2373,20 @@
     renderFontAwesome(card);
     state.processMounted = true;
     maybeAlertForProcess(processRecord, summary);
+    startAutomaticGuidesSync(processRecord);
   }
 
-  function syncGuidesFromPage(options = {}) {
+  function syncGuidesFromDocument(doc = document, options = {}) {
+    if (!doc) return null;
     const db = loadDb();
-    const ctx = extractGuidesPageContext(document, db);
+    const ctx = extractGuidesPageContext(doc, db);
     if (!ctx) return null;
     const processRecord = ensureProcessRecord(db, ctx);
     if (!processRecord) return null;
-    const guides = parseGuideRows(document, processRecord);
+    const guides = parseGuideRows(doc, processRecord);
     processRecord.guides = guides;
     processRecord.lastGuidesSyncAt = nowIso();
-    processRecord.lastGuidesSyncSource = 'GuiaEmissao?PaginaAtual=6';
+    processRecord.lastGuidesSyncSource = String(options.source || 'GuiaEmissao?PaginaAtual=6');
     const changed = saveDbIfChanged(db);
 
     const summary = computeProcessSummary(processRecord);
@@ -2273,6 +2396,76 @@
       showToast(`${guides.length} guia(s) ${suffix} para ${processRecord.shortNumber || processRecord.cnj}.`, tone, { timeout: 5200 });
     }
     return { processRecord, summary };
+  }
+
+  function syncGuidesFromPage(options = {}) {
+    return syncGuidesFromDocument(document, options);
+  }
+
+  function cancelAutomaticGuidesSync() {
+    if (state.automaticGuidesSyncTimer) {
+      clearTimeout(state.automaticGuidesSyncTimer);
+      state.automaticGuidesSyncTimer = null;
+    }
+    if (state.automaticGuidesSyncFrame) {
+      state.automaticGuidesSyncFrame.remove();
+      state.automaticGuidesSyncFrame = null;
+    }
+  }
+
+  function refreshProcessCardAfterAutomaticGuidesSync() {
+    state.lastEvaluateSignature = '';
+    state.processMounted = false;
+    scheduleEvaluate(0);
+  }
+
+  function startAutomaticGuidesSync(processRecord) {
+    if (!processRecord) return;
+    const processKey = String(processRecord.key || processRecord.processId || processRecord.shortNumber || '').trim();
+    if (!processKey || state.automaticGuidesSyncProcessKey === processKey) return;
+    state.automaticGuidesSyncProcessKey = processKey;
+    cancelAutomaticGuidesSync();
+
+    const frame = document.createElement('iframe');
+    frame.id = 'pj-guides-automatic-sync-frame';
+    frame.title = 'Captura automática de guias';
+    frame.setAttribute('aria-hidden', 'true');
+    frame.tabIndex = -1;
+    frame.style.cssText = 'position:fixed; left:-10000px; top:-10000px; width:1px; height:1px; border:0; opacity:0; pointer-events:none;';
+
+    let settled = false;
+    const finish = result => {
+      if (settled) return;
+      settled = true;
+      if (state.automaticGuidesSyncTimer) {
+        clearTimeout(state.automaticGuidesSyncTimer);
+        state.automaticGuidesSyncTimer = null;
+      }
+      if (state.automaticGuidesSyncFrame === frame) state.automaticGuidesSyncFrame = null;
+      frame.remove();
+      if (result && result.processRecord && state.automaticGuidesSyncProcessKey === processKey) {
+        refreshProcessCardAfterAutomaticGuidesSync();
+      }
+    };
+
+    frame.addEventListener('load', () => {
+      let result = null;
+      try {
+        result = syncGuidesFromDocument(frame.contentDocument, {
+          silent: true,
+          source: 'GuiaEmissao?PaginaAtual=6 (automática)'
+        });
+      } catch (_) {}
+      finish(result);
+    }, { once: true });
+    frame.addEventListener('error', () => finish(null), { once: true });
+    state.automaticGuidesSyncFrame = frame;
+    state.automaticGuidesSyncTimer = setTimeout(() => finish(null), AUTO_GUIDES_SYNC_TIMEOUT_MS);
+
+    const url = new URL('GuiaEmissao?PaginaAtual=6', location.href);
+    url.searchParams.set(AUTO_GUIDES_QUERY_PARAM, '1');
+    frame.src = url.href;
+    (document.body || document.documentElement).appendChild(frame);
   }
 
   function mountGuidesCard() {
@@ -2379,7 +2572,10 @@
           <tbody>
             ${critical.map(row => `
               <tr>
-                <td><span class="pj-guides-process-main" title="${htmlEscape(row.processRecord.cnj || row.processRecord.shortNumber || row.processRecord.processId)}">${htmlEscape(row.processRecord.shortNumber || row.processRecord.cnj || row.processRecord.processId)}</span></td>
+                <td>
+                  <span class="pj-guides-process-main" title="${htmlEscape(row.processRecord.cnj || row.processRecord.shortNumber || row.processRecord.processId)}">${htmlEscape(row.processRecord.shortNumber || row.processRecord.cnj || row.processRecord.processId)}</span>
+                  ${renderProcessParties(row.processRecord)}
+                </td>
                 <td><span class="pj-guides-guide-main">${htmlEscape(row.guide.number)}</span>${getCompactInstallmentText(row.guide) ? `<span class="pj-guides-guide-sub">${htmlEscape(getCompactInstallmentText(row.guide))}</span>` : ''}</td>
                 <td>${formatDate(row.guide.dueDate)}</td>
                 <td><span class="pj-guides-badge pj-guides-badge--${row.status}">${htmlEscape(getStatusLabel(row.status))}</span></td>
@@ -2799,6 +2995,7 @@
           row.processRecord.cnj,
           row.processRecord.shortNumber,
           row.processRecord.processId,
+          getProcessPartySearchText(row.processRecord),
           row.guide.number,
           row.guide.type,
           row.guide.situation,
@@ -2883,7 +3080,7 @@
           return s.staleSync || s.neverSynced;
         }).filter(p => {
           if (!term) return true;
-          return [p.cnj, p.shortNumber, p.processId].join(' ').toLowerCase().includes(term);
+          return [p.cnj, p.shortNumber, p.processId, getProcessPartySearchText(p)].join(' ').toLowerCase().includes(term);
         }).sort((a, b) => {
           const ta = new Date(a.lastGuidesSyncAt || a.lastProcessSeenAt || 0).getTime();
           const tb = new Date(b.lastGuidesSyncAt || b.lastProcessSeenAt || 0).getTime();
@@ -2917,7 +3114,10 @@
                   const guidesCount = (proc.guides || []).length;
                   return `
                     <tr>
-                      <td><span class="pj-guides-process-main">${htmlEscape(proc.shortNumber || proc.processId || '—')}</span></td>
+                      <td>
+                        <span class="pj-guides-process-main">${htmlEscape(proc.shortNumber || proc.processId || '—')}</span>
+                        ${renderProcessParties(proc)}
+                      </td>
                       <td><span class="pj-guides-guide-sub">${htmlEscape(proc.cnj || '—')}</span></td>
                       <td><span class="pj-guides-sync">${lastSync}</span></td>
                       <td>${guidesCount}</td>
@@ -2941,7 +3141,7 @@
       if (filter === 'untracked') {
         const untrackedProcs = untrackedProcessesSorted(db).filter(p => {
           if (!term) return true;
-          return [p.cnj, p.shortNumber, p.processId].join(' ').toLowerCase().includes(term);
+          return [p.cnj, p.shortNumber, p.processId, getProcessPartySearchText(p)].join(' ').toLowerCase().includes(term);
         });
         toolbarMeta.textContent = `${untrackedProcs.length} processo(s) sem acompanhamento.`;
         listMeta.textContent = untrackedProcs.length
@@ -2968,7 +3168,10 @@
                   const guidesCount = (proc.guides || []).length;
                   return `
                     <tr>
-                      <td><span class="pj-guides-process-main">${htmlEscape(proc.shortNumber || proc.processId || '—')}</span></td>
+                      <td>
+                        <span class="pj-guides-process-main">${htmlEscape(proc.shortNumber || proc.processId || '—')}</span>
+                        ${renderProcessParties(proc)}
+                      </td>
                       <td><span class="pj-guides-guide-sub">${htmlEscape(proc.cnj || '—')}</span></td>
                       <td><span class="pj-guides-sync">${proc.untrackedAt ? formatDateTimeSingleLine(proc.untrackedAt) : '—'}</span></td>
                       <td>${guidesCount}</td>
@@ -2992,7 +3195,7 @@
       if (filter === 'archived') {
         const archivedProcs = archivedProcessesSorted(db).filter(p => {
           if (!term) return true;
-          return [p.cnj, p.shortNumber, p.processId].join(' ').toLowerCase().includes(term);
+          return [p.cnj, p.shortNumber, p.processId, getProcessPartySearchText(p)].join(' ').toLowerCase().includes(term);
         });
         toolbarMeta.textContent = `${archivedProcs.length} processo(s) arquivado(s).`;
         listMeta.textContent = archivedProcs.length
@@ -3019,7 +3222,10 @@
                   const guidesCount = (proc.guides || []).length;
                   return `
                     <tr>
-                      <td><span class="pj-guides-process-main">${htmlEscape(proc.shortNumber || proc.processId || '—')}</span></td>
+                      <td>
+                        <span class="pj-guides-process-main">${htmlEscape(proc.shortNumber || proc.processId || '—')}</span>
+                        ${renderProcessParties(proc)}
+                      </td>
                       <td><span class="pj-guides-guide-sub">${htmlEscape(proc.cnj || '—')}</span></td>
                       <td><span class="pj-guides-sync">${proc.archivedAt ? formatDateTimeSingleLine(proc.archivedAt) : '—'}</span></td>
                       <td>${guidesCount}</td>
@@ -3072,6 +3278,7 @@
                   <tr>
                     <td>
                       <span class="pj-guides-process-main" title="${htmlEscape(proc.cnj || proc.shortNumber || proc.processId)}">${htmlEscape(proc.shortNumber || proc.cnj || proc.processId)}</span>
+                      ${renderProcessParties(proc)}
                     </td>
                     <td>
                       <span class="pj-guides-guide-main">${htmlEscape(guide.number)}</span>
@@ -3247,6 +3454,10 @@
 
   function init() {
     ensureStyles();
+    if (isAutomaticGuidesFrame()) {
+      syncGuidesFromPage({ silent: true, source: 'GuiaEmissao?PaginaAtual=6 (automática)' });
+      return;
+    }
     registerMenu();
     registerHeaderMenuEntry();
     evaluate();

@@ -5,11 +5,22 @@ Script para acompanhar guias de pagamento no Projudi do TJGO em uma central loca
 ## O que ele faz
 
 - sincroniza localmente as guias de pagamento dos processos;
+- ao abrir um processo, tenta capturar automaticamente as guias em segundo plano;
+- registra um resumo do polo ativo e do polo passivo para identificar o processo;
 - organiza as guias em um painel próprio;
 - destaca vencimentos próximos e guias vencidas;
 - mostra alertas para situações que exigem atenção;
 - mantém os dados salvos localmente no navegador;
 - permite backup e restauração das informações.
+
+Ao abrir um processo autenticado, a extensão consulta em segundo plano a mesma
+página de guias usada pelo Projudi (`GuiaEmissao?PaginaAtual=6`). A leitura é
+local, depende da sessão já aberta no Projudi e mantém o botão “Sincronizar”
+como alternativa quando a captura automática não estiver disponível.
+
+Para manter o painel compacto, cada polo exibe somente a primeira parte
+identificada. Quando houver mais de uma, o resumo aparece como “primeiro nome e
+outro(s)”.
 
 ## Requisitos
 

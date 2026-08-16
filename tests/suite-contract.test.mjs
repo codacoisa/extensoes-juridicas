@@ -74,6 +74,19 @@ test('restaurações exigem schema e identidade da extensão', () => {
   assert.doesNotMatch(taskBackupBuilder, /\.\.\.exportTodoPayload\(\)/, 'tarefas: exportação local sobrescreve o schema remoto');
 });
 
+test('Central de Guias resume os polos do processo', () => {
+  const source = sources['central-guias'];
+  assert.match(source, /function extractPartyNames\(/, 'central-guias: extração de partes ausente');
+  assert.match(source, /function summarizePartyNames\(/, 'central-guias: resumo de partes ausente');
+  assert.match(source, /unique\.length > 1 \? `\$\{unique\[0\]\} e outro\(s\)`/, 'central-guias: múltiplas partes não são resumidas');
+  assert.match(source, /activeParty: summarizePartyNames\(extractPartyNames\(doc, 'Polo Ativo'\)\)/, 'central-guias: polo ativo não é capturado');
+  assert.match(source, /passiveParty: summarizePartyNames\(extractPartyNames\(doc, 'Polo Passivo'\)\)/, 'central-guias: polo passivo não é capturado');
+  assert.match(source, /activeParty: proc\.activeParty \|\| ''/, 'central-guias: polo ativo não entra no backup');
+  assert.match(source, /passiveParty: proc\.passiveParty \|\| ''/, 'central-guias: polo passivo não entra no backup');
+  assert.match(source, /function renderProcessParties\(/, 'central-guias: painel não renderiza as partes');
+  assert.match(source, /getProcessPartySearchText\(/, 'central-guias: busca não considera as partes');
+});
+
 test('Font Awesome usa sprite SVG 7.3.1 sem runtime ou webfont global', () => {
   for (const [id, source] of Object.entries(sources)) {
     assert.match(source, /fontawesome-free@7\.3\.1\/sprites\/solid\.svg/, `${id}: sprite SVG incorreto`);
