@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Central de Guias
 // @namespace    projudi-central-guias.user.js
-// @version      2026.08.16-16:31
+// @version      2026.08.16-16:35
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Central local para sincronizar, acompanhar e alertar sobre guias de pagamento no Projudi.
 // @author       lourencosv (GPT)
@@ -1290,6 +1290,18 @@
         color: #5e7390;
         font-size: 11px;
       }
+      .pj-guides-inline--process .pj-guides-inline__header {
+        align-items: flex-start;
+      }
+      .pj-guides-inline__tools {
+        display: flex;
+        align-items: flex-start;
+        flex: 0 0 auto;
+        padding-top: 1px;
+      }
+      .pj-guides-inline__sync-button {
+        margin: 0;
+      }
       .pj-guides-stats {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
@@ -2342,7 +2354,7 @@
 
     const card = document.createElement('div');
     card.id = 'pj-guides-process-card';
-    card.className = 'pj-guides-inline';
+    card.className = 'pj-guides-inline pj-guides-inline--process';
 
     const staleText = summary.neverSynced
       ? 'Guias ainda não sincronizadas.'
@@ -2357,17 +2369,21 @@
           <div class="pj-guides-inline__meta">${htmlEscape(staleText)}</div>
           ${renderProcessParties(processRecord)}
         </div>
+        <div class="pj-guides-inline__tools"></div>
       </div>
       ${buildSummaryStats(summary)}
       ${summary.overdue > 0 ? `<div class="pj-guides-banner pj-guides-banner--danger">Existem ${summary.overdue} guia(s) vencida(s) neste processo.</div>` : ''}
       ${summary.dueToday + summary.dueSoon > 0 ? `<div class="pj-guides-banner">${summary.dueToday + summary.dueSoon} guia(s) vencem em até ${ALERT_BUSINESS_DAYS} dias úteis.</div>` : ''}
     `;
 
-    const actions = document.createElement('div');
-    actions.className = 'pj-guides-inline__actions';
-    actions.appendChild(createTextButton('Consultar Guias', 'pj-guides-btn pj-guides-btn--inline-action', () => navigateToUrl('GuiaEmissao?PaginaAtual=6')));
-    actions.appendChild(createTextButton('Abrir Painel', 'pj-guides-btn pj-guides-btn--inline-action', () => openManager(processRecord.key)));
-    card.appendChild(actions);
+    card.querySelector('.pj-guides-inline__tools').appendChild(
+      createIconButton(
+        'fa-solid fa-arrows-rotate',
+        'Consultar Guias',
+        'pj-guides-btn pj-guides-btn--tool pj-guides-inline__sync-button',
+        () => navigateToUrl('GuiaEmissao?PaginaAtual=6')
+      )
+    );
 
     anchor.insertAdjacentElement('afterend', card);
     renderFontAwesome(card);

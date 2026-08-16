@@ -87,6 +87,16 @@ test('Central de Guias resume os polos do processo', () => {
   assert.match(source, /getProcessPartySearchText\(/, 'central-guias: busca não considera as partes');
 });
 
+test('Central de Guias mantém o cartão do processo compacto', () => {
+  const source = sources['central-guias'];
+  const processCard = source.match(/function mountProcessCard\(\) \{([\s\S]*?)\n  \}\n\n  function syncGuidesFromDocument/)?.[1] || '';
+  assert.match(processCard, /pj-guides-inline--process/, 'central-guias: cartão do processo não possui variante própria');
+  assert.match(processCard, /createIconButton\(\s*'fa-solid fa-arrows-rotate'/, 'central-guias: ação compacta de consulta não usa Font Awesome');
+  assert.match(processCard, /'Consultar Guias'/, 'central-guias: ícone não possui rótulo de consulta');
+  assert.doesNotMatch(processCard, /createTextButton\('Consultar Guias'/, 'central-guias: botão textual de consulta ainda está no cartão do processo');
+  assert.doesNotMatch(processCard, /createTextButton\('Abrir Painel'/, 'central-guias: botão textual de painel ainda está no cartão do processo');
+});
+
 test('Font Awesome usa sprite SVG 7.3.1 sem runtime ou webfont global', () => {
   for (const [id, source] of Object.entries(sources)) {
     assert.match(source, /fontawesome-free@7\.3\.1\/sprites\/solid\.svg/, `${id}: sprite SVG incorreto`);
