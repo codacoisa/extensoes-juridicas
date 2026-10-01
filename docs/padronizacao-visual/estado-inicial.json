@@ -1,0 +1,103 @@
+{
+  "captured_at_utc": "2026-10-01T16:38:50.062587+00:00",
+  "head": "4cc3451e78b7e543f4f84b138abf4585e96e4d55",
+  "initial_git_status": "clean",
+  "baseline_tests": {
+    "pass": 22,
+    "fail": 0
+  },
+  "active": [
+    {
+      "path": "intimacoes/projudi-intimacao-page.user.js",
+      "sha256": "940df7dd503692c67ea5e9e3aa941db6667f3c20b474650fb451ad4637152044",
+      "bytes": 171244,
+      "version": "2026.08.07-22:19",
+      "meta_exists": true
+    },
+    {
+      "path": "anotacoes/projudi-anotacoes-locais.user.js",
+      "sha256": "987be8cf923ff1a7bd6a8814560269bd76eeb1c65010b1c14dabd9e5cb551d4e",
+      "bytes": 113518,
+      "version": "2026.07.20-2328",
+      "meta_exists": false
+    },
+    {
+      "path": "centraldeguias/projudi-central-guias.user.js",
+      "sha256": "e54b90f41b4b0d1793cb50ba7e0b8fd394ee2d84d40b2eb5605b75b80ef999b6",
+      "bytes": 145274,
+      "version": "2026.08.16-17:02",
+      "meta_exists": true
+    },
+    {
+      "path": "customizacoes/projudi-customizacoes.user.js",
+      "sha256": "5469169183638424efafdae0e134225b6f98831af3454fbadf5806ee8c97cb2d",
+      "bytes": 294063,
+      "version": "2026.07.24-0047",
+      "meta_exists": false
+    },
+    {
+      "path": "tarefas/projudi-tarefas-locais.user.js",
+      "sha256": "1e83d40257a6652a7b14f0948f0c9b4d51841b1024db2d2e229b81b5b5d5d618",
+      "bytes": 165192,
+      "version": "2026.08.07-22:19",
+      "meta_exists": true
+    }
+  ],
+  "arquivo": [
+    {
+      "path": "arquivo/README.md",
+      "sha256": "8f8f36b06cb52ce4e52c214a871b28c8b586a364482a9c5038cb0f7c84882379",
+      "bytes": 979
+    },
+    {
+      "path": "arquivo/favoritos/README.md",
+      "sha256": "2a74db8b9145ac185c66aef9610d4b43112162564d00b468e1b21162b410c9b2",
+      "bytes": 1210
+    },
+    {
+      "path": "arquivo/favoritos/projudi-processos-favoritos.user.js",
+      "sha256": "3e66c717c557eb639e581c4692ad5fa9ea941cc33d0de04a6a519da401358722",
+      "bytes": 44954
+    },
+    {
+      "path": "arquivo/prazos/projudi-prazos.user.js",
+      "sha256": "68ef0c85c10561fb5b3787853ae5647e3777d84a4261080ec6e2210cde42dd45",
+      "bytes": 39342
+    },
+    {
+      "path": "arquivo/prazos/README.md",
+      "sha256": "fe695e136498e273a507ede04524e62a422ba792ea0d3e0e7bef0d3e2e3ef068",
+      "bytes": 1216
+    },
+    {
+      "path": "arquivo/movimentacoes/README.md",
+      "sha256": "199136334c91207cd9a40e7883da7200d4b21d607449219bb9f73747a990705b",
+      "bytes": 1313
+    },
+    {
+      "path": "arquivo/movimentacoes/projudi-movimentacoes.user.js",
+      "sha256": "c6978503564ea33671ae426b2d0865bafb16636ed93f55b4e520c71660681b3a",
+      "bytes": 43302
+    },
+    {
+      "path": "arquivo/removescrollbar/projudi-scrollbar.user.js",
+      "sha256": "7211456226ab889a57068448625baa3cd4f9421e95fa323185fd9494a914b106",
+      "bytes": 4281
+    },
+    {
+      "path": "arquivo/removescrollbar/README.md",
+      "sha256": "06fbb749bd4d2f1ba96ec75b83a337eb9e710995cb4e9fea5f2dd0418d610a51",
+      "bytes": 231
+    },
+    {
+      "path": "arquivo/destaqueglobal/projudi-highlighter.user.js",
+      "sha256": "0d82d25a86e119edfc1a12d142ff7a6e0e40e0a7d107ab843d6d10aed8baabfe",
+      "bytes": 56868
+    },
+    {
+      "path": "arquivo/destaqueglobal/README.md",
+      "sha256": "1aba935eb56522f54b2d5bfd066283551092bdaa7115d90b0e605ad1c1426b09",
+      "bytes": 1306
+    }
+  ]
+}

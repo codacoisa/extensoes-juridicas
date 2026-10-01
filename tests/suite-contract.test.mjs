@@ -17,6 +17,8 @@ const sources = Object.fromEntries(
   await Promise.all(Object.entries(scripts).map(async ([id, path]) => [id, await readFile(resolve(root, path), 'utf8')]))
 );
 const metadata = {
+  anotacoes: await readFile(resolve(root, 'anotacoes/projudi-anotacoes-locais.meta.js'), 'utf8'),
+  customizacoes: await readFile(resolve(root, 'customizacoes/projudi-customizacoes.meta.js'), 'utf8'),
   'central-guias': await readFile(resolve(root, 'centraldeguias/projudi-central-guias.meta.js'), 'utf8'),
   intimacoes: await readFile(resolve(root, 'intimacoes/projudi-intimacao-page.meta.js'), 'utf8'),
   tarefas: await readFile(resolve(root, 'tarefas/projudi-tarefas-locais.meta.js'), 'utf8')
@@ -24,6 +26,8 @@ const metadata = {
 
 test('userscripts mantêm meta.js separado e atualizável pelo wblock', () => {
   const files = {
+    anotacoes: ['anotacoes/projudi-anotacoes-locais', 'projudi-anotacoes-locais'],
+    customizacoes: ['customizacoes/projudi-customizacoes', 'projudi-customizacoes'],
     'central-guias': ['centraldeguias/projudi-central-guias', 'projudi-central-guias'],
     intimacoes: ['intimacoes/projudi-intimacao-page', 'projudi-intimacao-page'],
     tarefas: ['tarefas/projudi-tarefas-locais', 'projudi-tarefas-locais']
@@ -358,4 +362,55 @@ test('backups grandes ou remotos inválidos não bloqueiam novo envio', () => {
     if (id !== 'customizacoes') assert.match(source, /invalidOk:\s*true/, `${id}: envio não tolera JSON remoto inválido`);
     assert.match(source, /incompleto ou contém JSON inválido/, `${id}: erro amigável de restauração ausente`);
   }
+});
+
+test('todos os cabeçalhos meta.js são cópias integrais dos userscripts', () => {
+  for (const [id, source] of Object.entries(sources)) {
+    const header = source.match(/^\/\/ ==UserScript==\n[\s\S]*?\/\/ ==\/UserScript==\n/)?.[0];
+    assert.equal(metadata[id], header, `${id}: cabeçalho e metadados divergentes`);
+  }
+});
+
+test('componentes e helpers comuns são idênticos e independem da rede de ícones', async () => {
+  const css = (await readFile(resolve(root, 'ui/suite-ui.css'), 'utf8')).trim();
+  const helpers = (await readFile(resolve(root, 'ui/suite-ui.js'), 'utf8')).trim().replace(/^\s+/gm, '');
+  for (const [id, source] of Object.entries(sources)) {
+    const embeddedCss = source.match(/const SUITE_UI_CSS = String\.raw`([\s\S]*?)`;/)?.[1].trim().replace(/^\s+/gm, '');
+    const embeddedHelpers = source.match(/\/\/ BEGIN SUITE_UI_HELPERS\n([\s\S]*?)\n\s*\/\/ END SUITE_UI_HELPERS/)?.[1].trim().replace(/^\s+/gm, '');
+    assert.equal(embeddedCss, css.replace(/^\s+/gm, ''), `${id}: CSS divergente`);
+    assert.equal(embeddedHelpers, helpers, `${id}: helpers divergentes`);
+    assert.match(source, /root\.setAttribute\(['"]data-pj-suite-ui['"], ['"][^'"]+['"]\);\s*prepareSuiteUI\(root\);/, `${id}: componentes dependem do sprite`);
+    assert.match(source, /activateSuiteDialog\(panel|activateSuiteDialog\(root\.querySelector/, `${id}: gerenciador sem foco`);
+  }
+});
+
+test('CSS comum permanece limitado às superfícies da suíte', async () => {
+  const css = await readFile(resolve(root, 'ui/suite-ui.css'), 'utf8');
+  const selectors = [...css.matchAll(/([^{}]+)\{/g)].map(match => match[1].replace(/\/\*[\s\S]*?\*\//g, '').trim()).filter(selector => selector && !selector.startsWith('@') && selector !== 'to');
+  for (const selector of selectors) {
+    for (const part of selector.split(/,\s*(?=\[data-pj-suite-ui\])/)) {
+      assert.ok(part.startsWith('[data-pj-suite-ui]'), `Seletor fora da raiz: ${part}`);
+    }
+  }
+  assert.match(css, /outline: 2px solid var\(--pj-suite-focus\)/);
+  assert.match(css, /@media \(forced-colors: active\)/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+});
+
+test('cores principais e secundárias mantêm contraste AA', async () => {
+  const css = await readFile(resolve(root, 'ui/suite-ui.css'), 'utf8');
+  const luminance = hex => {
+    const values = hex.match(/[a-f\d]{2}/gi).map(v => parseInt(v, 16) / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
+    return values[0] * .2126 + values[1] * .7152 + values[2] * .0722;
+  };
+  const colors = Object.fromEntries([...css.matchAll(/--pj-suite-([\w-]+): (#[a-f\d]{6})/gi)].map(m => [m[1], m[2]]));
+  for (const name of ['text', 'muted', 'primary', 'primary-hover', 'header', 'success', 'warning', 'danger']) {
+    const ratio = 1.05 / (luminance(colors[name]) + .05);
+    assert.ok(ratio >= 4.5, `${name}: contraste ${ratio.toFixed(2)} inferior a 4.5:1`);
+  }
+  assert.ok(1.05 / (luminance(colors['field-border']) + .05) >= 3, 'borda de campo sem contraste 3:1');
+});
+
+test('Intimações inicializa após criar todos os caches locais', () => {
+  assert.ok(sources.intimacoes.lastIndexOf('  init();') > sources.intimacoes.indexOf('const fontAwesomeSprites = new WeakMap()'));
 });

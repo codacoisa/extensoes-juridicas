@@ -1,0 +1,65 @@
+{
+  "checked_at_utc": "2026-10-01T17:18:53.948723+00:00",
+  "same_files_and_bytes": true,
+  "initial_file_count": 11,
+  "final_file_count": 11,
+  "changed_paths": [],
+  "sha256_of_manifest": "7bd5877efde9c2e94f5399467dcd5ed1edc1e29c63082343d4d8bfc147b42848",
+  "files": [
+    {
+      "path": "arquivo/README.md",
+      "sha256": "8f8f36b06cb52ce4e52c214a871b28c8b586a364482a9c5038cb0f7c84882379",
+      "bytes": 979
+    },
+    {
+      "path": "arquivo/destaqueglobal/README.md",
+      "sha256": "1aba935eb56522f54b2d5bfd066283551092bdaa7115d90b0e605ad1c1426b09",
+      "bytes": 1306
+    },
+    {
+      "path": "arquivo/destaqueglobal/projudi-highlighter.user.js",
+      "sha256": "0d82d25a86e119edfc1a12d142ff7a6e0e40e0a7d107ab843d6d10aed8baabfe",
+      "bytes": 56868
+    },
+    {
+      "path": "arquivo/favoritos/README.md",
+      "sha256": "2a74db8b9145ac185c66aef9610d4b43112162564d00b468e1b21162b410c9b2",
+      "bytes": 1210
+    },
+    {
+      "path": "arquivo/favoritos/projudi-processos-favoritos.user.js",
+      "sha256": "3e66c717c557eb639e581c4692ad5fa9ea941cc33d0de04a6a519da401358722",
+      "bytes": 44954
+    },
+    {
+      "path": "arquivo/movimentacoes/README.md",
+      "sha256": "199136334c91207cd9a40e7883da7200d4b21d607449219bb9f73747a990705b",
+      "bytes": 1313
+    },
+    {
+      "path": "arquivo/movimentacoes/projudi-movimentacoes.user.js",
+      "sha256": "c6978503564ea33671ae426b2d0865bafb16636ed93f55b4e520c71660681b3a",
+      "bytes": 43302
+    },
+    {
+      "path": "arquivo/prazos/README.md",
+      "sha256": "fe695e136498e273a507ede04524e62a422ba792ea0d3e0e7bef0d3e2e3ef068",
+      "bytes": 1216
+    },
+    {
+      "path": "arquivo/prazos/projudi-prazos.user.js",
+      "sha256": "68ef0c85c10561fb5b3787853ae5647e3777d84a4261080ec6e2210cde42dd45",
+      "bytes": 39342
+    },
+    {
+      "path": "arquivo/removescrollbar/README.md",
+      "sha256": "06fbb749bd4d2f1ba96ec75b83a337eb9e710995cb4e9fea5f2dd0418d610a51",
+      "bytes": 231
+    },
+    {
+      "path": "arquivo/removescrollbar/projudi-scrollbar.user.js",
+      "sha256": "7211456226ab889a57068448625baa3cd4f9421e95fa323185fd9494a914b106",
+      "bytes": 4281
+    }
+  ]
+}

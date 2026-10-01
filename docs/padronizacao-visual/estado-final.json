@@ -1,0 +1,35 @@
+{
+  "captured_at_utc": "2026-10-01T17:20:37.855108+00:00",
+  "active": [
+    {
+      "path": "anotacoes/projudi-anotacoes-locais.user.js",
+      "version": "2026.10.01-14:20",
+      "sha256": "c3aa4eacb52a44def3f64e28c925f28b846c36d6653a8fe3bce3deb7dc9c9ef8",
+      "bytes": 136513
+    },
+    {
+      "path": "centraldeguias/projudi-central-guias.user.js",
+      "version": "2026.10.01-14:20",
+      "sha256": "e89be03e875b9388e2b608be0996f4343f87ef848f7c22776c38a0316cf23906",
+      "bytes": 167595
+    },
+    {
+      "path": "customizacoes/projudi-customizacoes.user.js",
+      "version": "2026.10.01-14:20",
+      "sha256": "90aea19081e12070b53449ea3f02318d0e8ad195683ff622d5469c9788e01ec1",
+      "bytes": 316938
+    },
+    {
+      "path": "intimacoes/projudi-intimacao-page.user.js",
+      "version": "2026.10.01-14:20",
+      "sha256": "d14725eb9f6f0031eb954172f9ae55d83c1813b87c67df7831d098a8bed50342",
+      "bytes": 193571
+    },
+    {
+      "path": "tarefas/projudi-tarefas-locais.user.js",
+      "version": "2026.10.01-14:20",
+      "sha256": "8f786baa3de401b7f8f1734ca01ae0491916e254615a0de7d43aa76101cb1938",
+      "bytes": 187280
+    }
+  ]
+}

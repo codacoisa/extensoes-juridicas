@@ -1,0 +1,19 @@
+{
+  "synthetic": true,
+  "browser": "151.0.7922.34",
+  "checks": [
+    "Cinco extensões coexistem; um núcleo e um sprite por documento",
+    "Atalhos A/G/C/I/T no iframe abrem e fecham os gerenciadores no top",
+    "Triagem inline marca e conclui somente dados sintéticos no iframe",
+    "Filtro e limpeza de datas preservam as linhas do iframe",
+    "Editor de anotações no iframe grava, conserva a cor e fecha",
+    "Compositor de tarefas do processo cria e fecha no iframe",
+    "Compositor de tarefas global cria e fecha",
+    "Painel de movimentações abre repetidamente sem acumular Escape",
+    "Visualizador de arquivo minimiza, restaura sem duplicar e fecha",
+    "Cartão inicial da Central de Guias recebe os componentes comuns",
+    "Cartão compacto de guias no processo preserva a ação e seu rótulo",
+    "Cartão da página de guias sincroniza somente a tabela sintética"
+  ],
+  "errors": []
+}
