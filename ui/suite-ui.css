@@ -73,6 +73,15 @@
     padding: 8px 10px !important; background: var(--pj-suite-surface) !important;
     color: var(--pj-suite-text) !important; font-size: 13px !important; line-height: 1.4 !important;
   }
+  [data-pj-suite-ui] select[data-pj-suite-component="field"] {
+    appearance: none !important; -webkit-appearance: none !important;
+    padding-right: 30px !important;
+    background-image: linear-gradient(45deg, transparent 50%, #475467 50%), linear-gradient(135deg, #475467 50%, transparent 50%) !important;
+    background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50% !important;
+    background-size: 5px 5px !important; background-repeat: no-repeat !important;
+  }
+  [data-pj-suite-ui] [data-pj-suite-component="badge"] { align-self: center !important; width: fit-content; overflow-wrap: anywhere; }
+  [data-pj-suite-ui] .pjm-stat--done :is(i, .pj-suite-fa) { color: var(--pj-suite-success) !important; }
   [data-pj-suite-ui] [data-pj-suite-component="field"]::placeholder { color: #667085 !important; opacity: 1 !important; }
   [data-pj-suite-ui] [data-pj-suite-component="button"] {
     display: inline-flex !important; align-items: center !important; justify-content: center !important;

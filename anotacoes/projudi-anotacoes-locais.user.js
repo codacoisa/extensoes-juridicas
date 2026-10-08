@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Anotações
 // @namespace    projudi-anotacoes-locais.user.js
-// @version      2026.10.01-14:20
+// @version      2026.10.08-00:28
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Adiciona Post-it local ao Projudi, com painel de notas, importação e exportação.
 // @author       lourencosv (GPT)
@@ -202,6 +202,15 @@
         padding: 8px 10px !important; background: var(--pj-suite-surface) !important;
         color: var(--pj-suite-text) !important; font-size: 13px !important; line-height: 1.4 !important;
       }
+      [data-pj-suite-ui] select[data-pj-suite-component="field"] {
+        appearance: none !important; -webkit-appearance: none !important;
+        padding-right: 30px !important;
+        background-image: linear-gradient(45deg, transparent 50%, #475467 50%), linear-gradient(135deg, #475467 50%, transparent 50%) !important;
+        background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50% !important;
+        background-size: 5px 5px !important; background-repeat: no-repeat !important;
+      }
+      [data-pj-suite-ui] [data-pj-suite-component="badge"] { align-self: center !important; width: fit-content; overflow-wrap: anywhere; }
+      [data-pj-suite-ui] .pjm-stat--done :is(i, .pj-suite-fa) { color: var(--pj-suite-success) !important; }
       [data-pj-suite-ui] [data-pj-suite-component="field"]::placeholder { color: #667085 !important; opacity: 1 !important; }
       [data-pj-suite-ui] [data-pj-suite-component="button"] {
         display: inline-flex !important; align-items: center !important; justify-content: center !important;
@@ -279,7 +288,7 @@
       title: '.pj-panel-title, .pj-guides-manager__title, .pjc-panel-brand > div > div:first-child, .pjip-modal-title, .pjm-title, .phm-title, .pj-home-header-title',
       subtitle: '.pj-panel-subtitle, .pj-guides-manager__header .pj-guides-inline__meta, .pjc-panel-brand > div > div:last-child, .pjip-modal-subtitle, .pjm-sub, .phm-subtitle, .pj-home-header-subtitle',
       body: '.pj-panel-body, .pj-guides-manager__body, #pj-panel-body, .pjip-modal-body, .pjm-body, .phm-body, .pj-home-layout, .pj-process-layout',
-      card: '.pj-guides-inline, .pj-guides-home, .pj-card, .pj-guides-manager__toolbar, .pj-guides-manager__list-shell, .pjc-card, .pjip-section, .pjip-toolbar, .pjip-list-shell, .pjip-deadline-card, .pjm-card, .pj-home-summary, .pj-home-composer, .pj-guides-manager__summary, .pjip-summary, .phm-rule, .phm-field',
+      card: '.pj-guides-inline, .pj-guides-home, .pj-card, .pj-guides-manager__toolbar, .pj-guides-manager__list-shell, .pjc-card, .pjip-deadline, .pjip-toolbar, .pjip-list-shell, .pjip-deadline-card, .pjm-card, .pj-home-summary, .pj-home-composer, .pj-guides-manager__summary, .pjip-summary, .phm-rule, .phm-field',
       'section-title': '.pj-guides-home__title, .pj-guides-inline__title, .pj-section-title, .pj-guides-manager__toolbar-title, .pj-guides-manager__list-title, .pjc-section-title, .pjip-section-title, .pjm-section-title, .pj-home-list-title',
       'summary-title': '.pj-summary-title, .pj-guides-manager__summary-title, .pjc-summary-title, .pjip-summary-title, .pjm-summary-title, .pj-home-summary-title',
       badge: '.pj-guides-badge, .pjip-item-status, .pjm-badge, .pj-tag',
@@ -384,11 +393,11 @@
           onClose();
         } else if (event.key === 'Tab') {
           const items = focusables();
-          const first = items[0];
-          const last = items[items.length - 1];
-          if (!first) { event.preventDefault(); dialog.focus(); }
-          else if (event.shiftKey && (doc.activeElement === first || doc.activeElement === dialog)) { event.preventDefault(); last.focus(); }
-          else if (!event.shiftKey && (doc.activeElement === last || doc.activeElement === dialog)) { event.preventDefault(); first.focus(); }
+          event.preventDefault();
+          if (!items.length) { dialog.focus(); return; }
+          const current = items.indexOf(doc.activeElement);
+          const next = current < 0 ? (event.shiftKey ? items.length - 1 : 0) : (current + (event.shiftKey ? -1 : 1) + items.length) % items.length;
+          items[next].focus();
         }
       };
       dialog.addEventListener('keydown', keydown);
@@ -1648,6 +1657,9 @@ html = persistentGet(key, '');
             }
 
             #pj-notes-panel .pj-note-item {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                column-gap: 12px;
                 border: 1px solid #dbe3ef;
                 border-left: 4px solid var(--pj-note-accent, #dbe3ef);
                 border-radius: 11px;
@@ -1674,7 +1686,9 @@ html = persistentGet(key, '');
                 font-size: 14px;
                 font-weight: 700;
                 color: var(--pj-color-text);
-                margin-right: 62px;
+                margin-right: 0;
+                min-width: 0;
+                overflow-wrap: anywhere;
                 line-height: 1.2;
             }
 
@@ -1682,10 +1696,14 @@ html = persistentGet(key, '');
                 font-size: 12px;
                 color: var(--pj-color-text-muted);
                 margin-top: 2px;
-                margin-right: 62px;
+                margin-right: 0;
+                min-width: 0;
+                overflow-wrap: anywhere;
                 word-break: break-all;
             }
 
+            #pj-notes-panel .pj-note-line3, #pj-notes-panel .pj-note-inline-preview { grid-column: 1 / -1; overflow-wrap: anywhere; min-width: 0; }
+            #pj-notes-panel .pj-note-line1, #pj-notes-panel .pj-note-line2 { grid-column: 1; }
             #pj-notes-panel .pj-note-line3 {
                 font-size: 12px;
                 color: #334155;
@@ -1694,9 +1712,10 @@ html = persistentGet(key, '');
             }
 
             #pj-notes-panel .pj-note-delete {
-                position: absolute;
-                top: 8px;
-                right: 8px;
+                position: static;
+                grid-column: 2;
+                grid-row: 1 / span 2;
+                align-self: start;
                 border: 1px solid #fecaca;
                 border-radius: 6px;
                 padding: 4px 8px;
@@ -2477,7 +2496,7 @@ const html = persistentGet(key, '');
         }
 
         function refreshEmptyStateAfterDelete() {
-            if (!listContainer.children.length || !selectedKey) return;
+            renderNoteItems(searchInput.value);
         }
 
         function renderNoteItems(query = '') {
@@ -2503,7 +2522,8 @@ const html = persistentGet(key, '');
             item.dataset.selected = '0';
             item.tabIndex = 0;
             item.setAttribute('role', 'group');
-            item.setAttribute('aria-label', `Nota ${n.subkey || ''} do processo ${n.cnj || 'sem CNJ'}`);
+            const noteLabel = /^\/BuscaProcesso(?:\?|$)/i.test(n.subkey || '') ? 'Anotação do processo' : (n.subkey || 'Anotação');
+            item.setAttribute('aria-label', `${noteLabel} do processo ${n.cnj || 'sem CNJ'}`);
             item.addEventListener('keydown', event => {
                 if (event.target !== item || !['Enter', ' '].includes(event.key)) return;
                 event.preventDefault();
@@ -2518,7 +2538,7 @@ const html = persistentGet(key, '');
 
             const line2 = rootDoc.createElement('div');
             line2.className = 'pj-note-line2';
-            line2.textContent = n.subkey || '';
+            line2.textContent = noteLabel;
 
             const line3 = rootDoc.createElement('div');
             line3.className = 'pj-note-line3';

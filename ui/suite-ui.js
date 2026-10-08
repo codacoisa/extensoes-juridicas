@@ -8,7 +8,7 @@ const SUITE_COMPONENTS = {
   title: '.pj-panel-title, .pj-guides-manager__title, .pjc-panel-brand > div > div:first-child, .pjip-modal-title, .pjm-title, .phm-title, .pj-home-header-title',
   subtitle: '.pj-panel-subtitle, .pj-guides-manager__header .pj-guides-inline__meta, .pjc-panel-brand > div > div:last-child, .pjip-modal-subtitle, .pjm-sub, .phm-subtitle, .pj-home-header-subtitle',
   body: '.pj-panel-body, .pj-guides-manager__body, #pj-panel-body, .pjip-modal-body, .pjm-body, .phm-body, .pj-home-layout, .pj-process-layout',
-  card: '.pj-guides-inline, .pj-guides-home, .pj-card, .pj-guides-manager__toolbar, .pj-guides-manager__list-shell, .pjc-card, .pjip-section, .pjip-toolbar, .pjip-list-shell, .pjip-deadline-card, .pjm-card, .pj-home-summary, .pj-home-composer, .pj-guides-manager__summary, .pjip-summary, .phm-rule, .phm-field',
+  card: '.pj-guides-inline, .pj-guides-home, .pj-card, .pj-guides-manager__toolbar, .pj-guides-manager__list-shell, .pjc-card, .pjip-deadline, .pjip-toolbar, .pjip-list-shell, .pjip-deadline-card, .pjm-card, .pj-home-summary, .pj-home-composer, .pj-guides-manager__summary, .pjip-summary, .phm-rule, .phm-field',
   'section-title': '.pj-guides-home__title, .pj-guides-inline__title, .pj-section-title, .pj-guides-manager__toolbar-title, .pj-guides-manager__list-title, .pjc-section-title, .pjip-section-title, .pjm-section-title, .pj-home-list-title',
   'summary-title': '.pj-summary-title, .pj-guides-manager__summary-title, .pjc-summary-title, .pjip-summary-title, .pjm-summary-title, .pj-home-summary-title',
   badge: '.pj-guides-badge, .pjip-item-status, .pjm-badge, .pj-tag',
@@ -113,11 +113,11 @@ function activateSuiteDialog(dialog, onClose) {
       onClose();
     } else if (event.key === 'Tab') {
       const items = focusables();
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (!first) { event.preventDefault(); dialog.focus(); }
-      else if (event.shiftKey && (doc.activeElement === first || doc.activeElement === dialog)) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && (doc.activeElement === last || doc.activeElement === dialog)) { event.preventDefault(); first.focus(); }
+      event.preventDefault();
+      if (!items.length) { dialog.focus(); return; }
+      const current = items.indexOf(doc.activeElement);
+      const next = current < 0 ? (event.shiftKey ? items.length - 1 : 0) : (current + (event.shiftKey ? -1 : 1) + items.length) % items.length;
+      items[next].focus();
     }
   };
   dialog.addEventListener('keydown', keydown);

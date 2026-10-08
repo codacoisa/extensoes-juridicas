@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2026.10.01-14:20
+// @version      2026.10.08-00:28
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       lourencosv
@@ -213,6 +213,15 @@
       padding: 8px 10px !important; background: var(--pj-suite-surface) !important;
       color: var(--pj-suite-text) !important; font-size: 13px !important; line-height: 1.4 !important;
     }
+    [data-pj-suite-ui] select[data-pj-suite-component="field"] {
+      appearance: none !important; -webkit-appearance: none !important;
+      padding-right: 30px !important;
+      background-image: linear-gradient(45deg, transparent 50%, #475467 50%), linear-gradient(135deg, #475467 50%, transparent 50%) !important;
+      background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50% !important;
+      background-size: 5px 5px !important; background-repeat: no-repeat !important;
+    }
+    [data-pj-suite-ui] [data-pj-suite-component="badge"] { align-self: center !important; width: fit-content; overflow-wrap: anywhere; }
+    [data-pj-suite-ui] .pjm-stat--done :is(i, .pj-suite-fa) { color: var(--pj-suite-success) !important; }
     [data-pj-suite-ui] [data-pj-suite-component="field"]::placeholder { color: #667085 !important; opacity: 1 !important; }
     [data-pj-suite-ui] [data-pj-suite-component="button"] {
       display: inline-flex !important; align-items: center !important; justify-content: center !important;
@@ -290,7 +299,7 @@
     title: '.pj-panel-title, .pj-guides-manager__title, .pjc-panel-brand > div > div:first-child, .pjip-modal-title, .pjm-title, .phm-title, .pj-home-header-title',
     subtitle: '.pj-panel-subtitle, .pj-guides-manager__header .pj-guides-inline__meta, .pjc-panel-brand > div > div:last-child, .pjip-modal-subtitle, .pjm-sub, .phm-subtitle, .pj-home-header-subtitle',
     body: '.pj-panel-body, .pj-guides-manager__body, #pj-panel-body, .pjip-modal-body, .pjm-body, .phm-body, .pj-home-layout, .pj-process-layout',
-    card: '.pj-guides-inline, .pj-guides-home, .pj-card, .pj-guides-manager__toolbar, .pj-guides-manager__list-shell, .pjc-card, .pjip-section, .pjip-toolbar, .pjip-list-shell, .pjip-deadline-card, .pjm-card, .pj-home-summary, .pj-home-composer, .pj-guides-manager__summary, .pjip-summary, .phm-rule, .phm-field',
+    card: '.pj-guides-inline, .pj-guides-home, .pj-card, .pj-guides-manager__toolbar, .pj-guides-manager__list-shell, .pjc-card, .pjip-deadline, .pjip-toolbar, .pjip-list-shell, .pjip-deadline-card, .pjm-card, .pj-home-summary, .pj-home-composer, .pj-guides-manager__summary, .pjip-summary, .phm-rule, .phm-field',
     'section-title': '.pj-guides-home__title, .pj-guides-inline__title, .pj-section-title, .pj-guides-manager__toolbar-title, .pj-guides-manager__list-title, .pjc-section-title, .pjip-section-title, .pjm-section-title, .pj-home-list-title',
     'summary-title': '.pj-summary-title, .pj-guides-manager__summary-title, .pjc-summary-title, .pjip-summary-title, .pjm-summary-title, .pj-home-summary-title',
     badge: '.pj-guides-badge, .pjip-item-status, .pjm-badge, .pj-tag',
@@ -395,11 +404,11 @@
         onClose();
       } else if (event.key === 'Tab') {
         const items = focusables();
-        const first = items[0];
-        const last = items[items.length - 1];
-        if (!first) { event.preventDefault(); dialog.focus(); }
-        else if (event.shiftKey && (doc.activeElement === first || doc.activeElement === dialog)) { event.preventDefault(); last.focus(); }
-        else if (!event.shiftKey && (doc.activeElement === last || doc.activeElement === dialog)) { event.preventDefault(); first.focus(); }
+        event.preventDefault();
+        if (!items.length) { dialog.focus(); return; }
+        const current = items.indexOf(doc.activeElement);
+        const next = current < 0 ? (event.shiftKey ? items.length - 1 : 0) : (current + (event.shiftKey ? -1 : 1) + items.length) % items.length;
+        items[next].focus();
       }
     };
     dialog.addEventListener('keydown', keydown);
@@ -1859,7 +1868,10 @@
    */
   function el(tag, props = {}, children = []) {
     const node = document.createElement(tag);
-    Object.assign(node, props);
+    for (const [name, value] of Object.entries(props)) {
+      if (name.startsWith('aria-') || name.startsWith('data-')) node.setAttribute(name, String(value));
+      else node[name] = value;
+    }
     for (const c of children) node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
     return node;
   }
@@ -3292,6 +3304,17 @@
    * @param {Element} panel Valor de `panel` utilizado pela rotina.
    * @returns {unknown} Resultado produzido pela rotina.
    */
+  function bindPanelKeyboard(panel, onClose) {
+    panel.setAttribute('role', 'region');
+    panel.setAttribute('aria-label', panel.classList.contains('pj-todo-home') ? 'Visão geral de tarefas' : 'Tarefas do processo');
+    const onKeyDown = event => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      event.preventDefault(); event.stopPropagation(); onClose();
+    };
+    panel.addEventListener('keydown', onKeyDown);
+    return () => { panel.removeEventListener('keydown', onKeyDown); releaseSuiteUI(panel); };
+  }
+
   function bindPanelScrollLock(panel) {
     const onWheel = e => {
       const getScrollable = start => {
@@ -3357,7 +3380,7 @@
     }
 
     for (const item of items) {
-      const cb = el('input', { type: 'checkbox' });
+      const cb = el('input', { type: 'checkbox', 'aria-label': `${item.done ? 'Reabrir' : 'Concluir'} tarefa: ${item.text || 'Sem descrição'}` });
       cb.checked = !!item.done;
 
       const drag = el('div', { className: 'pj-drag', title: 'Arrastar para reordenar' }, ['⋮⋮']);
@@ -3440,13 +3463,12 @@
      */
     function onDown(e) {
       const t = e.target;
-      if (t && (t.classList?.contains('pj-todo-btn') || t.closest?.('.pj-todo-btn'))) return;
+      if (e.button !== 0 || t?.closest?.('button, input, a, select, textarea')) return;
       dragging = true;
       startX = e.clientX;
       startY = e.clientY;
-      const ui = loadUI();
-      startRight = ui.right;
-      startTop = ui.top;
+      startRight = parseFloat(panel.style.right) || 0;
+      startTop = parseFloat(panel.style.top) || 0;
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
       e.preventDefault();
@@ -3461,8 +3483,8 @@
       if (!dragging) return;
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
-      const right = Math.max(0, startRight - dx);
-      const top = Math.max(0, startTop + dy);
+      const right = Math.min(Math.max(0, document.defaultView.innerWidth - panel.offsetWidth), Math.max(0, startRight - dx));
+      const top = Math.min(Math.max(0, document.defaultView.innerHeight - panel.offsetHeight), Math.max(0, startTop + dy));
       panel.style.right = `${right}px`;
       panel.style.top = `${top}px`;
       const ui = loadUI();
@@ -3480,8 +3502,16 @@
       document.removeEventListener('mouseup', onUp);
     }
 
+    const keepInView = () => {
+      if (!panel.isConnected) return;
+      panel.style.right = `${Math.min(Math.max(0, document.defaultView.innerWidth - panel.offsetWidth), Math.max(0, parseFloat(panel.style.right) || 0))}px`;
+      panel.style.top = `${Math.min(Math.max(0, document.defaultView.innerHeight - panel.offsetHeight), Math.max(0, parseFloat(panel.style.top) || 0))}px`;
+    };
+    document.defaultView.addEventListener('resize', keepInView);
+    document.defaultView.requestAnimationFrame(keepInView);
     handle.addEventListener('mousedown', onDown);
     return () => {
+      document.defaultView.removeEventListener('resize', keepInView);
       dragging = false;
       handle.removeEventListener('mousedown', onDown);
       document.removeEventListener('mousemove', onMove);
@@ -4359,7 +4389,7 @@
 
     const cleanupDrag = enableDragWindow({ loadUI: getUI, saveUI: setUI, panel, handle: header });
     const cleanupScroll = bindPanelScrollLock(panel);
-    setPanelCleanup(composeCleanups(cleanupDrag, cleanupScroll));
+    setPanelCleanup(composeCleanups(cleanupDrag, cleanupScroll, bindPanelKeyboard(panel, onClose)));
 
     document.body.appendChild(panel);
     renderFontAwesome(panel);
@@ -4729,7 +4759,7 @@
 
     const cleanupDrag = enableDragWindow({ loadUI: getUI, saveUI: setUI, panel, handle: header });
     const cleanupScroll = bindPanelScrollLock(panel);
-    setPanelCleanup(composeCleanups(cleanupDrag, cleanupScroll));
+    setPanelCleanup(composeCleanups(cleanupDrag, cleanupScroll, bindPanelKeyboard(panel, onClose)));
 
     document.body.appendChild(panel);
     renderFontAwesome(panel);

@@ -4,14 +4,15 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { scripts } from './active-scripts.mjs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const { chromium } = await import(process.env.PROJUDI_PLAYWRIGHT_MODULE || 'playwright');
-const browser = await chromium.launch({ headless: true });
+const engines = await import(process.env.PROJUDI_PLAYWRIGHT_MODULE || 'playwright');
+const engine = process.env.PROJUDI_QA_BROWSER || 'chromium';
+const browser = await engines[engine].launch({ headless: true, ...(process.env.PROJUDI_QA_EXECUTABLE ? { executablePath: process.env.PROJUDI_QA_EXECUTABLE } : {}) });
 const output = resolve(process.env.PROJUDI_QA_OUTPUT || resolve(root, 'docs/padronizacao-visual/qa'));
 await mkdir(output, { recursive: true });
 const html = await readFile(resolve(root, 'tests/fixtures/projudi.html'), 'utf8');
 const processHtml = await readFile(resolve(root, 'tests/fixtures/processo.html'), 'utf8');
 const sprite = await readFile(process.env.PROJUDI_QA_SPRITE || '/tmp/projudi-fa-solid.svg', 'utf8');
-const report = { synthetic: true, browser: await browser.version(), checks: [] };
+const report = { synthetic: true, engine, browser: await browser.version(), checks: [] };
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
 await context.route('**/*', route => route.fulfill({ status: 200, contentType: 'text/html', body: route.request().url().includes('/Inicio') ? html : processHtml }));
 const page = await context.newPage();
@@ -36,7 +37,7 @@ const setup = async target => target.evaluate(sprite => {
 const sources = await Promise.all(scripts.map(path => readFile(resolve(root, path), 'utf8')));
 const hookNames = [
   '{ openNote, openNotesPanel }',
-  '{ openManager, mountHomePanel, mountGuidesCard, mountProcessCard }',
+  '{ openManager, evaluate, mountGuidesCard, mountProcessCard }',
   '{ openSettingsPanel, openMovimentacoesPanel, openProcessFilePopup, saveSettings, settings, applySettingsNow }',
   '{ openModal, closeModal, refreshFrameContext }',
   '{ openManagerPanel, openHomePanel, openProcessPanel, injectStyles }'
@@ -140,10 +141,34 @@ try {
   await page.locator('#pj-todo .pj-home-composer-main input').fill('Tarefa global sintética');
   await page.locator('#pj-todo .pj-add').click();
   assert.ok(await page.locator('#pj-todo .pj-item').count() >= 1);
+  await page.locator('#pj-todo .pj-home-composer-main input').fill('Segunda tarefa global sintética');
+  await page.locator('#pj-todo .pj-add').click();
+  const beforeOrder = await page.locator('#pj-todo .pj-item').evaluateAll(rows => rows.map(row => row.getAttribute('data-id')));
+  assert.ok(beforeOrder.length >= 2 && beforeOrder.every(Boolean), 'Tarefas sem identificador DOM para reordenação');
+  await page.locator('#pj-todo .pj-item').evaluateAll(rows => {
+    const transfer = new DataTransfer();
+    rows[0].dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: transfer }));
+    rows[1].dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+    rows[1].dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+  });
+  const afterOrder = await page.locator('#pj-todo .pj-item').evaluateAll(rows => rows.map(row => row.getAttribute('data-id')));
+  assert.notDeepEqual(afterOrder, beforeOrder, 'Arrastar não reordenou as tarefas');
+  const savedOrder = await page.evaluate(() => JSON.parse(localStorage.getItem('projudi-suite::tarefas::data')).values['projudi_todo::global::items'].map(item => item.id));
+  assert.deepEqual(savedOrder, afterOrder, 'Ordem visual não foi persistida');
+  check('Arrastar tarefas sintéticas muda a ordem e persiste os identificadores');
   await page.locator('#pj-todo .pj-text').first().click();
   await page.locator('#pj-todo').screenshot({ path: resolve(output, 'task-home.png') });
-  await page.locator('#pj-todo .pj-todo-close-btn').click();
-  check('Compositor de tarefas global cria e fecha');
+  await page.locator('#pj-todo .pj-item input[type="checkbox"]').first().getAttribute('aria-label').then(label => assert.match(label, /Concluir tarefa:/));
+  await page.locator('#pj-todo').evaluate(panel => { panel.style.top = '2000px'; panel.style.right = '2000px'; });
+  await page.setViewportSize({ width: 768, height: 650 });
+  await page.waitForTimeout(100);
+  const floatingBounds = await page.locator('#pj-todo').boundingBox();
+  assert.ok(floatingBounds.x >= -1 && floatingBounds.y >= -1 && floatingBounds.x + floatingBounds.width <= 769 && floatingBounds.y + floatingBounds.height <= 651, 'Painel flutuante ficou fora da tela após resize');
+  await page.locator('#pj-todo .pj-home-composer-main input').focus();
+  await page.keyboard.press('Escape');
+  await page.locator('#pj-todo').waitFor({ state: 'hidden' });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  check('Compositor global cria, mantém painel na tela, nomeia checkbox e fecha por Escape');
 
   await page.evaluate(() => { window.__qaFeatures2.saveSettings({ ...window.__qaFeatures2.settings, enabled: true, enableMovimentacoes: true }); window.__qaFeatures2.openMovimentacoesPanel(); });
   await page.locator('.phm-panel').waitFor({ state: 'visible' });
@@ -167,12 +192,24 @@ try {
 
   await page.evaluate(() => {
     const native = document.getElementById('qa-native');
-    native.innerHTML = '<div id="divCorpo"><div class="area"><h2>Painel sintético</h2></div><fieldset class="fieldEdicaoEscuro"><legend>Resumo</legend></fieldset></div>';
-    window.__qaFeatures1.mountHomePanel();
+    native.innerHTML = '<div id="divCorpo"><div class="area"><h2>Área do Advogado</h2></div><fieldset class="fieldEdicaoEscuro"><legend>Resumo</legend></fieldset></div>';
+    window.__qaFeatures1.evaluate();
   });
   await page.locator('#pj-guides-home-panel').waitFor({ state: 'visible' });
+  await page.evaluate(() => {
+    document.getElementById('qa-native').innerHTML = '<div><h2>Área do Advogado</h2><section><fieldset><legend>PROCESSOS ATIVOS/AUDIÊNCIAS</legend></fieldset></section></div>';
+    window.__qaFeatures1.evaluate();
+  });
+  await page.locator('#pj-guides-home-panel').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('#pj-guides-home-panel + fieldset').count(), 1);
   await page.locator('#pj-guides-home-panel').screenshot({ path: resolve(output, 'guides-home.png') });
-  check('Cartão inicial da Central de Guias recebe os componentes comuns');
+  check('Cartão inicial detectado automaticamente em estruturas antiga e atual, com fieldset aninhado');
+  await page.evaluate(() => {
+    document.getElementById('qa-native').innerHTML = '<h2>Outra página</h2><fieldset><legend>PROCESSOS ATIVOS/AUDIÊNCIAS</legend></fieldset>';
+    window.__qaFeatures1.evaluate();
+  });
+  assert.equal(await page.locator('#pj-guides-home-panel').count(), 0);
+  check('Resumo de guias limitado à página inicial do advogado');
 
   await page.evaluate(() => {
     const native = document.getElementById('qa-native');

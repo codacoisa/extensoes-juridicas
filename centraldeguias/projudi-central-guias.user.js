@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Central de Guias
 // @namespace    projudi-central-guias.user.js
-// @version      2026.10.01-14:20
+// @version      2026.10.08-01:01
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Central local para sincronizar, acompanhar e alertar sobre guias de pagamento no Projudi.
 // @author       lourencosv
@@ -192,6 +192,15 @@
       padding: 8px 10px !important; background: var(--pj-suite-surface) !important;
       color: var(--pj-suite-text) !important; font-size: 13px !important; line-height: 1.4 !important;
     }
+    [data-pj-suite-ui] select[data-pj-suite-component="field"] {
+      appearance: none !important; -webkit-appearance: none !important;
+      padding-right: 30px !important;
+      background-image: linear-gradient(45deg, transparent 50%, #475467 50%), linear-gradient(135deg, #475467 50%, transparent 50%) !important;
+      background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50% !important;
+      background-size: 5px 5px !important; background-repeat: no-repeat !important;
+    }
+    [data-pj-suite-ui] [data-pj-suite-component="badge"] { align-self: center !important; width: fit-content; overflow-wrap: anywhere; }
+    [data-pj-suite-ui] .pjm-stat--done :is(i, .pj-suite-fa) { color: var(--pj-suite-success) !important; }
     [data-pj-suite-ui] [data-pj-suite-component="field"]::placeholder { color: #667085 !important; opacity: 1 !important; }
     [data-pj-suite-ui] [data-pj-suite-component="button"] {
       display: inline-flex !important; align-items: center !important; justify-content: center !important;
@@ -269,7 +278,7 @@
     title: '.pj-panel-title, .pj-guides-manager__title, .pjc-panel-brand > div > div:first-child, .pjip-modal-title, .pjm-title, .phm-title, .pj-home-header-title',
     subtitle: '.pj-panel-subtitle, .pj-guides-manager__header .pj-guides-inline__meta, .pjc-panel-brand > div > div:last-child, .pjip-modal-subtitle, .pjm-sub, .phm-subtitle, .pj-home-header-subtitle',
     body: '.pj-panel-body, .pj-guides-manager__body, #pj-panel-body, .pjip-modal-body, .pjm-body, .phm-body, .pj-home-layout, .pj-process-layout',
-    card: '.pj-guides-inline, .pj-guides-home, .pj-card, .pj-guides-manager__toolbar, .pj-guides-manager__list-shell, .pjc-card, .pjip-section, .pjip-toolbar, .pjip-list-shell, .pjip-deadline-card, .pjm-card, .pj-home-summary, .pj-home-composer, .pj-guides-manager__summary, .pjip-summary, .phm-rule, .phm-field',
+    card: '.pj-guides-inline, .pj-guides-home, .pj-card, .pj-guides-manager__toolbar, .pj-guides-manager__list-shell, .pjc-card, .pjip-deadline, .pjip-toolbar, .pjip-list-shell, .pjip-deadline-card, .pjm-card, .pj-home-summary, .pj-home-composer, .pj-guides-manager__summary, .pjip-summary, .phm-rule, .phm-field',
     'section-title': '.pj-guides-home__title, .pj-guides-inline__title, .pj-section-title, .pj-guides-manager__toolbar-title, .pj-guides-manager__list-title, .pjc-section-title, .pjip-section-title, .pjm-section-title, .pj-home-list-title',
     'summary-title': '.pj-summary-title, .pj-guides-manager__summary-title, .pjc-summary-title, .pjip-summary-title, .pjm-summary-title, .pj-home-summary-title',
     badge: '.pj-guides-badge, .pjip-item-status, .pjm-badge, .pj-tag',
@@ -374,11 +383,11 @@
         onClose();
       } else if (event.key === 'Tab') {
         const items = focusables();
-        const first = items[0];
-        const last = items[items.length - 1];
-        if (!first) { event.preventDefault(); dialog.focus(); }
-        else if (event.shiftKey && (doc.activeElement === first || doc.activeElement === dialog)) { event.preventDefault(); last.focus(); }
-        else if (!event.shiftKey && (doc.activeElement === last || doc.activeElement === dialog)) { event.preventDefault(); first.focus(); }
+        event.preventDefault();
+        if (!items.length) { dialog.focus(); return; }
+        const current = items.indexOf(doc.activeElement);
+        const next = current < 0 ? (event.shiftKey ? items.length - 1 : 0) : (current + (event.shiftKey ? -1 : 1) + items.length) % items.length;
+        items[next].focus();
       }
     };
     dialog.addEventListener('keydown', keydown);
@@ -466,7 +475,7 @@
   const STALE_SYNC_DAYS = 10;
   const WEEK_DAYS = 7;
   const HOME_TABLE_LIMIT = 8;
-  const MAX_TABLE_ROWS = 300;
+  const MAX_TABLE_ROWS = 100;
   const MAX_ALERTS_TRACKED = 200;
   const AUTO_BACKUP_IDLE_DELAY_MS = 30000;
   const AUTO_BACKUP_MIN_INTERVAL_MS = 15 * 60 * 1000;
@@ -2809,9 +2818,11 @@
 
   function mountHomePanel() {
     if (document.getElementById('pj-guides-home-panel')) return;
-    const area = document.querySelector('.area');
-    const firstFieldset = document.querySelector('#divCorpo > fieldset.fieldEdicaoEscuro');
-    if (!area || !firstFieldset) return;
+    if (!isHomePage(document)) return;
+    const firstFieldset = Array.from(document.querySelectorAll('fieldset'))
+      .find(fieldset => /PROCESSOS ATIVOS\s*\/\s*AUDIÊNCIAS/i.test(textOf(fieldset.querySelector('legend'))))
+      || document.querySelector('#divCorpo fieldset.fieldEdicaoEscuro');
+    if (!firstFieldset) return;
 
     const db = loadDb();
     const processes = allProcessesSorted(db);
@@ -3207,6 +3218,7 @@
               <input id="pj-guides-search" class="pj-guides-input" type="text" placeholder="Buscar processo, guia, tipo ou situação">
               <select id="pj-guides-filter" class="pj-guides-select">
                 <option value="all">Todas</option>
+                <option value="critical">Críticas (vencidas, hoje e em breve)</option>
                 <option value="overdue">Vencidas</option>
                 <option value="due_soon">Hoje e em breve</option>
                 <option value="due_week">Semana</option>
@@ -3292,7 +3304,23 @@
     const listMeta = panel.querySelector('#pj-guides-manager-list-meta');
     createBackupPanelController(panel, { onRestore: () => render() });
 
+    let currentPage = 0;
+    let currentQuery = '';
+    function pageRows(rows) {
+      currentPage = Math.min(currentPage, Math.max(0, Math.ceil(rows.length / MAX_TABLE_ROWS) - 1));
+      return rows.slice(currentPage * MAX_TABLE_ROWS, (currentPage + 1) * MAX_TABLE_ROWS);
+    }
+    function pagination(rows) {
+      if (rows.length <= MAX_TABLE_ROWS) return '';
+      return `<nav class="pj-guides-pagination" aria-label="Páginas da listagem" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:12px">
+        <button type="button" class="pj-guides-btn" data-action="page-prev" ${currentPage === 0 ? 'disabled' : ''}>Anterior</button>
+        <span role="status">Página ${currentPage + 1} de ${Math.ceil(rows.length / MAX_TABLE_ROWS)} · ${currentPage * MAX_TABLE_ROWS + 1}–${Math.min((currentPage + 1) * MAX_TABLE_ROWS, rows.length)} de ${rows.length}</span>
+        <button type="button" class="pj-guides-btn" data-action="page-next" ${(currentPage + 1) * MAX_TABLE_ROWS >= rows.length ? 'disabled' : ''}>Próxima</button>
+      </nav>`;
+    }
     function render() {
+      const query = JSON.stringify([searchInput.value, filterSelect.value]);
+      if (query !== currentQuery) { currentPage = 0; currentQuery = query; }
       const db = loadDb();
       const rows = flattenGuides(db);
       const stats = summarizeManagerRows(db, rows);
@@ -3311,6 +3339,7 @@
           getStatusLabel(row.status)
         ].join(' ').toLowerCase();
         if (term && !haystack.includes(term)) return false;
+        if (filter === 'critical') return ['overdue', 'due_today', 'due_soon'].includes(row.status);
         if (filter === 'overdue') return row.status === 'overdue';
         if (filter === 'due_soon') return ['due_today', 'due_soon'].includes(row.status);
         if (filter === 'due_week') return row.status === 'due_week';
@@ -3339,7 +3368,7 @@
         <div class="pj-guides-manager__summary-head">
           <div class="pj-guides-manager__summary-title-wrap">
             <div class="pj-guides-manager__summary-title">Resumo rápido</div>
-            <div class="pj-guides-manager__summary-subtitle">O painel agora destaca primeiro o volume ativo, os riscos imediatos e o que ficou sem sincronização recente.</div>
+            <div class="pj-guides-manager__summary-subtitle">Confira as guias em aberto, os vencimentos e os processos que precisam de atualização.</div>
           </div>
           <div class="pj-guides-manager__summary-badges">${summaryBadges.join('')}</div>
         </div>
@@ -3356,7 +3385,7 @@
             <span class="pj-guides-manager__stat-value">${stats.open}</span>
             <span class="pj-guides-manager__stat-note">Pendências visíveis para trabalho</span>
           </div>
-          <div class="pj-guides-manager__stat pj-guides-manager__stat--danger${filter === 'due_soon' ? ' pj-guides-manager__stat--active' : ''}" data-filter="due_soon" title="Filtrar guias críticas">
+          <div class="pj-guides-manager__stat pj-guides-manager__stat--danger${filter === 'critical' ? ' pj-guides-manager__stat--active' : ''}" data-filter="critical" title="Filtrar guias críticas">
             <i class="fa-solid fa-triangle-exclamation pj-guides-manager__stat-icon" aria-hidden="true"></i>
             <span class="pj-guides-manager__stat-label">Críticas</span>
             <span class="pj-guides-manager__stat-value">${stats.critical}</span>
@@ -3377,6 +3406,10 @@
         </div>
       `;
 
+      summaryHost.querySelectorAll('[data-filter]').forEach(card => {
+        card.setAttribute('role', 'button'); card.tabIndex = 0;
+        card.setAttribute('aria-pressed', String(card.dataset.filter === filter));
+      });
       toolbarMeta.textContent = `${filtered.length} de ${rows.length} guia(s) visíveis com o filtro “${activeFilterLabel}”.`;
       listMeta.textContent = filtered.length
         ? `${filteredProcessCount} processo(s) aparecem nesta visão. A listagem prioriza sincronizações mais recentes.`
@@ -3415,7 +3448,7 @@
                 </tr>
               </thead>
               <tbody>
-                ${staleProcs.map(proc => {
+                ${pageRows(staleProcs).map(proc => {
                   const lastSync = proc.lastGuidesSyncAt
                     ? formatDateTimeSingleLine(proc.lastGuidesSyncAt)
                     : '<span style="color:#9a2626;font-weight:600;">Nunca</span>';
@@ -3442,6 +3475,7 @@
               </tbody>
             </table>
           </div>
+          ${pagination(staleProcs)}
         `;
         return;
       }
@@ -3472,7 +3506,7 @@
                 </tr>
               </thead>
               <tbody>
-                ${untrackedProcs.map(proc => {
+                ${pageRows(untrackedProcs).map(proc => {
                   const guidesCount = (proc.guides || []).length;
                   return `
                     <tr>
@@ -3496,6 +3530,7 @@
               </tbody>
             </table>
           </div>
+          ${pagination(untrackedProcs)}
         `;
         return;
       }
@@ -3526,7 +3561,7 @@
                 </tr>
               </thead>
               <tbody>
-                ${archivedProcs.map(proc => {
+                ${pageRows(archivedProcs).map(proc => {
                   const guidesCount = (proc.guides || []).length;
                   return `
                     <tr>
@@ -3549,6 +3584,7 @@
               </tbody>
             </table>
           </div>
+          ${pagination(archivedProcs)}
         `;
         return;
       }
@@ -3558,10 +3594,7 @@
         return;
       }
 
-      const visibleRows = filtered.slice(0, MAX_TABLE_ROWS);
-      if (filtered.length > MAX_TABLE_ROWS) {
-        listMeta.textContent = `Exibindo ${MAX_TABLE_ROWS} de ${filtered.length} guia(s) para preservar memória. Refine a busca ou use um filtro.`;
-      }
+      const visibleRows = pageRows(filtered);
 
       content.innerHTML = `
         <div class="pj-guides-manager__table-wrap">
@@ -3610,11 +3643,12 @@
                       </div>
                     </td>
                   </tr>
-                `;
+                  `;
               }).join('')}
             </tbody>
           </table>
         </div>
+        ${pagination(filtered)}
       `;
 
     }
@@ -3629,6 +3663,14 @@
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
       const action = btn.getAttribute('data-action');
+      if (action === 'page-next' || action === 'page-prev') {
+        currentPage += action === 'page-next' ? 1 : -1;
+        render();
+        const nextButton = content.querySelector(`[data-action="${action}"]:not(:disabled)`) || content.querySelector('.pj-guides-pagination button:not(:disabled)');
+        if (nextButton) nextButton.focus({ preventScroll: true });
+        content.querySelector('.pj-guides-manager__table-wrap')?.scrollIntoView({ block: 'nearest' });
+        return;
+      }
       const processKey = btn.getAttribute('data-process-key');
       const guideKey = btn.getAttribute('data-guide-key');
       if (action === 'open') {
@@ -3664,13 +3706,18 @@
       });
     }
 
+    summaryHost.addEventListener('keydown', e => {
+      if (e.target.matches('[data-filter]') && ['Enter', ' '].includes(e.key)) { e.preventDefault(); e.target.click(); }
+    });
     summaryHost.addEventListener('click', e => {
       const card = e.target.closest('.pj-guides-manager__stat[data-filter]');
       if (!card) return;
       const next = card.getAttribute('data-filter');
       if (!next) return;
       filterSelect.value = Array.from(filterSelect.options).some(o => o.value === next) ? next : 'all';
+      const restoreFocus = document.activeElement === card;
       render();
+      if (restoreFocus) summaryHost.querySelector(`[data-filter="${next}"]`)?.focus();
     });
 
     let searchDebounce = null;
@@ -3697,8 +3744,8 @@
   }
 
   function isHomePage(doc = document) {
-    const areaTitle = textOf(doc.querySelector('.area h2'));
-    return /Área do Advogado/i.test(areaTitle);
+    return Array.from(doc.querySelectorAll('h2'))
+      .some(heading => /Área do Advogado/i.test(textOf(heading)));
   }
 
   function onMessage(event) {
