@@ -68,3 +68,5 @@ Atualize primeiro `@version` dos userscripts afetados no formato e fuso document
 O núcleo usa seletores limitados a `[data-pj-suite-ui]` e uma camada CSS para proteger os componentes contra estilos nativos. Os temas opcionais de Customizações continuam sujeitos às preferências existentes. Os diálogos contêm Tab/Shift+Tab, fecham com Escape (backup primeiro) e devolvem o foco ao controle de abertura.
 
 O QA reproduzível fica em `scripts/qa-browser.mjs` e `scripts/qa-interactions.mjs`, com fixtures em `tests/fixtures`. Requer Playwright e um navegador de teste; use um perfil descartável. Todas as requisições são interceptadas e os dados são fictícios. Consulte o relatório para os comandos e variáveis de ambiente; não instale userscripts no navegador pessoal para executar esses testes.
+
+Os [ajustes dos cinco prints de 08/10/2026](docs/ajustes-prints-2026-10-08/README.md) registram os controles de exibição do resumo, filtros unificados, ações nativas e janela compacta, com evidências sintéticas e o limite da validação no Safari.

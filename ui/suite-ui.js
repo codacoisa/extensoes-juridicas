@@ -1,6 +1,31 @@
 // Incorporado em cada IIFE; não expõe APIs na página nem requer rede.
 const suiteUIRoots = new WeakMap();
 const suiteDialogs = new WeakMap();
+// Os atalhos do processo acompanham a cor e a escala do controle nativo.
+function matchNativeProcessAction(button, anchor) {
+  if (!button || !anchor) return;
+  const win = anchor.ownerDocument.defaultView;
+  const native = anchor;
+  const style = win.getComputedStyle(native);
+  const icon = native.querySelector('i, svg');
+  const iconStyle = icon ? win.getComputedStyle(icon) : style;
+  const measuredSize = icon?.tagName.toLowerCase() === 'svg'
+    ? icon.getBoundingClientRect().height
+    : parseFloat(iconStyle.fontSize);
+  const iconSize = Math.min(32, Math.max(16, measuredSize || 24));
+  button.style.setProperty('--pj-native-action-color', iconStyle.color || style.color);
+  button.style.setProperty('--pj-native-action-icon-size', `${iconSize}px`);
+  for (const [name, value] of Object.entries({
+    position: 'relative', float: style.float || 'none', display: 'inline-flex',
+    'align-items': 'center', 'justify-content': 'center', 'vertical-align': 'middle',
+    width: `${iconSize + 8}px`, height: `${iconSize + 8}px`,
+    'min-width': `${iconSize + 8}px`, 'min-height': `${iconSize + 8}px`,
+    padding: '0', margin: native.parentElement?.classList.contains('divBotoesDireita') ? '0' : '0 4px', border: '0', background: 'transparent',
+    'box-shadow': 'none', 'line-height': '1', overflow: 'visible', cursor: 'pointer'
+  })) button.style.setProperty(name, value, 'important');
+  button.classList.add('pj-native-process-action');
+}
+
 const SUITE_COMPONENTS = {
   panel: '.pj-panel, .pj-guides-manager, .pjc-panel, #pjip-modal-panel, .pjm-panel, .phm-panel, #pj-todo',
   header: '.pj-panel-header, .pj-guides-manager__header, #pj-panel-header, .pjip-modal-head, .pjm-head, .phm-head, #pj-todo-header',

@@ -1,0 +1,25 @@
+{
+  "synthetic": true,
+  "engine": "webkit",
+  "browser": "26.5",
+  "checks": [
+    "Cinco extensões coexistem; um núcleo e um sprite por documento",
+    "Atalhos A/G/C/I/T no iframe abrem e fecham os gerenciadores no top",
+    "Anotações e tarefas acompanham cor e escala nativas sem sobreposição",
+    "Triagem inline marca e conclui somente dados sintéticos no iframe",
+    "Data exata, período, intervalo inválido, sem prazo e limpeza global preservam linhas do iframe",
+    "Editor de anotações no iframe grava, conserva a cor e fecha",
+    "Compositor de tarefas do processo cria e fecha no iframe",
+    "Arrastar tarefas sintéticas muda a ordem e persiste os identificadores",
+    "Compositor global cria, mantém painel na tela, nomeia checkbox e fecha por Escape",
+    "Painel de movimentações abre repetidamente sem acumular Escape",
+    "Visualizador de arquivo minimiza, restaura sem duplicar e fecha",
+    "Cartão inicial detectado automaticamente em estruturas antiga e atual, com fieldset aninhado",
+    "Resumo inicial pode ser ocultado, mantém preferência ao reabrir e reage ao outro frame",
+    "Resumo de guias limitado à página inicial do advogado",
+    "Cartão compacto de guias no processo preserva a ação e seu rótulo",
+    "Espelho PDF acompanha barra nativa, com espaçamento uniforme e remoção reversível",
+    "Cartão da página de guias sincroniza somente a tabela sintética"
+  ],
+  "errors": []
+}

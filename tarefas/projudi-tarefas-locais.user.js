@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tarefas
 // @namespace    projudi-tarefas-locais.user.js
-// @version      2026.10.08-00:28
+// @version      2026.10.08-01:31
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Tarefas locais por processo e visão geral na página inicial, com painel de gestão.
 // @author       lourencosv
@@ -253,7 +253,10 @@
     [data-pj-suite-ui] [data-pj-suite-component="table"] th { background: #eef2f6 !important; color: #344054 !important; font-weight: 700 !important; padding: 10px 12px !important; }
     [data-pj-suite-ui] [data-pj-suite-component="table"] td { padding: 10px 12px !important; border-bottom: 1px solid #eaecf0 !important; }
     [data-pj-suite-ui] [data-pj-suite-component="table"] tbody tr:hover td { background-color: #f5f8ff !important; }
-    [data-pj-suite-ui].pj-todo-process { height: min(580px, calc(100dvh - 24px)) !important; }
+    [data-pj-suite-ui].pj-todo-process { width: min(380px, calc(100vw - 24px)) !important; height: auto !important; }
+    [data-pj-suite-ui].pj-todo-process .pj-empty { min-height: 0 !important; padding: 16px !important; }
+    [data-pj-suite-ui].pj-todo-process [data-pj-suite-component="header"] { padding: 12px !important; }
+    [data-pj-suite-ui].pj-todo-process [data-pj-suite-component="title"] { font-size: 16px !important; }
     [data-pj-suite-ui] #pj-todo-body { flex: 1 1 auto !important; overflow: auto !important; }
     [data-pj-suite-ui] :is(.pj-process-layout .pj-section, .pj-home-stack, .pj-home-panel, .pj-list) { flex: 1 1 auto !important; }
     [data-pj-suite-ui] .pj-home-search { padding-left: 30px !important; }
@@ -272,6 +275,12 @@
     @media (forced-colors: active) { [data-pj-suite-ui] :focus-visible { outline-color: Highlight !important; } }
   }
   [data-pj-suite-ui] .pj-suite-fa { display: inline-block; width: 1em; height: 1em; flex: 0 0 auto; overflow: visible; vertical-align: -.125em; fill: currentColor; }
+  [data-pj-suite-ui].pj-native-process-action,
+  [data-pj-suite-ui].pj-native-process-action :is(i, .pj-suite-fa) { color: var(--pj-native-action-color, #42678e) !important; }
+  [data-pj-suite-ui].pj-native-process-action :is(i, .pj-suite-fa) { width: 1em !important; height: 1em !important; font-size: var(--pj-native-action-icon-size, 24px) !important; margin: 0 !important; vertical-align: middle !important; }
+  [data-pj-suite-ui][data-pj-native-toolbar] { display: flex !important; align-items: center !important; justify-content: flex-end !important; gap: 8px !important; }
+  [data-pj-suite-ui][data-pj-native-toolbar] > button { display: inline-flex !important; align-items: center !important; justify-content: center !important; width: calc(var(--pj-native-action-icon-size, 24px) + 8px) !important; height: calc(var(--pj-native-action-icon-size, 24px) + 8px) !important; padding: 0 !important; margin: 0 !important; }
+  [data-pj-suite-ui][data-pj-native-toolbar] > button :is(i, .pj-suite-fa) { color: var(--pj-native-action-color, #42678e) !important; font-size: var(--pj-native-action-icon-size, 24px) !important; width: 1em !important; height: 1em !important; vertical-align: middle !important; }
   [data-pj-suite-ui] .pj-suite-fa.fa-2xs { font-size: .625em; }
   [data-pj-suite-ui] .pj-suite-fa.fa-xs { font-size: .75em; }
   [data-pj-suite-ui] .pj-suite-fa.fa-sm { font-size: .875em; }
@@ -292,6 +301,31 @@
   // Incorporado em cada IIFE; não expõe APIs na página nem requer rede.
   const suiteUIRoots = new WeakMap();
   const suiteDialogs = new WeakMap();
+  // Os atalhos do processo acompanham a cor e a escala do controle nativo.
+  function matchNativeProcessAction(button, anchor) {
+    if (!button || !anchor) return;
+    const win = anchor.ownerDocument.defaultView;
+    const native = anchor;
+    const style = win.getComputedStyle(native);
+    const icon = native.querySelector('i, svg');
+    const iconStyle = icon ? win.getComputedStyle(icon) : style;
+    const measuredSize = icon?.tagName.toLowerCase() === 'svg'
+      ? icon.getBoundingClientRect().height
+      : parseFloat(iconStyle.fontSize);
+    const iconSize = Math.min(32, Math.max(16, measuredSize || 24));
+    button.style.setProperty('--pj-native-action-color', iconStyle.color || style.color);
+    button.style.setProperty('--pj-native-action-icon-size', `${iconSize}px`);
+    for (const [name, value] of Object.entries({
+      position: 'relative', float: style.float || 'none', display: 'inline-flex',
+      'align-items': 'center', 'justify-content': 'center', 'vertical-align': 'middle',
+      width: `${iconSize + 8}px`, height: `${iconSize + 8}px`,
+      'min-width': `${iconSize + 8}px`, 'min-height': `${iconSize + 8}px`,
+      padding: '0', margin: native.parentElement?.classList.contains('divBotoesDireita') ? '0' : '0 4px', border: '0', background: 'transparent',
+      'box-shadow': 'none', 'line-height': '1', overflow: 'visible', cursor: 'pointer'
+    })) button.style.setProperty(name, value, 'important');
+    button.classList.add('pj-native-process-action');
+  }
+
   const SUITE_COMPONENTS = {
     panel: '.pj-panel, .pj-guides-manager, .pjc-panel, #pjip-modal-panel, .pjm-panel, .phm-panel, #pj-todo',
     header: '.pj-panel-header, .pj-guides-manager__header, #pj-panel-header, .pjip-modal-head, .pjm-head, .phm-head, #pj-todo-header',
@@ -468,14 +502,6 @@
     .pj-backup-ui__dialog .pj-suite-fa { width: 1em; height: 1em; }
     @media (max-width: 720px) { .pj-backup-ui__popover { padding: 10px !important; } .pj-backup-ui__dialog { width: calc(100vw - 20px) !important; padding: 16px !important; } .pj-backup-ui__grid, .pj-backup-ui__actions { grid-template-columns: 1fr !important; } .pj-backup-ui__field--full { grid-column: auto !important; } .pj-backup-ui__toggles { align-items: stretch !important; flex-direction: column !important; } }
   `;
-  const PROC_BTN_GAP = {
-    postitLeft: 16,
-    postitRight: 0,
-    nativeLeft: 8,
-    nativeRight: 0,
-    directHeaderLeft: 10,
-    directHeaderRight: 0
-  };
   const ID_PROC_BTN = 'pj-todo-proc-btn';
   const ID_HEADER_MENU = 'pj-todo-header-menu';
   const ID_MANAGER_OVERLAY = 'pj-task-manager-overlay';
@@ -2792,7 +2818,7 @@
         border: 0 !important;
         background: transparent !important;
         box-shadow: none !important;
-        color: #2b69aa !important;
+        color: var(--pj-native-action-color, #42678e) !important;
         z-index: ${Z_UI} !important;
         display: inline-flex !important;
         align-items: center !important;
@@ -2817,11 +2843,11 @@
         justify-content: center !important;
       }
       #${ID_PROC_BTN} :is(i, .pj-suite-fa) {
-        color: #2b69aa !important;
+        color: var(--pj-native-action-color, #42678e) !important;
         display: inline-block !important;
-        width: var(--pj-process-icon-size, 32px) !important;
-        height: var(--pj-process-icon-size, 32px) !important;
-        font-size: var(--pj-process-icon-size, 32px) !important;
+        width: var(--pj-native-action-icon-size, 24px) !important;
+        height: var(--pj-native-action-icon-size, 24px) !important;
+        font-size: var(--pj-native-action-icon-size, 24px) !important;
         line-height: 1 !important;
         vertical-align: middle !important;
         transform-origin: center center !important;
@@ -3539,19 +3565,8 @@
    * @param {Element} anchor Valor de `anchor` utilizado pela rotina.
    */
   function matchProcessLauncherSize(button, anchor) {
-    const anchorStyle = getComputedStyle(anchor);
-    const anchorRect = anchor.getBoundingClientRect();
-    const anchorSize = Math.max(anchorRect.width, anchorRect.height);
-    const anchorIcon = anchor.querySelector('i, svg');
-    const iconStyle = anchorIcon ? getComputedStyle(anchorIcon) : null;
-    const iconSize = Math.max(
-      parseFloat(iconStyle?.width) || 0,
-      parseFloat(iconStyle?.height) || 0,
-      parseFloat(iconStyle?.fontSize) || 0
-    );
-    if (anchorSize >= 20 && anchorSize <= 64) button.style.setProperty('--pj-process-button-size', `${anchorSize}px`);
-    if (iconSize >= 10 && iconSize <= 48) button.style.setProperty('--pj-process-icon-size', `${iconSize}px`);
-    button.style.setProperty('vertical-align', anchorStyle.verticalAlign || 'middle', 'important');
+    const nativeNote = document.querySelector('button.notaProcesso, button[onclick*="criarNota"]');
+    matchNativeProcessAction(button, nativeNote || anchor);
   }
 
   /**
@@ -3575,7 +3590,6 @@
       title: 'Tarefas locais deste processo',
       'aria-label': 'Tarefas locais deste processo'
     }, [el('i', { className: 'fa-solid fa-list-check', 'aria-hidden': 'true' })]);
-    matchProcessLauncherSize(btn, anchor);
 
     btn.addEventListener('mousedown', e => {
       e.preventDefault();
@@ -3597,27 +3611,12 @@
     const parentFlexDir = String(parentCS.flexDirection || '').toLowerCase();
     const reverseVisualOrder = anchorFloat === 'right' || (parentDisplay.includes('flex') && parentFlexDir === 'row-reverse');
 
-    if (anchorFloat && anchorFloat !== 'none') btn.style.setProperty('float', anchorFloat, 'important');
-    const isPostitAnchor = anchor.id === 'pj-add-btn';
-    const alignAsPostitSlot = isPostitAnchor || !postitButton;
-    btn.style.setProperty('margin-top', anchorCS.marginTop, 'important');
-    btn.style.setProperty('margin-bottom', anchorCS.marginBottom, 'important');
-    btn.style.setProperty(
-      'margin-right',
-      `${alignAsPostitSlot ? PROC_BTN_GAP.postitRight : PROC_BTN_GAP.nativeRight}px`,
-      'important'
-    );
-    btn.style.setProperty(
-      'margin-left',
-      `${alignAsPostitSlot ? PROC_BTN_GAP.postitLeft : PROC_BTN_GAP.nativeLeft}px`,
-      'important'
-    );
-
     if (reverseVisualOrder) {
       anchor.insertAdjacentElement('beforebegin', btn);
     } else {
       anchor.insertAdjacentElement('afterend', btn);
     }
+    matchProcessLauncherSize(btn, anchor);
     renderFontAwesome(btn);
     return true;
   }
@@ -3663,7 +3662,6 @@
       title: 'Tarefas locais deste processo',
       'aria-label': 'Tarefas locais deste processo'
     }, [el('i', { className: 'fa-solid fa-list-check', 'aria-hidden': 'true' })]);
-    matchProcessLauncherSize(btn, anchor);
 
     btn.addEventListener('mousedown', e => {
       e.preventDefault();
@@ -3678,16 +3676,8 @@
       });
     });
 
-    const anchorCS = getComputedStyle(anchor);
-    btn.style.setProperty('float', 'none', 'important');
-    btn.style.setProperty('display', 'inline-flex', 'important');
-    btn.style.setProperty('vertical-align', 'middle', 'important');
-    btn.style.setProperty('margin-top', anchorCS.marginTop || '0px', 'important');
-    btn.style.setProperty('margin-bottom', anchorCS.marginBottom || '0px', 'important');
-    btn.style.setProperty('margin-right', `${PROC_BTN_GAP.directHeaderRight}px`, 'important');
-    btn.style.setProperty('margin-left', `${PROC_BTN_GAP.directHeaderLeft}px`, 'important');
-
     anchor.insertAdjacentElement('afterend', btn);
+    matchProcessLauncherSize(btn, anchor);
     renderFontAwesome(btn);
     return true;
   }
@@ -3742,12 +3732,12 @@
    * @param {Object} options Valor de `options` utilizado pela rotina.
    * @returns {unknown} Resultado produzido pela rotina.
    */
-  function createTaskComposer({ label, inputPlaceholder, inputAriaLabel, tagsAriaLabel }) {
+  function createTaskComposer({ label, inputPlaceholder, inputAriaLabel, tagsAriaLabel, tagsPlaceholder = 'Adicionar tags, separadas por vírgula' }) {
     const input = el('input', { className: 'pj-input', type: 'text', placeholder: inputPlaceholder, 'aria-label': inputAriaLabel });
     const tagsInput = el('input', {
       className: 'pj-input pj-tag-input',
       type: 'text',
-      placeholder: 'Adicionar tags, separadas por vírgula',
+      placeholder: tagsPlaceholder,
       'aria-label': tagsAriaLabel
     });
     const addBtn = el('button', { className: 'pj-add', type: 'button' }, [faIcon('fa-solid fa-plus'), 'Criar tarefa']);
@@ -4268,7 +4258,8 @@
       label: 'Nova tarefa deste processo',
       inputPlaceholder: 'O que precisa ser feito neste processo?',
       inputAriaLabel: `Descrição da nova tarefa do processo ${cnjLabel}`,
-      tagsAriaLabel: 'Tags da nova tarefa do processo'
+      tagsAriaLabel: 'Tags da nova tarefa do processo, separadas por vírgula',
+      tagsPlaceholder: 'Tags por vírgula'
     });
     const { input, tagsInput, addBtn } = composer;
     const pendingCount = el('span', { className: 'pj-process-count-pill', title: 'Tarefas pendentes neste processo' }, ['0']);

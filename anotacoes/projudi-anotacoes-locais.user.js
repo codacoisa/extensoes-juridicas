@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Anotações
 // @namespace    projudi-anotacoes-locais.user.js
-// @version      2026.10.08-00:28
+// @version      2026.10.08-01:31
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Adiciona Post-it local ao Projudi, com painel de notas, importação e exportação.
 // @author       lourencosv (GPT)
@@ -242,7 +242,10 @@
       [data-pj-suite-ui] [data-pj-suite-component="table"] th { background: #eef2f6 !important; color: #344054 !important; font-weight: 700 !important; padding: 10px 12px !important; }
       [data-pj-suite-ui] [data-pj-suite-component="table"] td { padding: 10px 12px !important; border-bottom: 1px solid #eaecf0 !important; }
       [data-pj-suite-ui] [data-pj-suite-component="table"] tbody tr:hover td { background-color: #f5f8ff !important; }
-      [data-pj-suite-ui].pj-todo-process { height: min(580px, calc(100dvh - 24px)) !important; }
+      [data-pj-suite-ui].pj-todo-process { width: min(380px, calc(100vw - 24px)) !important; height: auto !important; }
+      [data-pj-suite-ui].pj-todo-process .pj-empty { min-height: 0 !important; padding: 16px !important; }
+      [data-pj-suite-ui].pj-todo-process [data-pj-suite-component="header"] { padding: 12px !important; }
+      [data-pj-suite-ui].pj-todo-process [data-pj-suite-component="title"] { font-size: 16px !important; }
       [data-pj-suite-ui] #pj-todo-body { flex: 1 1 auto !important; overflow: auto !important; }
       [data-pj-suite-ui] :is(.pj-process-layout .pj-section, .pj-home-stack, .pj-home-panel, .pj-list) { flex: 1 1 auto !important; }
       [data-pj-suite-ui] .pj-home-search { padding-left: 30px !important; }
@@ -261,6 +264,12 @@
       @media (forced-colors: active) { [data-pj-suite-ui] :focus-visible { outline-color: Highlight !important; } }
     }
     [data-pj-suite-ui] .pj-suite-fa { display: inline-block; width: 1em; height: 1em; flex: 0 0 auto; overflow: visible; vertical-align: -.125em; fill: currentColor; }
+    [data-pj-suite-ui].pj-native-process-action,
+    [data-pj-suite-ui].pj-native-process-action :is(i, .pj-suite-fa) { color: var(--pj-native-action-color, #42678e) !important; }
+    [data-pj-suite-ui].pj-native-process-action :is(i, .pj-suite-fa) { width: 1em !important; height: 1em !important; font-size: var(--pj-native-action-icon-size, 24px) !important; margin: 0 !important; vertical-align: middle !important; }
+    [data-pj-suite-ui][data-pj-native-toolbar] { display: flex !important; align-items: center !important; justify-content: flex-end !important; gap: 8px !important; }
+    [data-pj-suite-ui][data-pj-native-toolbar] > button { display: inline-flex !important; align-items: center !important; justify-content: center !important; width: calc(var(--pj-native-action-icon-size, 24px) + 8px) !important; height: calc(var(--pj-native-action-icon-size, 24px) + 8px) !important; padding: 0 !important; margin: 0 !important; }
+    [data-pj-suite-ui][data-pj-native-toolbar] > button :is(i, .pj-suite-fa) { color: var(--pj-native-action-color, #42678e) !important; font-size: var(--pj-native-action-icon-size, 24px) !important; width: 1em !important; height: 1em !important; vertical-align: middle !important; }
     [data-pj-suite-ui] .pj-suite-fa.fa-2xs { font-size: .625em; }
     [data-pj-suite-ui] .pj-suite-fa.fa-xs { font-size: .75em; }
     [data-pj-suite-ui] .pj-suite-fa.fa-sm { font-size: .875em; }
@@ -281,6 +290,31 @@
     // Incorporado em cada IIFE; não expõe APIs na página nem requer rede.
     const suiteUIRoots = new WeakMap();
     const suiteDialogs = new WeakMap();
+    // Os atalhos do processo acompanham a cor e a escala do controle nativo.
+    function matchNativeProcessAction(button, anchor) {
+      if (!button || !anchor) return;
+      const win = anchor.ownerDocument.defaultView;
+      const native = anchor;
+      const style = win.getComputedStyle(native);
+      const icon = native.querySelector('i, svg');
+      const iconStyle = icon ? win.getComputedStyle(icon) : style;
+      const measuredSize = icon?.tagName.toLowerCase() === 'svg'
+        ? icon.getBoundingClientRect().height
+        : parseFloat(iconStyle.fontSize);
+      const iconSize = Math.min(32, Math.max(16, measuredSize || 24));
+      button.style.setProperty('--pj-native-action-color', iconStyle.color || style.color);
+      button.style.setProperty('--pj-native-action-icon-size', `${iconSize}px`);
+      for (const [name, value] of Object.entries({
+        position: 'relative', float: style.float || 'none', display: 'inline-flex',
+        'align-items': 'center', 'justify-content': 'center', 'vertical-align': 'middle',
+        width: `${iconSize + 8}px`, height: `${iconSize + 8}px`,
+        'min-width': `${iconSize + 8}px`, 'min-height': `${iconSize + 8}px`,
+        padding: '0', margin: native.parentElement?.classList.contains('divBotoesDireita') ? '0' : '0 4px', border: '0', background: 'transparent',
+        'box-shadow': 'none', 'line-height': '1', overflow: 'visible', cursor: 'pointer'
+      })) button.style.setProperty(name, value, 'important');
+      button.classList.add('pj-native-process-action');
+    }
+
     const SUITE_COMPONENTS = {
       panel: '.pj-panel, .pj-guides-manager, .pjc-panel, #pjip-modal-panel, .pjm-panel, .phm-panel, #pj-todo',
       header: '.pj-panel-header, .pj-guides-manager__header, #pj-panel-header, .pjip-modal-head, .pjm-head, .phm-head, #pj-todo-header',
@@ -1220,16 +1254,16 @@ html = persistentGet(key, '');
                 display: inline-flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                color: #d4a017 !important;
+                color: var(--pj-native-action-color, #42678e) !important;
                 z-index: ${Z_UI} !important;
             }
 
             #pj-add-btn :is(i, .pj-suite-fa) {
-                color: #d4a017 !important;
+                color: var(--pj-native-action-color, #42678e) !important;
                 display: inline-block !important;
-                width: var(--pj-integrated-icon-size, 32px) !important;
-                height: var(--pj-integrated-icon-size, 32px) !important;
-                font-size: var(--pj-integrated-icon-size, 32px) !important;
+                width: var(--pj-native-action-icon-size, 24px) !important;
+                height: var(--pj-native-action-icon-size, 24px) !important;
+                font-size: var(--pj-native-action-icon-size, 24px) !important;
                 line-height: 1 !important;
                 vertical-align: middle !important;
                 transform-origin: center center !important;
@@ -2025,85 +2059,7 @@ html = persistentGet(key, '');
     }
 
     function applyIntegratedButtonLayout(btn, nativeBtn) {
-        const cs = window.getComputedStyle(nativeBtn);
-        const isFloatRight = cs.float === 'right';
-        const isHiddenAnchor = cs.display === 'none' || cs.visibility === 'hidden';
-        const widthPx = parseFloat(cs.width) || 0;
-        const heightPx = parseFloat(cs.height) || 0;
-        const hasUsableSize = widthPx > 0 && heightPx > 0;
-        const nativeIcon = nativeBtn.querySelector('i, svg');
-        const nativeIconStyle = nativeIcon ? window.getComputedStyle(nativeIcon) : null;
-        const nativeIconSize = Math.max(
-            parseFloat(nativeIconStyle?.width) || 0,
-            parseFloat(nativeIconStyle?.height) || 0,
-            parseFloat(nativeIconStyle?.fontSize) || 0
-        );
-        if (nativeIconSize > 0) btn.style.setProperty('--pj-integrated-icon-size', `${nativeIconSize}px`);
-
-        btn.style.setProperty('float', cs.float || 'none', 'important');
-        btn.style.setProperty('margin-top', cs.marginTop, 'important');
-        btn.style.setProperty('margin-right', cs.marginRight, 'important');
-        btn.style.setProperty('margin-bottom', cs.marginBottom, 'important');
-        btn.style.setProperty('margin-left', cs.marginLeft, 'important');
-        btn.style.setProperty('padding-top', cs.paddingTop, 'important');
-        btn.style.setProperty('padding-right', cs.paddingRight, 'important');
-        btn.style.setProperty('padding-bottom', cs.paddingBottom, 'important');
-        btn.style.setProperty('padding-left', cs.paddingLeft, 'important');
-        btn.style.setProperty('border-top-width', cs.borderTopWidth, 'important');
-        btn.style.setProperty('border-right-width', cs.borderRightWidth, 'important');
-        btn.style.setProperty('border-bottom-width', cs.borderBottomWidth, 'important');
-        btn.style.setProperty('border-left-width', cs.borderLeftWidth, 'important');
-        btn.style.setProperty('border-top-style', cs.borderTopStyle, 'important');
-        btn.style.setProperty('border-right-style', cs.borderRightStyle, 'important');
-        btn.style.setProperty('border-bottom-style', cs.borderBottomStyle, 'important');
-        btn.style.setProperty('border-left-style', cs.borderLeftStyle, 'important');
-        btn.style.setProperty('border-top-color', cs.borderTopColor, 'important');
-        btn.style.setProperty('border-right-color', cs.borderRightColor, 'important');
-        btn.style.setProperty('border-bottom-color', cs.borderBottomColor, 'important');
-        btn.style.setProperty('border-left-color', cs.borderLeftColor, 'important');
-        btn.style.setProperty('border-radius', cs.borderRadius, 'important');
-        btn.style.setProperty('background', cs.background, 'important');
-        btn.style.setProperty('box-shadow', cs.boxShadow, 'important');
-        if (!isHiddenAnchor) {
-            btn.style.setProperty('display', cs.display === 'inline' ? 'inline-block' : cs.display, 'important');
-        } else {
-            btn.style.setProperty('display', 'inline-block', 'important');
-        }
-
-        if (!isHiddenAnchor && cs.visibility && cs.visibility !== 'collapse') {
-            btn.style.setProperty('visibility', cs.visibility, 'important');
-        } else {
-            btn.style.setProperty('visibility', 'visible', 'important');
-        }
-
-        btn.style.setProperty('vertical-align', cs.verticalAlign || 'middle', 'important');
-        btn.style.setProperty('cursor', cs.cursor || 'pointer', 'important');
-        btn.style.setProperty('line-height', cs.lineHeight, 'important');
-        btn.style.setProperty('text-align', cs.textAlign, 'important');
-        if (hasUsableSize) {
-            btn.style.setProperty('width', cs.width, 'important');
-            btn.style.setProperty('height', cs.height, 'important');
-            btn.style.setProperty('min-width', cs.width, 'important');
-            btn.style.setProperty('min-height', cs.height, 'important');
-        } else {
-            btn.style.removeProperty('width');
-            btn.style.removeProperty('height');
-            btn.style.removeProperty('min-width');
-            btn.style.removeProperty('min-height');
-        }
-        btn.style.setProperty('overflow', 'visible', 'important');
-        btn.style.setProperty('opacity', '1', 'important');
-        btn.style.setProperty('display', 'inline-flex', 'important');
-        btn.style.setProperty('align-items', 'center', 'important');
-        btn.style.setProperty('justify-content', 'center', 'important');
-
-        const ml = parseFloat(cs.marginLeft) || 0;
-        const mr = parseFloat(cs.marginRight) || 0;
-        if (isFloatRight) {
-            btn.style.setProperty('margin-left', `${Math.max(ml, 8)}px`, 'important');
-        } else {
-            btn.style.setProperty('margin-right', `${Math.max(mr, 8)}px`, 'important');
-        }
+        matchNativeProcessAction(btn, nativeBtn);
     }
 
     function mountButton() {

@@ -129,6 +129,16 @@ try {
           assert.ok(await critical.evaluate(n => n === document.activeElement), 'Resumo perdeu foco após filtrar');
           await dialog.locator('#pj-guides-filter').selectOption('all');
         }
+        if (config.id === 'intimacoes') {
+          const deadline = await dialog.locator('.pjip-deadline').boundingBox();
+          const list = await dialog.locator('.pjip-list-shell').boundingBox();
+          assert.ok(list.y - deadline.y - deadline.height <= 16, 'Lista afastada do filtro de prazos');
+          await dialog.locator('[data-role="deadline-mode"]').selectOption('range');
+          for (const date of await dialog.locator('input[type="date"]:visible').all()) {
+            assert.ok((await date.boundingBox()).width >= 120, 'Datas do período truncadas');
+          }
+          await dialog.locator('[data-role="deadline-mode"]').selectOption('exact');
+        }
         if (populated && config.id === 'intimacoes') {
           const card = dialog.locator('.pjip-item').first();
           const actionBounds = await card.locator('.pjip-item-actions').boundingBox();

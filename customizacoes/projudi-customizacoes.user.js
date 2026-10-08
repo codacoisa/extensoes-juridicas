@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      2026.10.08-00:28
+// @version      2026.10.08-01:31
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)
@@ -227,7 +227,10 @@
       [data-pj-suite-ui] [data-pj-suite-component="table"] th { background: #eef2f6 !important; color: #344054 !important; font-weight: 700 !important; padding: 10px 12px !important; }
       [data-pj-suite-ui] [data-pj-suite-component="table"] td { padding: 10px 12px !important; border-bottom: 1px solid #eaecf0 !important; }
       [data-pj-suite-ui] [data-pj-suite-component="table"] tbody tr:hover td { background-color: #f5f8ff !important; }
-      [data-pj-suite-ui].pj-todo-process { height: min(580px, calc(100dvh - 24px)) !important; }
+      [data-pj-suite-ui].pj-todo-process { width: min(380px, calc(100vw - 24px)) !important; height: auto !important; }
+      [data-pj-suite-ui].pj-todo-process .pj-empty { min-height: 0 !important; padding: 16px !important; }
+      [data-pj-suite-ui].pj-todo-process [data-pj-suite-component="header"] { padding: 12px !important; }
+      [data-pj-suite-ui].pj-todo-process [data-pj-suite-component="title"] { font-size: 16px !important; }
       [data-pj-suite-ui] #pj-todo-body { flex: 1 1 auto !important; overflow: auto !important; }
       [data-pj-suite-ui] :is(.pj-process-layout .pj-section, .pj-home-stack, .pj-home-panel, .pj-list) { flex: 1 1 auto !important; }
       [data-pj-suite-ui] .pj-home-search { padding-left: 30px !important; }
@@ -246,6 +249,12 @@
       @media (forced-colors: active) { [data-pj-suite-ui] :focus-visible { outline-color: Highlight !important; } }
     }
     [data-pj-suite-ui] .pj-suite-fa { display: inline-block; width: 1em; height: 1em; flex: 0 0 auto; overflow: visible; vertical-align: -.125em; fill: currentColor; }
+    [data-pj-suite-ui].pj-native-process-action,
+    [data-pj-suite-ui].pj-native-process-action :is(i, .pj-suite-fa) { color: var(--pj-native-action-color, #42678e) !important; }
+    [data-pj-suite-ui].pj-native-process-action :is(i, .pj-suite-fa) { width: 1em !important; height: 1em !important; font-size: var(--pj-native-action-icon-size, 24px) !important; margin: 0 !important; vertical-align: middle !important; }
+    [data-pj-suite-ui][data-pj-native-toolbar] { display: flex !important; align-items: center !important; justify-content: flex-end !important; gap: 8px !important; }
+    [data-pj-suite-ui][data-pj-native-toolbar] > button { display: inline-flex !important; align-items: center !important; justify-content: center !important; width: calc(var(--pj-native-action-icon-size, 24px) + 8px) !important; height: calc(var(--pj-native-action-icon-size, 24px) + 8px) !important; padding: 0 !important; margin: 0 !important; }
+    [data-pj-suite-ui][data-pj-native-toolbar] > button :is(i, .pj-suite-fa) { color: var(--pj-native-action-color, #42678e) !important; font-size: var(--pj-native-action-icon-size, 24px) !important; width: 1em !important; height: 1em !important; vertical-align: middle !important; }
     [data-pj-suite-ui] .pj-suite-fa.fa-2xs { font-size: .625em; }
     [data-pj-suite-ui] .pj-suite-fa.fa-xs { font-size: .75em; }
     [data-pj-suite-ui] .pj-suite-fa.fa-sm { font-size: .875em; }
@@ -266,6 +275,31 @@
     // Incorporado em cada IIFE; não expõe APIs na página nem requer rede.
     const suiteUIRoots = new WeakMap();
     const suiteDialogs = new WeakMap();
+    // Os atalhos do processo acompanham a cor e a escala do controle nativo.
+    function matchNativeProcessAction(button, anchor) {
+      if (!button || !anchor) return;
+      const win = anchor.ownerDocument.defaultView;
+      const native = anchor;
+      const style = win.getComputedStyle(native);
+      const icon = native.querySelector('i, svg');
+      const iconStyle = icon ? win.getComputedStyle(icon) : style;
+      const measuredSize = icon?.tagName.toLowerCase() === 'svg'
+        ? icon.getBoundingClientRect().height
+        : parseFloat(iconStyle.fontSize);
+      const iconSize = Math.min(32, Math.max(16, measuredSize || 24));
+      button.style.setProperty('--pj-native-action-color', iconStyle.color || style.color);
+      button.style.setProperty('--pj-native-action-icon-size', `${iconSize}px`);
+      for (const [name, value] of Object.entries({
+        position: 'relative', float: style.float || 'none', display: 'inline-flex',
+        'align-items': 'center', 'justify-content': 'center', 'vertical-align': 'middle',
+        width: `${iconSize + 8}px`, height: `${iconSize + 8}px`,
+        'min-width': `${iconSize + 8}px`, 'min-height': `${iconSize + 8}px`,
+        padding: '0', margin: native.parentElement?.classList.contains('divBotoesDireita') ? '0' : '0 4px', border: '0', background: 'transparent',
+        'box-shadow': 'none', 'line-height': '1', overflow: 'visible', cursor: 'pointer'
+      })) button.style.setProperty(name, value, 'important');
+      button.classList.add('pj-native-process-action');
+    }
+
     const SUITE_COMPONENTS = {
       panel: '.pj-panel, .pj-guides-manager, .pjc-panel, #pjip-modal-panel, .pjm-panel, .phm-panel, #pj-todo',
       header: '.pj-panel-header, .pj-guides-manager__header, #pj-panel-header, .pjip-modal-head, .pjm-head, .phm-head, #pj-todo-header',
@@ -5274,6 +5308,14 @@
             generateProcessMirrorPdf(doc, button);
         });
 
+        matchNativeProcessAction(button, originalPdfButton);
+        const toolbar = originalPdfButton.parentElement;
+        if (toolbar.classList.contains("divBotoesDireita")) {
+            toolbar.setAttribute("data-pj-suite-ui", "customizacoes-actions");
+            toolbar.setAttribute("data-pj-native-toolbar", "");
+            toolbar.style.setProperty("--pj-native-action-color", button.style.getPropertyValue("--pj-native-action-color"));
+            toolbar.style.setProperty("--pj-native-action-icon-size", button.style.getPropertyValue("--pj-native-action-icon-size"));
+        }
         originalPdfButton.insertAdjacentElement("afterend", button);
         renderFontAwesome(button);
         return true;
@@ -5323,6 +5365,12 @@
                 ? targetDoc.getElementById("projudi-mirror-pdf-btn")
                 : null;
             if (btn) btn.remove();
+            targetDoc?.querySelectorAll('[data-pj-native-toolbar]').forEach(toolbar => {
+                toolbar.removeAttribute("data-pj-native-toolbar");
+                toolbar.removeAttribute("data-pj-suite-ui");
+                toolbar.style.removeProperty("--pj-native-action-color");
+                toolbar.style.removeProperty("--pj-native-action-icon-size");
+            });
         });
     }
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Central de Guias
 // @namespace    projudi-central-guias.user.js
-// @version      2026.10.08-01:01
+// @version      2026.10.08-01:32
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Central local para sincronizar, acompanhar e alertar sobre guias de pagamento no Projudi.
 // @author       lourencosv
@@ -91,6 +91,7 @@
   }
 
   const STORAGE_KEY = 'projudi-suite::central-guias::data';
+  const HOME_SUMMARY_KEY = 'projudi-suite::central-guias::show-home-summary';
   const SCRIPT_META = (() => {
     const fallbackName = 'Central de Guias';
     const fallbackId = 'projudi-central-guias';
@@ -232,7 +233,10 @@
     [data-pj-suite-ui] [data-pj-suite-component="table"] th { background: #eef2f6 !important; color: #344054 !important; font-weight: 700 !important; padding: 10px 12px !important; }
     [data-pj-suite-ui] [data-pj-suite-component="table"] td { padding: 10px 12px !important; border-bottom: 1px solid #eaecf0 !important; }
     [data-pj-suite-ui] [data-pj-suite-component="table"] tbody tr:hover td { background-color: #f5f8ff !important; }
-    [data-pj-suite-ui].pj-todo-process { height: min(580px, calc(100dvh - 24px)) !important; }
+    [data-pj-suite-ui].pj-todo-process { width: min(380px, calc(100vw - 24px)) !important; height: auto !important; }
+    [data-pj-suite-ui].pj-todo-process .pj-empty { min-height: 0 !important; padding: 16px !important; }
+    [data-pj-suite-ui].pj-todo-process [data-pj-suite-component="header"] { padding: 12px !important; }
+    [data-pj-suite-ui].pj-todo-process [data-pj-suite-component="title"] { font-size: 16px !important; }
     [data-pj-suite-ui] #pj-todo-body { flex: 1 1 auto !important; overflow: auto !important; }
     [data-pj-suite-ui] :is(.pj-process-layout .pj-section, .pj-home-stack, .pj-home-panel, .pj-list) { flex: 1 1 auto !important; }
     [data-pj-suite-ui] .pj-home-search { padding-left: 30px !important; }
@@ -251,6 +255,12 @@
     @media (forced-colors: active) { [data-pj-suite-ui] :focus-visible { outline-color: Highlight !important; } }
   }
   [data-pj-suite-ui] .pj-suite-fa { display: inline-block; width: 1em; height: 1em; flex: 0 0 auto; overflow: visible; vertical-align: -.125em; fill: currentColor; }
+  [data-pj-suite-ui].pj-native-process-action,
+  [data-pj-suite-ui].pj-native-process-action :is(i, .pj-suite-fa) { color: var(--pj-native-action-color, #42678e) !important; }
+  [data-pj-suite-ui].pj-native-process-action :is(i, .pj-suite-fa) { width: 1em !important; height: 1em !important; font-size: var(--pj-native-action-icon-size, 24px) !important; margin: 0 !important; vertical-align: middle !important; }
+  [data-pj-suite-ui][data-pj-native-toolbar] { display: flex !important; align-items: center !important; justify-content: flex-end !important; gap: 8px !important; }
+  [data-pj-suite-ui][data-pj-native-toolbar] > button { display: inline-flex !important; align-items: center !important; justify-content: center !important; width: calc(var(--pj-native-action-icon-size, 24px) + 8px) !important; height: calc(var(--pj-native-action-icon-size, 24px) + 8px) !important; padding: 0 !important; margin: 0 !important; }
+  [data-pj-suite-ui][data-pj-native-toolbar] > button :is(i, .pj-suite-fa) { color: var(--pj-native-action-color, #42678e) !important; font-size: var(--pj-native-action-icon-size, 24px) !important; width: 1em !important; height: 1em !important; vertical-align: middle !important; }
   [data-pj-suite-ui] .pj-suite-fa.fa-2xs { font-size: .625em; }
   [data-pj-suite-ui] .pj-suite-fa.fa-xs { font-size: .75em; }
   [data-pj-suite-ui] .pj-suite-fa.fa-sm { font-size: .875em; }
@@ -271,6 +281,31 @@
   // Incorporado em cada IIFE; não expõe APIs na página nem requer rede.
   const suiteUIRoots = new WeakMap();
   const suiteDialogs = new WeakMap();
+  // Os atalhos do processo acompanham a cor e a escala do controle nativo.
+  function matchNativeProcessAction(button, anchor) {
+    if (!button || !anchor) return;
+    const win = anchor.ownerDocument.defaultView;
+    const native = anchor;
+    const style = win.getComputedStyle(native);
+    const icon = native.querySelector('i, svg');
+    const iconStyle = icon ? win.getComputedStyle(icon) : style;
+    const measuredSize = icon?.tagName.toLowerCase() === 'svg'
+      ? icon.getBoundingClientRect().height
+      : parseFloat(iconStyle.fontSize);
+    const iconSize = Math.min(32, Math.max(16, measuredSize || 24));
+    button.style.setProperty('--pj-native-action-color', iconStyle.color || style.color);
+    button.style.setProperty('--pj-native-action-icon-size', `${iconSize}px`);
+    for (const [name, value] of Object.entries({
+      position: 'relative', float: style.float || 'none', display: 'inline-flex',
+      'align-items': 'center', 'justify-content': 'center', 'vertical-align': 'middle',
+      width: `${iconSize + 8}px`, height: `${iconSize + 8}px`,
+      'min-width': `${iconSize + 8}px`, 'min-height': `${iconSize + 8}px`,
+      padding: '0', margin: native.parentElement?.classList.contains('divBotoesDireita') ? '0' : '0 4px', border: '0', background: 'transparent',
+      'box-shadow': 'none', 'line-height': '1', overflow: 'visible', cursor: 'pointer'
+    })) button.style.setProperty(name, value, 'important');
+    button.classList.add('pj-native-process-action');
+  }
+
   const SUITE_COMPONENTS = {
     panel: '.pj-panel, .pj-guides-manager, .pjc-panel, #pjip-modal-panel, .pjm-panel, .phm-panel, #pj-todo',
     header: '.pj-panel-header, .pj-guides-manager__header, #pj-panel-header, .pjip-modal-head, .pjm-head, .phm-head, #pj-todo-header',
@@ -1540,6 +1575,7 @@
     }
     const el = doc.createElement('div');
     el.className = `pj-guides-toast pj-guides-toast--${tone}`;
+    if (options.scope === 'home') el.dataset.pjGuidesScope = 'home';
     const body = doc.createElement('div');
     body.className = 'pj-guides-toast__body';
     const text = doc.createElement('div');
@@ -2631,7 +2667,7 @@
     if (!message) return;
     if (state.homeAlertShown) return;
     state.homeAlertShown = true;
-    showToast(message, tone, { persistent: true });
+    showToast(message, tone, { persistent: true, scope: 'home' });
   }
 
   function mountProcessCard() {
@@ -2818,6 +2854,7 @@
 
   function mountHomePanel() {
     if (document.getElementById('pj-guides-home-panel')) return;
+    if (!isHomeSummaryEnabled()) return;
     if (!isHomePage(document)) return;
     const firstFieldset = Array.from(document.querySelectorAll('fieldset'))
       .find(fieldset => /PROCESSOS ATIVOS\s*\/\s*AUDIÊNCIAS/i.test(textOf(fieldset.querySelector('legend'))))
@@ -3211,6 +3248,7 @@
                 <div id="pj-guides-manager-toolbar-meta" class="pj-guides-manager__toolbar-meta"></div>
               </div>
               <div class="pj-guides-manager__toolbar-actions">
+                <label style="display:inline-flex;align-items:center;gap:8px;font-size:12px"><input id="pj-guides-show-home" type="checkbox"> Mostrar resumo na página inicial</label>
                 <button type="button" id="pj-guides-backup-toggle-btn" class="pj-guides-btn pj-guides-btn--subtle"><i class="fa-solid fa-cloud" aria-hidden="true"></i><span>Backup remoto</span></button>
               </div>
             </div>
@@ -3302,6 +3340,17 @@
     const summaryHost = panel.querySelector('#pj-guides-manager-summary');
     const toolbarMeta = panel.querySelector('#pj-guides-manager-toolbar-meta');
     const listMeta = panel.querySelector('#pj-guides-manager-list-meta');
+    const homeToggle = panel.querySelector('#pj-guides-show-home');
+    homeToggle.checked = isHomeSummaryEnabled();
+    homeToggle.addEventListener('change', () => {
+      try { localStorage.setItem(HOME_SUMMARY_KEY, String(homeToggle.checked)); }
+      catch (_) {
+        homeToggle.checked = isHomeSummaryEnabled();
+        homeToggle.setAttribute('title', 'Não foi possível salvar a preferência neste navegador.');
+        return;
+      }
+      evaluate();
+    });
     createBackupPanelController(panel, { onRestore: () => render() });
 
     let currentPage = 0;
@@ -3743,6 +3792,18 @@
     }
   }
 
+  function isHomeSummaryEnabled() {
+    try { return localStorage.getItem(HOME_SUMMARY_KEY) !== 'false'; }
+    catch (_) { return true; }
+  }
+
+  function onHomePreferenceChange(event) {
+    if (event.key !== HOME_SUMMARY_KEY && event.key !== null) return;
+    const homeToggle = document.getElementById('pj-guides-show-home');
+    if (homeToggle) homeToggle.checked = isHomeSummaryEnabled();
+    scheduleEvaluate();
+  }
+
   function isHomePage(doc = document) {
     return Array.from(doc.querySelectorAll('h2'))
       .some(heading => /Área do Advogado/i.test(textOf(heading)));
@@ -3763,11 +3824,16 @@
   function evaluate() {
     ensureStyles();
     const homePage = isHomePage(document);
+    if (!homePage || !isHomeSummaryEnabled()) {
+      document.querySelectorAll('#pj-guides-toast-host [data-pj-guides-scope="home"]').forEach(alert => alert.remove());
+      state.homeAlertShown = false;
+    }
     const guidesPage = isGuidesPage(document);
     const processCtx = guidesPage ? null : extractProcessPageContext(document);
     const evaluateSignature = [
       location.pathname,
       location.search,
+      isHomeSummaryEnabled() ? 'home-summary:on' : 'home-summary:off',
       guidesPage ? 'guides' : (processCtx ? `process:${processCtx.processId || processCtx.cnj || processCtx.shortNumber}` : (homePage ? 'home' : 'other'))
     ].join('|');
     if (state.lastEvaluateSignature === evaluateSignature && (
@@ -3800,6 +3866,7 @@
 
   function destroy() {
     clearTimeout(state.timer);
+    window.removeEventListener('storage', onHomePreferenceChange);
     if (isTopWindow()) window.removeEventListener('message', onMessage);
     clearDynamicUi();
     const overlay = document.getElementById('pj-guides-manager-overlay');
@@ -3818,6 +3885,7 @@
     registerHeaderMenuEntry();
     evaluate();
     scheduleEvaluate(700);
+    window.addEventListener('storage', onHomePreferenceChange);
     if (isTopWindow()) window.addEventListener('message', onMessage);
     globalThis[INSTANCE_KEY] = { destroy, openManager };
   }

@@ -56,3 +56,7 @@ O script funciona como apoio operacional e organizacional. A conferência das gu
 Esta extensão usa os componentes e a identidade visual da suíte: fonte nativa, ícones SVG, botões e campos com foco visível, cartões claros e cabeçalhos azul-marinho. Nos gerenciadores, Tab/Shift+Tab ficam dentro do diálogo; Escape fecha primeiro o backup aberto e depois o painel, devolvendo o foco ao controle de abertura. Os atalhos e dados locais permanecem no mesmo formato.
 
 Veja o [plano visual](../docs/padronizacao-visual/plano.md) e o [relatório de validação](../docs/padronizacao-visual/relatorio.md). O `.meta.js` contém somente o cabeçalho, com versão e permissões idênticas às do `.user.js`.
+
+## Resumo na página inicial
+
+Abra **Central de Guias** pelo menu do Projudi ou pelo atalho `Ctrl+;` seguido de `G`. Em **Filtros e navegação**, desmarque **Mostrar resumo na página inicial** para ocultar o cartão inicial e os alertas emitidos por ele. Marque novamente para reativar. A preferência fica neste navegador; os cartões do processo e da consulta de guias continuam disponíveis.

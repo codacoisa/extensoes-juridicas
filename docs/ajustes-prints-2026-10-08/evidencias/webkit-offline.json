@@ -1,0 +1,263 @@
+{
+  "mode": "after-empty-offline",
+  "synthetic": true,
+  "engine": "webkit",
+  "browser": "26.5",
+  "results": [
+    {
+      "id": "anotacoes",
+      "width": 1180,
+      "bounds": {
+        "x": 18,
+        "y": 39,
+        "width": 1144,
+        "height": 572
+      },
+      "styles": {
+        "font": "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+        "borderRadius": "16px",
+        "header": "rgb(24, 59, 97)",
+        "width": "1144px"
+      },
+      "errors": []
+    },
+    {
+      "id": "anotacoes",
+      "width": 768,
+      "bounds": {
+        "x": 18,
+        "y": 39,
+        "width": 732,
+        "height": 572
+      },
+      "styles": {
+        "font": "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+        "borderRadius": "16px",
+        "header": "rgb(24, 59, 97)",
+        "width": "732px"
+      },
+      "errors": []
+    },
+    {
+      "id": "anotacoes",
+      "width": 390,
+      "bounds": {
+        "x": 18,
+        "y": 39,
+        "width": 354,
+        "height": 572
+      },
+      "styles": {
+        "font": "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+        "borderRadius": "16px",
+        "header": "rgb(24, 59, 97)",
+        "width": "354px"
+      },
+      "errors": []
+    },
+    {
+      "id": "centraldeguias",
+      "width": 1180,
+      "bounds": {
+        "x": 18,
+        "y": 39,
+        "width": 1144,
+        "height": 572
+      },
+      "styles": {
+        "font": "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+        "borderRadius": "16px",
+        "header": "rgb(24, 59, 97)",
+        "width": "1144px"
+      },
+      "errors": []
+    },
+    {
+      "id": "centraldeguias",
+      "width": 768,
+      "bounds": {
+        "x": 18,
+        "y": 39,
+        "width": 732,
+        "height": 572
+      },
+      "styles": {
+        "font": "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+        "borderRadius": "16px",
+        "header": "rgb(24, 59, 97)",
+        "width": "732px"
+      },
+      "errors": []
+    },
+    {
+      "id": "centraldeguias",
+      "width": 390,
+      "bounds": {
+        "x": 18,
+        "y": 39,
+        "width": 354,
+        "height": 572
+      },
+      "styles": {
+        "font": "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+        "borderRadius": "16px",
+        "header": "rgb(24, 59, 97)",
+        "width": "354px"
+      },
+      "errors": []
+    },
+    {
+      "id": "customizacoes",
+      "width": 1180,
+      "bounds": {
+        "x": 18,
+        "y": 39,
+        "width": 1144,
+        "height": 572
+      },
+      "styles": {
+        "font": "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+        "borderRadius": "16px",
+        "header": "rgb(24, 59, 97)",
+        "width": "1144px"
+      },
+      "errors": []
+    },
+    {
+      "id": "customizacoes",
+      "width": 768,
+      "bounds": {
+        "x": 18,
+        "y": 39,
+        "width": 732,
+        "height": 572
+      },
+      "styles": {
+        "font": "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+        "borderRadius": "16px",
+        "header": "rgb(24, 59, 97)",
+        "width": "732px"
+      },
+      "errors": []
+    },
+    {
+      "id": "customizacoes",
+      "width": 390,
+      "bounds": {
+        "x": 18,
+        "y": 39,
+        "width": 354,
+        "height": 572
+      },
+      "styles": {
+        "font": "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+        "borderRadius": "16px",
+        "header": "rgb(24, 59, 97)",
+        "width": "354px"
+      },
+      "errors": []
+    },
+    {
+      "id": "intimacoes",
+      "width": 1180,
+      "bounds": {
+        "x": 24,
+        "y": 39,
+        "width": 1132,
+        "height": 572
+      },
+      "styles": {
+        "font": "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+        "borderRadius": "16px",
+        "header": "rgb(24, 59, 97)",
+        "width": "1132px"
+      },
+      "errors": []
+    },
+    {
+      "id": "intimacoes",
+      "width": 768,
+      "bounds": {
+        "x": 12,
+        "y": 26,
+        "width": 744,
+        "height": 598
+      },
+      "styles": {
+        "font": "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+        "borderRadius": "16px",
+        "header": "rgb(24, 59, 97)",
+        "width": "744px"
+      },
+      "errors": []
+    },
+    {
+      "id": "intimacoes",
+      "width": 390,
+      "bounds": {
+        "x": 12,
+        "y": 26,
+        "width": 366,
+        "height": 598
+      },
+      "styles": {
+        "font": "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+        "borderRadius": "16px",
+        "header": "rgb(24, 59, 97)",
+        "width": "366px"
+      },
+      "errors": []
+    },
+    {
+      "id": "tarefas",
+      "width": 1180,
+      "bounds": {
+        "x": 18,
+        "y": 39,
+        "width": 1144,
+        "height": 572
+      },
+      "styles": {
+        "font": "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+        "borderRadius": "16px",
+        "header": "rgb(24, 59, 97)",
+        "width": "1144px"
+      },
+      "errors": []
+    },
+    {
+      "id": "tarefas",
+      "width": 768,
+      "bounds": {
+        "x": 18,
+        "y": 26,
+        "width": 732,
+        "height": 598
+      },
+      "styles": {
+        "font": "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+        "borderRadius": "16px",
+        "header": "rgb(24, 59, 97)",
+        "width": "732px"
+      },
+      "errors": []
+    },
+    {
+      "id": "tarefas",
+      "width": 390,
+      "bounds": {
+        "x": 18,
+        "y": 26,
+        "width": 354,
+        "height": 598
+      },
+      "styles": {
+        "font": "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+        "borderRadius": "16px",
+        "header": "rgb(24, 59, 97)",
+        "width": "354px"
+      },
+      "errors": []
+    }
+  ]
+}

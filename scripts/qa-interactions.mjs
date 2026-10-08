@@ -37,8 +37,8 @@ const setup = async target => target.evaluate(sprite => {
 const sources = await Promise.all(scripts.map(path => readFile(resolve(root, path), 'utf8')));
 const hookNames = [
   '{ openNote, openNotesPanel }',
-  '{ openManager, evaluate, mountGuidesCard, mountProcessCard }',
-  '{ openSettingsPanel, openMovimentacoesPanel, openProcessFilePopup, saveSettings, settings, applySettingsNow }',
+  '{ openManager, evaluate, mountGuidesCard, mountProcessCard, maybeAlertForHome }',
+  '{ openSettingsPanel, openMovimentacoesPanel, openProcessFilePopup, saveSettings, settings, applySettingsNow, ensureProcessMirrorPdfButton, teardownProcessMirrorPdfFeature }',
   '{ openModal, closeModal, refreshFrameContext }',
   '{ openManagerPanel, openHomePanel, openProcessPanel, injectStyles }'
 ];
@@ -89,6 +89,19 @@ try {
   }
   check('Atalhos A/G/C/I/T no iframe abrem e fecham os gerenciadores no top');
 
+  await frame.locator('#pj-add-btn .pj-suite-fa').waitFor();
+  await frame.locator('#pj-todo-proc-btn .pj-suite-fa').waitFor();
+  const iconAlignment = await frame.evaluate(() => {
+    const native = document.querySelector('button.notaProcesso svg');
+    const controls = [document.querySelector('button.notaProcesso'), document.querySelector('#pj-add-btn'), document.querySelector('#pj-todo-proc-btn')];
+    return { nativeSize: native.getBoundingClientRect().height, nativeColor: getComputedStyle(native).color, added: controls.slice(1).map(button => { const icon = button.querySelector('svg'); return { size: icon.getBoundingClientRect().height, color: getComputedStyle(icon).color }; }), rects: controls.map(button => { const r = button.getBoundingClientRect(); return { x:r.x, y:r.y, width:r.width, height:r.height }; }) };
+  });
+  for (const icon of iconAlignment.added) { assert.equal(icon.size, iconAlignment.nativeSize); assert.equal(icon.color, iconAlignment.nativeColor); }
+  const rects = iconAlignment.rects.sort((a,b)=>a.x-b.x);
+  for (let i=1;i<rects.length;i++) assert.ok(rects[i].x >= rects[i-1].x + rects[i-1].width, 'Atalhos do processo se sobrepõem');
+  await frame.locator('.Titulo').screenshot({ path: resolve(output, 'process-actions.png') });
+  check('Anotações e tarefas acompanham cor e escala nativas sem sobreposição');
+
   const marks = frame.locator('.pjip-inline-btn--mark');
   await marks.first().waitFor();
   await marks.first().click();
@@ -101,14 +114,40 @@ try {
 
   await page.evaluate(() => window.__qaFeatures3.openModal());
   await page.locator('[data-role="deadline-date"]').fill('2026-01-02');
-  await page.locator('[data-role="deadline-apply-date"]').click();
+  await page.locator('[data-role="deadline-apply"]').click();
   await page.waitForTimeout(180);
   assert.equal(await frame.locator('#Tabela tbody tr:visible').count(), 1);
   await page.locator('[data-role="deadline-clear"]').click();
   await page.waitForTimeout(180);
   assert.equal(await frame.locator('#Tabela tbody tr:visible').count(), 2);
+  assert.equal(await page.locator('[data-role="deadline-mode"]').inputValue(), 'exact');
+  await page.locator('[data-role="deadline-mode"]').selectOption('range');
+  await page.locator('[data-role="deadline-range-start"]').fill('2026-01-03');
+  await page.locator('[data-role="deadline-range-end"]').fill('2026-01-02');
+  await page.locator('[data-role="deadline-apply"]').click();
+  assert.match(await page.locator('[data-role="deadline-status"]').textContent(), /início.*fim/i);
+  assert.equal(await frame.locator('#Tabela tbody tr:visible').count(), 2, 'Intervalo invertido alterou a tabela');
+  await page.locator('[data-role="deadline-range-start"]').fill('2026-01-02');
+  await page.locator('[data-role="deadline-apply"]').click();
+  await page.waitForTimeout(180);
+  assert.equal(await frame.locator('#Tabela tbody tr:visible').count(), 1);
+  await page.locator('#pjip-modal-panel').screenshot({ path: resolve(output, 'deadlines-range.png') });
+  await page.locator('[data-role="deadline-clear"]').click();
+  assert.equal(await page.locator('[data-role="deadline-mode"]').inputValue(), 'exact');
+  assert.equal(await page.locator('[data-role="deadline-clear"]').isDisabled(), true);
+  await frame.evaluate(() => { const row = document.querySelector('#Tabela tbody tr').cloneNode(true); row.id = 'qa-without-deadline'; row.cells[0].textContent = '900003'; row.cells[4].textContent = '-'; document.querySelector('#Tabela tbody').append(row); });
+  await page.evaluate(() => window.__qaFeatures3.refreshFrameContext());
+  await page.locator('[data-role="deadline-mode"]').selectOption('missing');
+  await page.locator('[data-role="deadline-apply"]').click();
+  await page.waitForTimeout(180);
+  assert.equal(await frame.locator('#Tabela tbody tr:visible').count(), 1);
+  assert.equal(await frame.locator('#qa-without-deadline').isVisible(), true);
+  await page.locator('[data-role="deadline-clear"]').click();
+  await page.waitForTimeout(180);
+  assert.equal(await frame.locator('#Tabela tbody tr:visible').count(), 3);
+  await frame.locator('#qa-without-deadline').evaluate(row => row.remove());
   await page.keyboard.press('Escape');
-  check('Filtro e limpeza de datas preservam as linhas do iframe');
+  check('Data exata, período, intervalo inválido, sem prazo e limpeza global preservam linhas do iframe');
 
   await frame.evaluate(() => window.__qaFeatures0.openNote());
   await frame.locator('#pj-note').waitFor({ state: 'visible' });
@@ -124,12 +163,16 @@ try {
 
   await frame.evaluate(() => { window.__qaFeatures4.injectStyles(); window.__qaFeatures4.openProcessPanel({ key: 'cnj_0000001-00.2026.8.09.0001', cnj: '0000001-00.2026.8.09.0001', shortCnj: '0000001-00' }); });
   await frame.locator('#pj-todo').waitFor({ state: 'visible' });
+  const emptyBounds = await frame.locator('#pj-todo').boundingBox();
+  assert.ok(emptyBounds.width <= 382 && emptyBounds.height < 400, 'Painel vazio mantém área ociosa excessiva');
+  await frame.locator('#pj-todo').screenshot({ path: resolve(output, 'task-process-empty.png') });
   await frame.locator('#pj-todo .pj-home-composer-main input').fill('Tarefa sintética criada no processo');
   await frame.locator('#pj-todo .pj-add').click();
   assert.equal(await frame.locator('#pj-todo .pj-item').count(), 1);
   await frame.locator('#pj-todo .pj-text').first().click();
   const processBounds = await frame.locator('#pj-todo').boundingBox();
-  assert.ok(processBounds.height >= 400, 'Painel do processo cortou o compositor/lista');
+  assert.ok(processBounds.height < 500 && processBounds.width <= 382, 'Painel do processo não ficou compacto');
+  assert.equal(await frame.locator('#pj-todo .pj-add').isVisible(), true);
   await frame.locator('#pj-todo-body').evaluate(n => n.scrollTop = 0);
   await frame.locator('#pj-todo').screenshot({ path: resolve(output, 'task-process-iframe.png') });
   await frame.locator('#pj-todo .pj-todo-close-btn').click();
@@ -204,6 +247,19 @@ try {
   assert.equal(await page.locator('#pj-guides-home-panel + fieldset').count(), 1);
   await page.locator('#pj-guides-home-panel').screenshot({ path: resolve(output, 'guides-home.png') });
   check('Cartão inicial detectado automaticamente em estruturas antiga e atual, com fieldset aninhado');
+  await page.evaluate(() => { window.__qaFeatures1.maybeAlertForHome('qa', 'Aviso sintético de guias vencidas', 'danger'); window.__qaFeatures1.openManager(); });
+  assert.equal(await page.locator('[data-pj-guides-scope="home"]').count(), 1);
+  await page.locator('#pj-guides-show-home').uncheck();
+  assert.equal(await page.locator('[data-pj-guides-scope="home"]').count(), 0, 'Alerta inicial ficou visível após ocultar o resumo');
+  assert.equal(await page.locator('#pj-guides-home-panel').count(), 0);
+  assert.equal(await page.evaluate(() => localStorage.getItem('projudi-suite::central-guias::show-home-summary')), 'false');
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => window.__qaFeatures1.openManager());
+  assert.equal(await page.locator('#pj-guides-show-home').isChecked(), false);
+  await frame.evaluate(() => localStorage.setItem('projudi-suite::central-guias::show-home-summary', 'true'));
+  await page.locator('#pj-guides-home-panel').waitFor({ state: 'visible' });
+  await page.keyboard.press('Escape');
+  check('Resumo inicial pode ser ocultado, mantém preferência ao reabrir e reage ao outro frame');
   await page.evaluate(() => {
     document.getElementById('qa-native').innerHTML = '<h2>Outra página</h2><fieldset><legend>PROCESSOS ATIVOS/AUDIÊNCIAS</legend></fieldset>';
     window.__qaFeatures1.evaluate();
@@ -219,6 +275,24 @@ try {
   await page.locator('#pj-guides-process-card').waitFor({ state: 'visible' });
   await page.locator('#pj-guides-process-card').screenshot({ path: resolve(output, 'guides-process.png') });
   check('Cartão compacto de guias no processo preserva a ação e seu rótulo');
+  await page.evaluate(() => {
+    const fixture = document.getElementById('qa-native');
+    fixture.insertAdjacentHTML('beforeend', '<div id="tabListaProcesso"></div><div class="divBotoesDireita" style="display:flex;justify-content:flex-end;width:max-content;margin-left:auto"><button type="button" style="border:0;background:none" title="Calendário nativo"><svg width="24" height="24" style="font-size:24px;color:rgb(66,103,142)" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="18" rx="2" fill="currentColor"/><path d="M6 2v5m12-5v5M2 10h20" stroke="white" stroke-width="2"/></svg></button><button type="button" style="border:0;background:none" title="Gerar PDF de Processo Completo"><svg class="fa-file-pdf" width="24" height="24" style="font-size:24px;color:rgb(66,103,142)" viewBox="0 0 24 24"><path d="M4 1h10l6 6v16H4z" fill="currentColor"/><path d="M14 1v6h6" fill="none" stroke="white"/><text x="5" y="17" fill="white" font-size="6">PDF</text></svg></button></div>');
+    window.__qaFeatures2.ensureProcessMirrorPdfButton(document);
+  });
+  await page.locator('#projudi-mirror-pdf-btn svg').waitFor();
+  const toolbar = await page.locator('.divBotoesDireita > button').evaluateAll(buttons => buttons.map(b => ({ color:getComputedStyle(b.querySelector('i,svg')).color, size:parseFloat(getComputedStyle(b.querySelector('i,svg')).fontSize), width:b.getBoundingClientRect().width, x:b.getBoundingClientRect().x, margin:getComputedStyle(b).marginLeft })));
+  assert.equal(toolbar.length, 3);
+  for (const b of toolbar) { assert.equal(b.color, toolbar[0].color); assert.equal(b.width, toolbar[0].width); assert.equal(b.size, toolbar[0].size); }
+  const gaps = toolbar.slice(1).map((b,i) => b.x - toolbar[i].x - toolbar[i].width);
+  assert.ok(gaps.every(gap => gap >= 7 && gap <= 9), 'Espaçamento desigual na barra nativa');
+  await page.locator('.divBotoesDireita').screenshot({ path: resolve(output, 'process-toolbar.png') });
+  await page.evaluate(() => window.__qaFeatures2.teardownProcessMirrorPdfFeature(document));
+  assert.equal(await page.locator('#projudi-mirror-pdf-btn').count(), 0);
+  assert.equal(await page.locator('[data-pj-native-toolbar]').count(), 0);
+  assert.equal(await page.locator('.divBotoesDireita > button').count(), 2);
+  assert.equal(await page.locator('.divBotoesDireita').getAttribute('style'), 'display: flex; justify-content: flex-end; width: max-content; margin-left: auto;');
+  check('Espelho PDF acompanha barra nativa, com espaçamento uniforme e remoção reversível');
 
   await page.evaluate(() => {
     const native = document.getElementById('qa-native');

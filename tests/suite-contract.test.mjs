@@ -167,10 +167,11 @@ test('ícones SVG preservam os contratos usados pelas extensões', () => {
 });
 
 test('atalhos do processo e filtros de intimações mantêm o comportamento atual', () => {
-  assert.match(sources.anotacoes, /const nativeIconSize = Math\.max\([\s\S]{0,300}?--pj-integrated-icon-size/, 'anotações não mede o ícone nativo');
-  assert.match(sources.anotacoes, /width: var\(--pj-integrated-icon-size, 32px\) !important;/, 'ícone de anotações não acompanha a escala nativa');
-  assert.match(sources.tarefas, /function matchProcessLauncherSize\(button, anchor\)/, 'tarefas não mede o atalho vizinho');
-  assert.match(sources.tarefas, /width: var\(--pj-process-icon-size, 32px\) !important;/, 'ícone de tarefas não acompanha a escala vizinha');
+  assert.match(sources.anotacoes, /matchNativeProcessAction\(btn, nativeBtn\)/, 'anotações não acompanha o controle nativo');
+  assert.match(sources.tarefas, /matchNativeProcessAction\(button, nativeNote \|\| anchor\)/, 'tarefas não acompanha o controle nativo');
+  for (const source of [sources.anotacoes, sources.tarefas]) {
+    assert.match(source, /width: var\(--pj-native-action-icon-size, 24px\) !important;/, 'atalho não acompanha a escala nativa');
+  }
 
   const intimacoes = sources.intimacoes;
   assert.match(intimacoes, /\.pjip-table tbody tr\.pjip-row--marked > td\s*\{\s*background-color: #eaf3ff !important;/, 'linhas a fazer não recebem o fundo azul');

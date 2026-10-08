@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.10.08-00:28
+// @version      2026.10.08-01:31
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       lourencosv
@@ -291,7 +291,10 @@
     [data-pj-suite-ui] [data-pj-suite-component="table"] th { background: #eef2f6 !important; color: #344054 !important; font-weight: 700 !important; padding: 10px 12px !important; }
     [data-pj-suite-ui] [data-pj-suite-component="table"] td { padding: 10px 12px !important; border-bottom: 1px solid #eaecf0 !important; }
     [data-pj-suite-ui] [data-pj-suite-component="table"] tbody tr:hover td { background-color: #f5f8ff !important; }
-    [data-pj-suite-ui].pj-todo-process { height: min(580px, calc(100dvh - 24px)) !important; }
+    [data-pj-suite-ui].pj-todo-process { width: min(380px, calc(100vw - 24px)) !important; height: auto !important; }
+    [data-pj-suite-ui].pj-todo-process .pj-empty { min-height: 0 !important; padding: 16px !important; }
+    [data-pj-suite-ui].pj-todo-process [data-pj-suite-component="header"] { padding: 12px !important; }
+    [data-pj-suite-ui].pj-todo-process [data-pj-suite-component="title"] { font-size: 16px !important; }
     [data-pj-suite-ui] #pj-todo-body { flex: 1 1 auto !important; overflow: auto !important; }
     [data-pj-suite-ui] :is(.pj-process-layout .pj-section, .pj-home-stack, .pj-home-panel, .pj-list) { flex: 1 1 auto !important; }
     [data-pj-suite-ui] .pj-home-search { padding-left: 30px !important; }
@@ -310,6 +313,12 @@
     @media (forced-colors: active) { [data-pj-suite-ui] :focus-visible { outline-color: Highlight !important; } }
   }
   [data-pj-suite-ui] .pj-suite-fa { display: inline-block; width: 1em; height: 1em; flex: 0 0 auto; overflow: visible; vertical-align: -.125em; fill: currentColor; }
+  [data-pj-suite-ui].pj-native-process-action,
+  [data-pj-suite-ui].pj-native-process-action :is(i, .pj-suite-fa) { color: var(--pj-native-action-color, #42678e) !important; }
+  [data-pj-suite-ui].pj-native-process-action :is(i, .pj-suite-fa) { width: 1em !important; height: 1em !important; font-size: var(--pj-native-action-icon-size, 24px) !important; margin: 0 !important; vertical-align: middle !important; }
+  [data-pj-suite-ui][data-pj-native-toolbar] { display: flex !important; align-items: center !important; justify-content: flex-end !important; gap: 8px !important; }
+  [data-pj-suite-ui][data-pj-native-toolbar] > button { display: inline-flex !important; align-items: center !important; justify-content: center !important; width: calc(var(--pj-native-action-icon-size, 24px) + 8px) !important; height: calc(var(--pj-native-action-icon-size, 24px) + 8px) !important; padding: 0 !important; margin: 0 !important; }
+  [data-pj-suite-ui][data-pj-native-toolbar] > button :is(i, .pj-suite-fa) { color: var(--pj-native-action-color, #42678e) !important; font-size: var(--pj-native-action-icon-size, 24px) !important; width: 1em !important; height: 1em !important; vertical-align: middle !important; }
   [data-pj-suite-ui] .pj-suite-fa.fa-2xs { font-size: .625em; }
   [data-pj-suite-ui] .pj-suite-fa.fa-xs { font-size: .75em; }
   [data-pj-suite-ui] .pj-suite-fa.fa-sm { font-size: .875em; }
@@ -330,6 +339,31 @@
   // Incorporado em cada IIFE; não expõe APIs na página nem requer rede.
   const suiteUIRoots = new WeakMap();
   const suiteDialogs = new WeakMap();
+  // Os atalhos do processo acompanham a cor e a escala do controle nativo.
+  function matchNativeProcessAction(button, anchor) {
+    if (!button || !anchor) return;
+    const win = anchor.ownerDocument.defaultView;
+    const native = anchor;
+    const style = win.getComputedStyle(native);
+    const icon = native.querySelector('i, svg');
+    const iconStyle = icon ? win.getComputedStyle(icon) : style;
+    const measuredSize = icon?.tagName.toLowerCase() === 'svg'
+      ? icon.getBoundingClientRect().height
+      : parseFloat(iconStyle.fontSize);
+    const iconSize = Math.min(32, Math.max(16, measuredSize || 24));
+    button.style.setProperty('--pj-native-action-color', iconStyle.color || style.color);
+    button.style.setProperty('--pj-native-action-icon-size', `${iconSize}px`);
+    for (const [name, value] of Object.entries({
+      position: 'relative', float: style.float || 'none', display: 'inline-flex',
+      'align-items': 'center', 'justify-content': 'center', 'vertical-align': 'middle',
+      width: `${iconSize + 8}px`, height: `${iconSize + 8}px`,
+      'min-width': `${iconSize + 8}px`, 'min-height': `${iconSize + 8}px`,
+      padding: '0', margin: native.parentElement?.classList.contains('divBotoesDireita') ? '0' : '0 4px', border: '0', background: 'transparent',
+      'box-shadow': 'none', 'line-height': '1', overflow: 'visible', cursor: 'pointer'
+    })) button.style.setProperty(name, value, 'important');
+    button.classList.add('pj-native-process-action');
+  }
+
   const SUITE_COMPONENTS = {
     panel: '.pj-panel, .pj-guides-manager, .pjc-panel, #pjip-modal-panel, .pjm-panel, .phm-panel, #pj-todo',
     header: '.pj-panel-header, .pj-guides-manager__header, #pj-panel-header, .pjip-modal-head, .pjm-head, .phm-head, #pj-todo-header',
@@ -1963,15 +1997,21 @@
         min-height: 0;
         display: grid;
         grid-template-columns: 292px minmax(0, 1fr);
-        grid-template-rows: auto auto;
-        grid-template-areas:
-          "rail deadline"
-          "rail list";
+        grid-template-areas: "rail content";
+        align-content: start;
         align-items: start;
         gap: 12px;
         padding: 12px;
         overflow: auto;
         background: #f4f7fb;
+      }
+      .pjip-content {
+        grid-area: content;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        align-content: start;
+        gap: 12px;
+        min-width: 0;
       }
       .pjip-overview {
         grid-area: rail;
@@ -2148,7 +2188,6 @@
         gap: 10px;
       }
       .pjip-deadline {
-        grid-area: deadline;
         gap: 10px;
       }
       .pjip-deadline-head {
@@ -2162,73 +2201,22 @@
         font-size: 12px;
         font-weight: 700;
       }
-      .pjip-deadline-grid {
+      .pjip-deadline-form {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
-        align-items: stretch;
-        gap: 10px;
+        grid-template-columns: minmax(150px, .8fr) minmax(240px, 1.4fr) auto;
+        gap: 12px;
+        align-items: end;
       }
-      .pjip-deadline-card {
-        display: grid;
-        grid-template-rows: auto 1fr auto;
-        align-items: stretch;
-        gap: 8px;
-        padding: 10px;
-        border: 1px solid #dbe3ef;
-        border-radius: 11px;
-        background: #f8fafc;
+      .pjip-deadline-fields { min-width: 0; }
+      .pjip-deadline-fields[hidden] { display: none; }
+      .pjip-deadline-row--range { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .pjip-deadline-fields input[type="date"] { width: 100%; min-width: 0; min-height: 36px; }
+      .pjip-deadline-form > button { min-height: 36px; }
+      .pjip-deadline-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 10px; border-top: 1px solid #dbe3ef; }
+      @media (max-width: 1100px) {
+        .pjip-deadline-form { grid-template-columns: minmax(0, 1fr); }
+        .pjip-deadline-footer { flex-wrap: wrap; }
       }
-      .pjip-deadline-card-title {
-        color: #173a61;
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: .03em;
-        text-transform: uppercase;
-      }
-      .pjip-deadline-card-desc {
-        color: #61748d;
-        font-size: 11px;
-        line-height: 1.4;
-      }
-      .pjip-deadline-row {
-        align-self: end;
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        grid-auto-rows: auto;
-        gap: 8px;
-        align-items: stretch;
-        min-height: 36px;
-        height: auto;
-      }
-      .pjip-deadline-row > input,
-      .pjip-deadline-row > button {
-        align-self: stretch;
-        width: 100%;
-        min-height: 36px;
-        height: auto;
-        min-height: 0;
-        margin: 0;
-        box-sizing: border-box;
-      }
-      .pjip-deadline-row > input[type="date"] {
-        appearance: none;
-        -webkit-appearance: none;
-        line-height: 1.2;
-        padding: 0 12px;
-      }
-      .pjip-deadline-row > button {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0 12px;
-        line-height: 1.2;
-      }
-      .pjip-deadline-row--range {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-      .pjip-deadline-row--range > button { grid-column: 1 / -1; }
-      .pjip-deadline-row:not(.pjip-deadline-row--range) { grid-template-columns: 1fr; }
-      .pjip-deadline-row > input[type="date"] { min-width: 0; }
       .pjip-field {
         display: grid;
         gap: 6px;
@@ -2271,7 +2259,6 @@
         gap: 8px;
       }
       .pjip-list-shell {
-        grid-area: list;
         gap: 14px;
         min-height: 0;
       }
@@ -2503,8 +2490,6 @@
         .pjip-overview,
         .pjip-toolbar-grid,
         .pjip-toolbar-row,
-        .pjip-deadline-grid,
-        .pjip-deadline-row,
         .pjip-deadline-row--range,
         .pjip-backup-grid,
         .pjip-backup-actions,
@@ -2516,8 +2501,7 @@
         .pjip-modal-body {
           grid-template-areas:
             "rail"
-            "deadline"
-            "list";
+            "content";
         }
         .pjip-summary-head,
         .pjip-list-head,
@@ -3512,51 +3496,47 @@
           </div>
         </section>
       </section>
-      <section class="pjip-deadline" data-role="deadline-panel">
-        <div class="pjip-deadline-head">
-          <div class="pjip-section">
-            <div class="pjip-section-title"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i><span>Prazos</span></div>
-            <div class="pjip-backup-meta">Filtros aplicados diretamente à tabela atual do Projudi.</div>
-          </div>
-          <div class="pjip-deadline-status" data-role="deadline-status"></div>
-        </div>
-        <div class="pjip-deadline-grid">
-          <div class="pjip-deadline-card">
-            <div class="pjip-deadline-card-title">Filtro por data exata</div>
-            <div class="pjip-deadline-card-desc">Exibe somente linhas cuja coluna de prazo corresponda à data escolhida.</div>
-            <div class="pjip-deadline-row">
-              <input data-role="deadline-date" type="date">
-              <button type="button" class="pjip-modal-btn pjip-modal-btn--primary" data-role="deadline-apply-date"><i class="fa-solid fa-check" aria-hidden="true"></i><span>Aplicar</span></button>
+      <div class="pjip-content">
+        <section class="pjip-deadline" data-role="deadline-panel">
+          <div class="pjip-deadline-head">
+            <div class="pjip-section">
+              <div class="pjip-section-title"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i><span>Filtrar prazos na tabela</span></div>
+              <div class="pjip-backup-meta">Altera apenas as linhas da página atual do Projudi.</div>
             </div>
           </div>
-          <div class="pjip-deadline-card">
-            <div class="pjip-deadline-card-title">Filtro por período</div>
-            <div class="pjip-deadline-card-desc">Exibe somente linhas com prazo dentro do intervalo informado.</div>
-            <div class="pjip-deadline-row pjip-deadline-row--range">
-              <input data-role="deadline-range-start" type="date">
-              <input data-role="deadline-range-end" type="date">
-              <button type="button" class="pjip-modal-btn pjip-modal-btn--primary" data-role="deadline-apply-range"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i><span>Aplicar período</span></button>
+          <div class="pjip-deadline-form">
+            <label class="pjip-field">Tipo de filtro
+              <select data-role="deadline-mode">
+                <option value="exact">Data exata</option>
+                <option value="range">Período</option>
+                <option value="missing">Sem data limite</option>
+              </select>
+            </label>
+            <div class="pjip-deadline-fields" data-deadline-fields="exact">
+              <label class="pjip-field">Data limite<input data-role="deadline-date" type="date"></label>
+            </div>
+            <div class="pjip-deadline-fields pjip-deadline-row--range" data-deadline-fields="range" hidden>
+              <label class="pjip-field">De<input data-role="deadline-range-start" type="date"></label>
+              <label class="pjip-field">Até<input data-role="deadline-range-end" type="date"></label>
+            </div>
+            <div class="pjip-deadline-fields pjip-backup-meta" data-deadline-fields="missing" hidden>Exibe linhas com prazo vazio ou preenchido apenas com traço.</div>
+            <button type="button" class="pjip-modal-btn pjip-modal-btn--primary" data-role="deadline-apply"><i class="fa-solid fa-filter" aria-hidden="true"></i><span>Aplicar filtro</span></button>
+          </div>
+          <div class="pjip-deadline-footer">
+            <div class="pjip-deadline-status" data-role="deadline-status" role="status"></div>
+            <button type="button" class="pjip-modal-btn" data-role="deadline-clear"><i class="fa-solid fa-filter-circle-xmark" aria-hidden="true"></i><span>Limpar filtro da tabela</span></button>
+          </div>
+        </section>
+        <section class="pjip-list-shell">
+          <div class="pjip-list-head">
+            <div>
+              <div class="pjip-section-title"><i class="fa-solid fa-layer-group" aria-hidden="true"></i><span>Itens monitorados</span></div>
+              <div class="pjip-list-meta" data-role="list-meta"></div>
             </div>
           </div>
-          <div class="pjip-deadline-card">
-            <div class="pjip-deadline-card-title">Sem data limite</div>
-            <div class="pjip-deadline-card-desc">Localiza linhas com prazo vazio ou preenchido apenas com traço.</div>
-            <div class="pjip-deadline-row">
-              <button type="button" class="pjip-modal-btn pjip-modal-btn--primary" data-role="deadline-apply-missing"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>Localizar sem prazo</span></button>
-              <button type="button" class="pjip-modal-btn" data-role="deadline-clear"><i class="fa-solid fa-filter-circle-xmark" aria-hidden="true"></i><span>Limpar filtro</span></button>
-            </div>
-          </div>
-        </div>
-      </section>
-      <section class="pjip-list-shell">
-        <div class="pjip-list-head">
-          <div>
-            <div class="pjip-section-title"><i class="fa-solid fa-layer-group" aria-hidden="true"></i><span>Itens monitorados</span></div>
-            <div class="pjip-list-meta" data-role="list-meta"></div>
-          </div>
-        </div>
-        <section class="pjip-list" data-role="list"></section>
-      </section>
+          <section class="pjip-list" data-role="list"></section>
+        </section>
+      </div>
       <div class="pjip-backup-popover pj-backup-ui__popover" data-role="backup-popover">
         <section class="pjip-backup pjip-backup-dialog pj-backup-ui__dialog" data-role="backup-panel" role="dialog" aria-modal="true" aria-labelledby="pjip-backup-title">
           <div class="pjip-backup-head pj-backup-ui__header">
@@ -3725,36 +3705,35 @@
       renderModal();
     });
 
-    body.querySelector('[data-role="deadline-apply-date"]')?.addEventListener('click', () => {
-      const ymd = /** @type {HTMLInputElement | null} */ (body.querySelector('[data-role="deadline-date"]'))?.value || '';
-      if (!ymdToDate(ymd)) {
-        setNodeText(body.querySelector('[data-role="deadline-status"]'), 'Selecione uma data válida.');
-        return;
+    const deadlineMode = body.querySelector('[data-role="deadline-mode"]');
+    const showDeadlineFields = () => {
+      body.querySelectorAll('[data-deadline-fields]').forEach(fields => {
+        fields.hidden = fields.dataset.deadlineFields !== deadlineMode.value;
+      });
+    };
+    deadlineMode.value = getDeadlineFilterMode();
+    showDeadlineFields();
+    deadlineMode.addEventListener('change', showDeadlineFields);
+    body.querySelector('[data-role="deadline-apply"]')?.addEventListener('click', () => {
+      const mode = deadlineMode.value;
+      if (mode === 'exact') {
+        const ymd = body.querySelector('[data-role="deadline-date"]').value;
+        if (!ymdToDate(ymd)) {
+          setNodeText(body.querySelector('[data-role="deadline-status"]'), 'Selecione uma data válida.');
+          return;
+        }
+        setDeadlineStored(DEADLINE.filterDateKey, ymd);
+      } else if (mode === 'range') {
+        const start = body.querySelector('[data-role="deadline-range-start"]').value;
+        const end = body.querySelector('[data-role="deadline-range-end"]').value;
+        if (!ymdToDate(start) || !ymdToDate(end) || start > end) {
+          setNodeText(body.querySelector('[data-role="deadline-status"]'), 'Informe um período válido, com início anterior ou igual ao fim.');
+          return;
+        }
+        setDeadlineStored(DEADLINE.filterRangeStartKey, start);
+        setDeadlineStored(DEADLINE.filterRangeEndKey, end);
       }
-      setDeadlineStored(DEADLINE.filterDateKey, ymd);
-      setDeadlineFilterMode('exact');
-      setDeadlineFilterEnabled(true);
-      applyDeadlineSettingsChange();
-      renderModal();
-    });
-
-    body.querySelector('[data-role="deadline-apply-range"]')?.addEventListener('click', () => {
-      const start = /** @type {HTMLInputElement | null} */ (body.querySelector('[data-role="deadline-range-start"]'))?.value || '';
-      const end = /** @type {HTMLInputElement | null} */ (body.querySelector('[data-role="deadline-range-end"]'))?.value || '';
-      if (!ymdToDate(start) || !ymdToDate(end)) {
-        setNodeText(body.querySelector('[data-role="deadline-status"]'), 'Selecione data inicial e final válidas.');
-        return;
-      }
-      setDeadlineStored(DEADLINE.filterRangeStartKey, start);
-      setDeadlineStored(DEADLINE.filterRangeEndKey, end);
-      setDeadlineFilterMode('range');
-      setDeadlineFilterEnabled(true);
-      applyDeadlineSettingsChange();
-      renderModal();
-    });
-
-    body.querySelector('[data-role="deadline-apply-missing"]')?.addEventListener('click', () => {
-      setDeadlineFilterMode('missing');
+      setDeadlineFilterMode(mode);
       setDeadlineFilterEnabled(true);
       applyDeadlineSettingsChange();
       renderModal();
@@ -3818,6 +3797,11 @@
     setInputValue(root.querySelector('[data-role="deadline-range-start"]'), getDeadlineRangeStart() || filterDate);
     setInputValue(root.querySelector('[data-role="deadline-range-end"]'), getDeadlineRangeEnd() || filterDate);
     setNodeText(root.querySelector('[data-role="deadline-status"]'), describeActiveDeadlineFilter());
+    setSelectValue(root.querySelector('[data-role="deadline-mode"]'), getDeadlineFilterMode());
+    root.querySelectorAll('[data-deadline-fields]').forEach(fields => {
+      fields.hidden = fields.dataset.deadlineFields !== getDeadlineFilterMode();
+    });
+    root.querySelector('[data-role="deadline-clear"]').disabled = !getDeadlineFilterEnabled();
     setNodeText(root.querySelector('[data-role="summary-title"]'), `${formatCount(summary.visible, 'item', 'itens')} em foco`);
     setNodeText(
       root.querySelector('[data-role="summary-subtitle"]'),
