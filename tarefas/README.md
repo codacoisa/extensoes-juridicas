@@ -47,4 +47,4 @@ Veja o [plano visual](../docs/padronizacao-visual/plano.md) e o [relatório de v
 
 ## Painel do processo
 
-A janela de tarefas do processo tem largura de até 380 px e altura ajustada ao conteúdo. O estado vazio ocupa apenas o espaço necessário; listas maiores e telas baixas mantêm rolagem interna. O atalho junto às anotações acompanha a cor e a escala do botão nativo do Projudi.
+A janela de tarefas do processo tem largura de até 380 px e altura ajustada ao conteúdo. O estado vazio ocupa apenas o espaço necessário; listas maiores e telas baixas mantêm rolagem interna. Os atalhos de Anotações e Tarefas ficam em um grupo local, com cor normal dos botões e espaço reservado para o alfinete girado. A cor própria, os estilos e o evento do alfinete nativo são preservados.

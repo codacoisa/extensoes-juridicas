@@ -44,3 +44,7 @@ As anotações têm função exclusivamente local e organizacional. Elas não al
 Esta extensão usa os componentes e a identidade visual da suíte: fonte nativa, ícones SVG, botões e campos com foco visível, cartões claros e cabeçalhos azul-marinho. Nos gerenciadores, Tab/Shift+Tab ficam dentro do diálogo; Escape fecha primeiro o backup aberto e depois o painel, devolvendo o foco ao controle de abertura. Os atalhos e dados locais permanecem no mesmo formato.
 
 Veja o [plano visual](../docs/padronizacao-visual/plano.md) e o [relatório de validação](../docs/padronizacao-visual/relatorio.md). O `.meta.js` contém somente o cabeçalho, com versão e permissões idênticas às do `.user.js`.
+
+## Atalho no processo
+
+Anotações e Tarefas usam um grupo de ações locais, separado do alfinete nativo. Os atalhos seguem a cor normal dos botões; a cor própria e a rotação do alfinete permanecem originais. O espaçamento considera o desenho girado e o carregamento da fonte, sem alterar os controles nativos.

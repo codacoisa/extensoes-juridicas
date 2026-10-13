@@ -1,0 +1,1780 @@
+{
+  "synthetic": true,
+  "engine": "chromium",
+  "browser": "153.0.8010.12",
+  "before": false,
+  "lateFont": false,
+  "results": [
+    {
+      "framed": false,
+      "order": [
+        0
+      ],
+      "width": 1440,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 1310.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 1371,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        0
+      ],
+      "width": 1180,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 1050.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 1111,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        0
+      ],
+      "width": 900,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 770.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 831,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        0
+      ],
+      "width": 768,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 638.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 699,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        0
+      ],
+      "width": 390,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 260.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 321,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        4
+      ],
+      "width": 1440,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 1310.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 1371,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        4
+      ],
+      "width": 1180,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 1050.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 1111,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        4
+      ],
+      "width": 900,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 770.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 831,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        4
+      ],
+      "width": 768,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 638.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 699,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        4
+      ],
+      "width": 390,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 260.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 321,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        0,
+        4
+      ],
+      "width": 1440,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 1258.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 1319,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 1371,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        0,
+        4
+      ],
+      "width": 1180,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 998.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 1059,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 1111,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        0,
+        4
+      ],
+      "width": 900,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 718.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 779,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 831,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        0,
+        4
+      ],
+      "width": 768,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 586.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 647,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 699,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        0,
+        4
+      ],
+      "width": 390,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 208.24497985839844,
+            "y": 41.36997985839844,
+            "width": 48.26002502441406,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 269,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 321,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        4,
+        0
+      ],
+      "width": 1440,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 1258.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 1319,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 1371,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        4,
+        0
+      ],
+      "width": 1180,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 998.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 1059,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 1111,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        4,
+        0
+      ],
+      "width": 900,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 718.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 779,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 831,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        4,
+        0
+      ],
+      "width": 768,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 586.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 647,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 699,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        4,
+        0
+      ],
+      "width": 390,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 208.24497985839844,
+            "y": 41.36997985839844,
+            "width": 48.26002502441406,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 269,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 321,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "width": 1440,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 1258.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 1319,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 1371,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "width": 1180,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 998.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 1059,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 1111,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "width": 900,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 718.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 779,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 831,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "width": 768,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 586.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 647,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 699,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "width": 390,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 208.24497985839844,
+            "y": 41.36997985839844,
+            "width": 48.26002502441406,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 269,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 321,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        0
+      ],
+      "width": 1440,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 1294.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 1355,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        0
+      ],
+      "width": 1180,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 1034.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 1095,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        0
+      ],
+      "width": 900,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 754.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 815,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        0
+      ],
+      "width": 768,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 622.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 683,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        0
+      ],
+      "width": 390,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 244.24497985839844,
+            "y": 41.36997985839844,
+            "width": 48.26002502441406,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 305,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        4
+      ],
+      "width": 1440,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 1294.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 1355,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        4
+      ],
+      "width": 1180,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 1034.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 1095,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        4
+      ],
+      "width": 900,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 754.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 815,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        4
+      ],
+      "width": 768,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 622.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 683,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        4
+      ],
+      "width": 390,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 244.24497985839844,
+            "y": 41.36997985839844,
+            "width": 48.26002502441406,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 305,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        0,
+        4
+      ],
+      "width": 1440,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 1242.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 1303,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 1355,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        0,
+        4
+      ],
+      "width": 1180,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 982.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 1043,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 1095,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        0,
+        4
+      ],
+      "width": 900,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 702.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 763,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 815,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        0,
+        4
+      ],
+      "width": 768,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 570.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 631,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 683,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        0,
+        4
+      ],
+      "width": 390,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 192.24497985839844,
+            "y": 41.36997985839844,
+            "width": 48.260040283203125,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 253,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 305,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        4,
+        0
+      ],
+      "width": 1440,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 1242.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 1303,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 1355,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        4,
+        0
+      ],
+      "width": 1180,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 982.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 1043,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 1095,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        4,
+        0
+      ],
+      "width": 900,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 702.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 763,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 815,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        4,
+        0
+      ],
+      "width": 768,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 570.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 631,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 683,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        4,
+        0
+      ],
+      "width": 390,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 192.24497985839844,
+            "y": 41.36997985839844,
+            "width": 48.260040283203125,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 253,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 305,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "width": 1440,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 1242.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 1303,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 1355,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "width": 1180,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 982.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 1043,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 1095,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "width": 900,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 702.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 763,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 815,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "width": 768,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 570.2449951171875,
+            "y": 41.36997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 631,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 683,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "width": 390,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "x": 192.24497985839844,
+            "y": 41.36997985839844,
+            "width": 48.260040283203125,
+            "height": 48.260040283203125
+          },
+          {
+            "x": 253,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 305,
+            "y": 60.453125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    }
+  ],
+  "errors": []
+}

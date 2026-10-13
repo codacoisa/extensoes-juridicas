@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Ações do processo sintético</title>
+<style>
+@font-face { font-family: "QA Projudi FA"; src: url("/qa-native-fa-solid.woff2") format("woff2"); font-weight: 900; }
+body { font: 13px Verdana, sans-serif; margin: 16px; background: white; }
+.VisualizaDados { border: 1px solid #ddd; padding: 14px; min-height: 110px; }
+.divBotoesDireita { padding: 0; margin: 0; text-align: right !important; float: right !important; width: auto !important; height: auto !important; }
+.divBotoesDireita button { margin: 0; padding: 0; border: none; background-color: transparent; margin-left: 10px; color: #1a4673; font-size: inherit !important; cursor: pointer; }
+.divBotoesDireita button:hover { opacity: .5; }
+#qa-native-actions .fa-solid { font-family: "QA Projudi FA"; font-weight: 900; display: inline-block; line-height: 1; }
+#qa-native-actions .fa-3x { font-size: 3em; }
+#qa-native-actions .fa-thumbtack::before { content: "\f08d"; }
+#qa-native-actions .fa-handshake::before { content: "\f2b5"; }
+#qa-native-address { color: #42678e; width: 24px; height: 24px; }
+#qa-native-address svg { width: 20px; height: 20px; fill: currentColor; }
+#qa-details { clear: both; padding-top: 20px; }
+</style></head><body>
+<div id="divEditar"><fieldset class="VisualizaDados"><legend>Autos sintéticos</legend>
+<div id="qa-native-actions" class="divBotoesDireita">
+<button id="btnQueroConciliar" type="button" title="Conciliação nativa" style="display:none;border:none;background:none;cursor:pointer"><i class="fa-solid fa-handshake fa-3x" style="color:#51d451"></i></button>
+<button type="button" class="notaProcesso" title="Anotação nativa" onclick="window.__qaNativeClicks=(window.__qaNativeClicks||0)+1"><i style="transform:rotate(45deg);color:#85c1e9" class="fa-solid fa-thumbtack fa-3x"></i></button>
+</div>
+<strong id="span_proc_numero">0000001-00.2026.8.09.0001</strong>
+<section id="qa-details"><button id="qa-native-address" type="button" title="Endereço nativo"><svg viewBox="0 0 24 24"><path d="M2 4h20v16H2zM2 4l10 8 10-8"/></svg></button> Dados fictícios</section>
+</fieldset></div></body></html>

@@ -167,8 +167,8 @@ test('ícones SVG preservam os contratos usados pelas extensões', () => {
 });
 
 test('atalhos do processo e filtros de intimações mantêm o comportamento atual', () => {
-  assert.match(sources.anotacoes, /matchNativeProcessAction\(btn, nativeBtn\)/, 'anotações não acompanha o controle nativo');
-  assert.match(sources.tarefas, /matchNativeProcessAction\(button, nativeNote \|\| anchor\)/, 'tarefas não acompanha o controle nativo');
+  assert.match(sources.anotacoes, /mountLocalProcessAction\(btn, nativeBtn\)/, 'anotações não acompanha o controle nativo');
+  assert.match(sources.tarefas, /mountLocalProcessAction\(button, nativeNote \|\| anchor\)/, 'tarefas não acompanha o controle nativo');
   for (const source of [sources.anotacoes, sources.tarefas]) {
     assert.match(source, /width: var\(--pj-native-action-icon-size, 24px\) !important;/, 'atalho não acompanha a escala nativa');
   }

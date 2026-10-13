@@ -94,7 +94,7 @@ try {
   const iconAlignment = await frame.evaluate(() => {
     const native = document.querySelector('button.notaProcesso svg');
     const controls = [document.querySelector('button.notaProcesso'), document.querySelector('#pj-add-btn'), document.querySelector('#pj-todo-proc-btn')];
-    return { nativeSize: native.getBoundingClientRect().height, nativeColor: getComputedStyle(native).color, added: controls.slice(1).map(button => { const icon = button.querySelector('svg'); return { size: icon.getBoundingClientRect().height, color: getComputedStyle(icon).color }; }), rects: controls.map(button => { const r = button.getBoundingClientRect(); return { x:r.x, y:r.y, width:r.width, height:r.height }; }) };
+    return { nativeSize: native.getBoundingClientRect().height, nativeColor: getComputedStyle(native.closest("button")).color, added: controls.slice(1).map(button => { const icon = button.querySelector('svg'); return { size: icon.getBoundingClientRect().height, color: getComputedStyle(icon).color }; }), rects: controls.map(button => { const r = button.getBoundingClientRect(); return { x:r.x, y:r.y, width:r.width, height:r.height }; }) };
   });
   for (const icon of iconAlignment.added) { assert.equal(icon.size, iconAlignment.nativeSize); assert.equal(icon.color, iconAlignment.nativeColor); }
   const rects = iconAlignment.rects.sort((a,b)=>a.x-b.x);

@@ -1,0 +1,383 @@
+{
+  "synthetic": true,
+  "engine": "webkit",
+  "browser": "26.5",
+  "before": true,
+  "results": [
+    {
+      "framed": false,
+      "order": [
+        0
+      ],
+      "width": 1440,
+      "failures": [
+        "Atalhos herdaram a cor especial do alfinete",
+        "Desenhos de ícones sem folga de 8 px"
+      ],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(133, 193, 233)"
+        ],
+        "rects": [
+          {
+            "x": 1328.2083740234375,
+            "y": 41.458370208740234,
+            "width": 48.260009765625,
+            "height": 48.26003646850586
+          },
+          {
+            "x": 1371,
+            "y": 60.578125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 0
+      }
+    },
+    {
+      "framed": false,
+      "order": [
+        4
+      ],
+      "width": 1440,
+      "failures": [
+        "Atalhos herdaram a cor especial do alfinete",
+        "Desenhos de ícones sem folga de 8 px"
+      ],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(133, 193, 233)"
+        ],
+        "rects": [
+          {
+            "x": 1328.2083740234375,
+            "y": 41.458370208740234,
+            "width": 48.260009765625,
+            "height": 48.26003646850586
+          },
+          {
+            "x": 1371,
+            "y": 60.578125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 0
+      }
+    },
+    {
+      "framed": false,
+      "order": [
+        0,
+        4
+      ],
+      "width": 1440,
+      "failures": [
+        "Atalhos herdaram a cor especial do alfinete",
+        "Desenhos de ícones sem folga de 8 px"
+      ],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(133, 193, 233)",
+          "rgb(133, 193, 233)"
+        ],
+        "rects": [
+          {
+            "x": 1288.2083740234375,
+            "y": 41.458370208740234,
+            "width": 48.260009765625,
+            "height": 48.26003646850586
+          },
+          {
+            "x": 1331,
+            "y": 60.578125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 1371,
+            "y": 60.578125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 0
+      }
+    },
+    {
+      "framed": false,
+      "order": [
+        4,
+        0
+      ],
+      "width": 1440,
+      "failures": [
+        "Atalhos herdaram a cor especial do alfinete",
+        "Desenhos de ícones sem folga de 8 px"
+      ],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(133, 193, 233)",
+          "rgb(133, 193, 233)"
+        ],
+        "rects": [
+          {
+            "x": 1288.2083740234375,
+            "y": 41.458370208740234,
+            "width": 48.260009765625,
+            "height": 48.26003646850586
+          },
+          {
+            "x": 1331,
+            "y": 60.578125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 1371,
+            "y": 60.578125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 0
+      }
+    },
+    {
+      "framed": false,
+      "order": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "width": 1440,
+      "failures": [
+        "Atalhos herdaram a cor especial do alfinete",
+        "Desenhos de ícones sem folga de 8 px"
+      ],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(133, 193, 233)",
+          "rgb(133, 193, 233)"
+        ],
+        "rects": [
+          {
+            "x": 1288.2083740234375,
+            "y": 41.458370208740234,
+            "width": 48.260009765625,
+            "height": 48.26003646850586
+          },
+          {
+            "x": 1331,
+            "y": 60.578125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 1371,
+            "y": 60.578125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 0
+      }
+    },
+    {
+      "framed": true,
+      "order": [
+        0
+      ],
+      "width": 1440,
+      "failures": [
+        "Atalhos herdaram a cor especial do alfinete",
+        "Desenhos de ícones sem folga de 8 px"
+      ],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(133, 193, 233)"
+        ],
+        "rects": [
+          {
+            "x": 1312.2083740234375,
+            "y": 41.458370208740234,
+            "width": 48.260009765625,
+            "height": 48.26003646850586
+          },
+          {
+            "x": 1355,
+            "y": 60.578125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 0
+      }
+    },
+    {
+      "framed": true,
+      "order": [
+        4
+      ],
+      "width": 1440,
+      "failures": [
+        "Atalhos herdaram a cor especial do alfinete",
+        "Desenhos de ícones sem folga de 8 px"
+      ],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(133, 193, 233)"
+        ],
+        "rects": [
+          {
+            "x": 1312.2083740234375,
+            "y": 41.458370208740234,
+            "width": 48.260009765625,
+            "height": 48.26003646850586
+          },
+          {
+            "x": 1355,
+            "y": 60.578125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 0
+      }
+    },
+    {
+      "framed": true,
+      "order": [
+        0,
+        4
+      ],
+      "width": 1440,
+      "failures": [
+        "Atalhos herdaram a cor especial do alfinete",
+        "Desenhos de ícones sem folga de 8 px"
+      ],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(133, 193, 233)",
+          "rgb(133, 193, 233)"
+        ],
+        "rects": [
+          {
+            "x": 1272.2083740234375,
+            "y": 41.458370208740234,
+            "width": 48.260009765625,
+            "height": 48.26003646850586
+          },
+          {
+            "x": 1315,
+            "y": 60.578125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 1355,
+            "y": 60.578125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 0
+      }
+    },
+    {
+      "framed": true,
+      "order": [
+        4,
+        0
+      ],
+      "width": 1440,
+      "failures": [
+        "Atalhos herdaram a cor especial do alfinete",
+        "Desenhos de ícones sem folga de 8 px"
+      ],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(133, 193, 233)",
+          "rgb(133, 193, 233)"
+        ],
+        "rects": [
+          {
+            "x": 1272.2083740234375,
+            "y": 41.458370208740234,
+            "width": 48.260009765625,
+            "height": 48.26003646850586
+          },
+          {
+            "x": 1315,
+            "y": 60.578125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 1355,
+            "y": 60.578125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 0
+      }
+    },
+    {
+      "framed": true,
+      "order": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "width": 1440,
+      "failures": [
+        "Atalhos herdaram a cor especial do alfinete",
+        "Desenhos de ícones sem folga de 8 px"
+      ],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(133, 193, 233)",
+          "rgb(133, 193, 233)"
+        ],
+        "rects": [
+          {
+            "x": 1272.2083740234375,
+            "y": 41.458370208740234,
+            "width": 48.260009765625,
+            "height": 48.26003646850586
+          },
+          {
+            "x": 1315,
+            "y": 60.578125,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "x": 1355,
+            "y": 60.578125,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 0
+      }
+    }
+  ],
+  "errors": []
+}

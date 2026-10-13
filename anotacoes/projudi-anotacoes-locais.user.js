@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Anotações
 // @namespace    projudi-anotacoes-locais.user.js
-// @version      2026.10.08-01:31
+// @version      2026.10.13-10:10
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Adiciona Post-it local ao Projudi, com painel de notas, importação e exportação.
 // @author       lourencosv (GPT)
@@ -313,6 +313,64 @@
         'box-shadow': 'none', 'line-height': '1', overflow: 'visible', cursor: 'pointer'
       })) button.style.setProperty(name, value, 'important');
       button.classList.add('pj-native-process-action');
+    }
+
+    // Somente os atalhos locais entram no grupo; controles nativos não são movidos
+    // nem recebem classes, estilos ou renderização de SVG da suíte.
+    function mountLocalProcessAction(button, anchor) {
+      if (!button || !anchor?.parentElement) return;
+      matchNativeProcessAction(button, anchor);
+      const doc = anchor.ownerDocument;
+      const win = doc.defaultView;
+      const nativeStyle = win.getComputedStyle(anchor);
+      button.style.setProperty('--pj-native-action-color', nativeStyle.color);
+      button.style.setProperty('float', 'none', 'important');
+      button.style.setProperty('margin', '0', 'important');
+      let group = doc.getElementById('pj-local-process-actions');
+      if (group && group.parentElement !== anchor.parentElement) {
+        group.remove();
+        group = null;
+      }
+      if (!group) {
+        group = doc.createElement('span');
+        group.id = 'pj-local-process-actions';
+        group.setAttribute('role', 'group');
+        group.setAttribute('aria-label', 'Anotações e tarefas locais do processo');
+        group.style.cssText = 'display:inline-flex;align-items:center;gap:12px;vertical-align:middle;';
+        anchor.insertAdjacentElement('afterend', group);
+        const icon = anchor.querySelector('i, svg') || anchor;
+        let resizeObserver;
+        const refreshSpacing = () => {
+          if (!group.isConnected || !anchor.isConnected) {
+            resizeObserver?.disconnect();
+            return;
+          }
+          const box = anchor.getBoundingClientRect();
+          const paint = icon.getBoundingClientRect();
+          const floatedRight = win.getComputedStyle(anchor).float === 'right';
+          const overflow = floatedRight ? box.left - paint.left : paint.right - box.right;
+          const gap = `${Math.ceil(Math.max(12, overflow + 8))}px`;
+          group.style.float = floatedRight ? 'right' : 'none';
+          group.style.marginLeft = floatedRight ? '0' : gap;
+          group.style.marginRight = floatedRight ? gap : '0';
+        };
+        if (win.ResizeObserver) {
+          resizeObserver = new win.ResizeObserver(refreshSpacing);
+          resizeObserver.observe(icon);
+        }
+        doc.fonts?.ready.then(refreshSpacing);
+        const observer = new win.MutationObserver(() => {
+          if (group.childElementCount) return;
+          observer.disconnect();
+          resizeObserver?.disconnect();
+          group.remove();
+        });
+        observer.observe(group, { childList: true });
+        refreshSpacing();
+      }
+      // A ordem permanece a mesma, independentemente da ordem de carregamento.
+      const tasksButton = group.querySelector('#pj-todo-proc-btn');
+      group.insertBefore(button, button.id === 'pj-add-btn' ? tasksButton : null);
     }
 
     const SUITE_COMPONENTS = {
@@ -2059,7 +2117,7 @@ html = persistentGet(key, '');
     }
 
     function applyIntegratedButtonLayout(btn, nativeBtn) {
-        matchNativeProcessAction(btn, nativeBtn);
+        mountLocalProcessAction(btn, nativeBtn);
     }
 
     function mountButton() {
@@ -2100,14 +2158,6 @@ html = persistentGet(key, '');
 
         applyIntegratedButtonLayout(btn, nativeNoteButton);
 
-        const parentCs = window.getComputedStyle(nativeNoteButton.parentElement);
-        const parentDisplay = parentCs.display || '';
-        const parentFlexDir = parentCs.flexDirection || '';
-        const visualOrderReversed = parentDisplay.includes('flex') && parentFlexDir.includes('reverse');
-        const nativeFloat = window.getComputedStyle(nativeNoteButton).float;
-        const insertBefore = nativeFloat === 'right' || visualOrderReversed;
-
-        nativeNoteButton.insertAdjacentElement(insertBefore ? 'beforebegin' : 'afterend', btn);
         renderFontAwesome(btn);
 
         state.mounted = true;
