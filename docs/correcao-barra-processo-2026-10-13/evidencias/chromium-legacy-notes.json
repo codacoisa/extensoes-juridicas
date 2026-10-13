@@ -1,0 +1,396 @@
+{
+  "synthetic": true,
+  "engine": "chromium",
+  "browser": "153.0.8010.12",
+  "before": false,
+  "lateFont": false,
+  "conciliation": true,
+  "legacyIndex": 0,
+  "results": [
+    {
+      "framed": false,
+      "order": [
+        0,
+        4
+      ],
+      "width": 1440,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "id": "btnQueroConciliar",
+            "x": 1185,
+            "y": 46.5,
+            "width": 48.75,
+            "height": 39
+          },
+          {
+            "id": "native",
+            "x": 1252.2449951171875,
+            "y": 41.86997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "id": "pj-add-btn",
+            "x": 1319,
+            "y": 50,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "id": "pj-todo-proc-btn",
+            "x": 1371,
+            "y": 50,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        0,
+        4
+      ],
+      "width": 390,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "id": "btnQueroConciliar",
+            "x": 135,
+            "y": 46.5,
+            "width": 48.75,
+            "height": 39
+          },
+          {
+            "id": "native",
+            "x": 202.24497985839844,
+            "y": 41.86997985839844,
+            "width": 48.260040283203125,
+            "height": 48.260040283203125
+          },
+          {
+            "id": "pj-add-btn",
+            "x": 269,
+            "y": 50,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "id": "pj-todo-proc-btn",
+            "x": 321,
+            "y": 50,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        4,
+        0
+      ],
+      "width": 1440,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "id": "btnQueroConciliar",
+            "x": 1185,
+            "y": 46.5,
+            "width": 48.75,
+            "height": 39
+          },
+          {
+            "id": "native",
+            "x": 1252.2449951171875,
+            "y": 41.86997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "id": "pj-add-btn",
+            "x": 1319,
+            "y": 50,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "id": "pj-todo-proc-btn",
+            "x": 1371,
+            "y": 50,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": false,
+      "order": [
+        4,
+        0
+      ],
+      "width": 390,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "id": "btnQueroConciliar",
+            "x": 135,
+            "y": 46.5,
+            "width": 48.75,
+            "height": 39
+          },
+          {
+            "id": "native",
+            "x": 202.24497985839844,
+            "y": 41.86997985839844,
+            "width": 48.260040283203125,
+            "height": 48.260040283203125
+          },
+          {
+            "id": "pj-add-btn",
+            "x": 269,
+            "y": 50,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "id": "pj-todo-proc-btn",
+            "x": 321,
+            "y": 50,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        0,
+        4
+      ],
+      "width": 1440,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "id": "btnQueroConciliar",
+            "x": 1169,
+            "y": 46.5,
+            "width": 48.75,
+            "height": 39
+          },
+          {
+            "id": "native",
+            "x": 1236.2449951171875,
+            "y": 41.86997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "id": "pj-add-btn",
+            "x": 1303,
+            "y": 50,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "id": "pj-todo-proc-btn",
+            "x": 1355,
+            "y": 50,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        0,
+        4
+      ],
+      "width": 390,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "id": "btnQueroConciliar",
+            "x": 119,
+            "y": 46.5,
+            "width": 48.75,
+            "height": 39
+          },
+          {
+            "id": "native",
+            "x": 186.24497985839844,
+            "y": 41.86997985839844,
+            "width": 48.260040283203125,
+            "height": 48.260040283203125
+          },
+          {
+            "id": "pj-add-btn",
+            "x": 253,
+            "y": 50,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "id": "pj-todo-proc-btn",
+            "x": 305,
+            "y": 50,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        4,
+        0
+      ],
+      "width": 1440,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "id": "btnQueroConciliar",
+            "x": 1169,
+            "y": 46.5,
+            "width": 48.75,
+            "height": 39
+          },
+          {
+            "id": "native",
+            "x": 1236.2449951171875,
+            "y": 41.86997985839844,
+            "width": 48.260009765625,
+            "height": 48.260040283203125
+          },
+          {
+            "id": "pj-add-btn",
+            "x": 1303,
+            "y": 50,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "id": "pj-todo-proc-btn",
+            "x": 1355,
+            "y": 50,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    },
+    {
+      "framed": true,
+      "order": [
+        4,
+        0
+      ],
+      "width": 390,
+      "failures": [],
+      "geometry": {
+        "nativeColor": "rgb(26, 70, 115)",
+        "addedColors": [
+          "rgb(26, 70, 115)",
+          "rgb(26, 70, 115)"
+        ],
+        "rects": [
+          {
+            "id": "btnQueroConciliar",
+            "x": 119,
+            "y": 46.5,
+            "width": 48.75,
+            "height": 39
+          },
+          {
+            "id": "native",
+            "x": 186.24497985839844,
+            "y": 41.86997985839844,
+            "width": 48.260040283203125,
+            "height": 48.260040283203125
+          },
+          {
+            "id": "pj-add-btn",
+            "x": 253,
+            "y": 50,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "id": "pj-todo-proc-btn",
+            "x": 305,
+            "y": 50,
+            "width": 32,
+            "height": 32
+          }
+        ],
+        "groupCount": 1
+      },
+      "actionsVerified": true
+    }
+  ],
+  "errors": []
+}

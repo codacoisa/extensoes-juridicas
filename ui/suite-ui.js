@@ -27,7 +27,8 @@ function matchNativeProcessAction(button, anchor) {
 }
 
 // Somente os atalhos locais entram no grupo; controles nativos não são movidos
-// nem recebem classes, estilos ou renderização de SVG da suíte.
+// nem recebem classes ou renderização de SVG da suíte. A barra administra
+// somente o alinhamento; as cores e a rotação dos nativos ficam intactas.
 function mountLocalProcessAction(button, anchor) {
   if (!button || !anchor?.parentElement) return;
   matchNativeProcessAction(button, anchor);
@@ -38,18 +39,30 @@ function mountLocalProcessAction(button, anchor) {
   button.style.setProperty('float', 'none', 'important');
   button.style.setProperty('margin', '0', 'important');
   let group = doc.getElementById('pj-local-process-actions');
+  let retainedButtons = [];
   if (group && group.parentElement !== anchor.parentElement) {
+    group.remove();
+    group = null;
+  }
+  if (group && group.dataset.pjProcessActionsLayout !== 'flex-row-v2') {
+    retainedButtons = [...group.children];
     group.remove();
     group = null;
   }
   if (!group) {
     group = doc.createElement('span');
     group.id = 'pj-local-process-actions';
+    group.dataset.pjProcessActionsLayout = 'flex-row-v2';
     group.setAttribute('role', 'group');
     group.setAttribute('aria-label', 'Anotações e tarefas locais do processo');
     group.style.cssText = 'display:inline-flex;align-items:center;gap:12px;vertical-align:middle;';
     anchor.insertAdjacentElement('afterend', group);
     const icon = anchor.querySelector('i, svg') || anchor;
+    const bar = anchor.parentElement;
+    const managedBar = bar.classList.contains('divBotoesDireita');
+    const hadStyle = bar.hasAttribute('style');
+    const layoutProperties = ['display', 'align-items', 'column-gap'];
+    const previousLayout = layoutProperties.map(name => [name, bar.style.getPropertyValue(name), bar.style.getPropertyPriority(name)]);
     let resizeObserver;
     const refreshSpacing = () => {
       if (!group.isConnected || !anchor.isConnected) {
@@ -58,12 +71,25 @@ function mountLocalProcessAction(button, anchor) {
       }
       const box = anchor.getBoundingClientRect();
       const paint = icon.getBoundingClientRect();
-      const floatedRight = win.getComputedStyle(anchor).float === 'right';
-      const overflow = floatedRight ? box.left - paint.left : paint.right - box.right;
-      const gap = `${Math.ceil(Math.max(12, overflow + 8))}px`;
-      group.style.float = floatedRight ? 'right' : 'none';
-      group.style.marginLeft = floatedRight ? '0' : gap;
-      group.style.marginRight = floatedRight ? gap : '0';
+      if (managedBar) {
+        // Floats não participam da disposição de itens flex. Assim o alfinete
+        // não sai da sequência quando o Projudi exibe a conciliação.
+        const overflow = Math.max(box.left - paint.left, paint.right - box.right, 0);
+        const gap = `${Math.ceil(Math.max(12, overflow + 8))}px`;
+        bar.style.setProperty('display', 'inline-flex', 'important');
+        bar.style.setProperty('align-items', 'center', 'important');
+        bar.style.setProperty('column-gap', gap, 'important');
+        group.style.float = 'none';
+        group.style.marginLeft = `${Math.max(0, (parseFloat(win.getComputedStyle(anchor).marginLeft) || 0) - 4)}px`;
+        group.style.marginRight = '0';
+      } else {
+        const floatedRight = win.getComputedStyle(anchor).float === 'right';
+        const overflow = floatedRight ? box.left - paint.left : paint.right - box.right;
+        const gap = `${Math.ceil(Math.max(12, overflow + 8))}px`;
+        group.style.float = floatedRight ? 'right' : 'none';
+        group.style.marginLeft = floatedRight ? '0' : gap;
+        group.style.marginRight = floatedRight ? gap : '0';
+      }
     };
     if (win.ResizeObserver) {
       resizeObserver = new win.ResizeObserver(refreshSpacing);
@@ -75,11 +101,19 @@ function mountLocalProcessAction(button, anchor) {
       observer.disconnect();
       resizeObserver?.disconnect();
       group.remove();
+      if (managedBar) {
+        previousLayout.forEach(([name, value, priority]) => {
+          if (value) bar.style.setProperty(name, value, priority);
+          else bar.style.removeProperty(name);
+        });
+        if (!hadStyle && !bar.style.length) bar.removeAttribute('style');
+      }
     });
     observer.observe(group, { childList: true });
     refreshSpacing();
   }
   // A ordem permanece a mesma, independentemente da ordem de carregamento.
+  retainedButtons.forEach(retained => group.appendChild(retained));
   const tasksButton = group.querySelector('#pj-todo-proc-btn');
   group.insertBefore(button, button.id === 'pj-add-btn' ? tasksButton : null);
 }

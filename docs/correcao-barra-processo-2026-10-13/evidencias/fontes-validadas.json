@@ -1,0 +1,27 @@
+[
+  {
+    "arquivo": "anotacoes/projudi-anotacoes-locais.user.js",
+    "versao": "2026.10.13-10:38",
+    "sha256": "cbdf1730704312613c693e682844745ef4dc1673bd3bbe10c22c4a62efe38ab9"
+  },
+  {
+    "arquivo": "centraldeguias/projudi-central-guias.user.js",
+    "versao": "2026.10.13-10:38",
+    "sha256": "5a1c1a8e1b632eea5d2d2b0d3bdb805eae06539ccc83ee27dbb358e0e751adf1"
+  },
+  {
+    "arquivo": "customizacoes/projudi-customizacoes.user.js",
+    "versao": "2026.10.13-10:38",
+    "sha256": "67a6186f1e025bc423951e3b8748f9015a2001a95f2cd935217ea36dd78449c4"
+  },
+  {
+    "arquivo": "intimacoes/projudi-intimacao-page.user.js",
+    "versao": "2026.10.13-10:38",
+    "sha256": "d039076e41ddaa0ddb8faf2a0578694ca76587832b45debea1b986425c3dd501"
+  },
+  {
+    "arquivo": "tarefas/projudi-tarefas-locais.user.js",
+    "versao": "2026.10.13-10:38",
+    "sha256": "70945838f90da67740ed5307983a916e77dbbcb4c9d11dd3ec77a693a2c9f426"
+  }
+]

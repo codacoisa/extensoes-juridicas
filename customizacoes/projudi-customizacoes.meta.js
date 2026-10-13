@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      2026.10.13-10:10
+// @version      2026.10.13-10:38
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv (GPT)

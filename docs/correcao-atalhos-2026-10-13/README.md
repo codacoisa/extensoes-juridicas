@@ -1,5 +1,7 @@
 # Correção de Anotações e Tarefas — 13/10/2026
 
+Esta revisão foi complementada pela [correção da barra com conciliação visível](../correcao-barra-processo-2026-10-13/README.md), que inclui a regra nativa de float omitida na fixture anterior.
+
 ## Diagnóstico no Safari
 
 A sessão autenticada estava aberta em um processo no iframe `userMainFrame`. A inspeção visual e uma cópia do código-fonte do quadro, exportada pelo diálogo nativo do Safari, confirmaram a estrutura `.divBotoesDireita` com o botão `notaProcesso`. O alfinete nativo possui `fa-3x`, rotação de 45° e cor própria `#85c1e9`. A barra usa fluxo em linha dentro de um contêiner flutuado à direita. A cópia privada permanece temporária, fora deste repositório.

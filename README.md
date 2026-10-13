@@ -72,3 +72,5 @@ O QA reproduzível fica em `scripts/qa-browser.mjs` e `scripts/qa-interactions.m
 Os [ajustes dos cinco prints de 08/10/2026](docs/ajustes-prints-2026-10-08/README.md) registram os controles de exibição do resumo, filtros unificados, ações nativas e janela compacta, com evidências sintéticas e o limite da validação no Safari.
 
 A [correção dos atalhos de Anotações e Tarefas em 13/10/2026](docs/correcao-atalhos-2026-10-13/README.md) preserva os ícones nativos e considera o espaço ocupado pelo alfinete girado, com reprodução da regressão e validação em Chromium/WebKit.
+
+A [correção da barra com conciliação visível](docs/correcao-barra-processo-2026-10-13/README.md) complementa a revisão dos atalhos: inclui o float nativo do alfinete, mantém os quatro controles em uma linha e verifica a ordem visual e o espaçamento em Chromium/WebKit.
