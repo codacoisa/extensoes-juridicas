@@ -1,0 +1,596 @@
+{
+  "synthetic": true,
+  "engine": "webkit",
+  "browser": "26.5",
+  "checks": [
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        0,
+        1
+      ],
+      "width": 1440,
+      "profile": "moderno"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        0,
+        1
+      ],
+      "width": 1440,
+      "profile": "tabelas"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        0,
+        1
+      ],
+      "width": 1440,
+      "profile": "formularios"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        0,
+        1
+      ],
+      "width": 1440,
+      "profile": "completo"
+    },
+    {
+      "name": "Perfis, abas por teclado, cancelamento e preservação de preferências",
+      "framed": false,
+      "order": [
+        0,
+        1
+      ],
+      "width": 1440
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        0,
+        1
+      ],
+      "width": 768,
+      "profile": "moderno"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        0,
+        1
+      ],
+      "width": 768,
+      "profile": "tabelas"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        0,
+        1
+      ],
+      "width": 768,
+      "profile": "formularios"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        0,
+        1
+      ],
+      "width": 768,
+      "profile": "completo"
+    },
+    {
+      "name": "Perfis, abas por teclado, cancelamento e preservação de preferências",
+      "framed": false,
+      "order": [
+        0,
+        1
+      ],
+      "width": 768
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        0,
+        1
+      ],
+      "width": 390,
+      "profile": "moderno"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        0,
+        1
+      ],
+      "width": 390,
+      "profile": "tabelas"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        0,
+        1
+      ],
+      "width": 390,
+      "profile": "formularios"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        0,
+        1
+      ],
+      "width": 390,
+      "profile": "completo"
+    },
+    {
+      "name": "Perfis, abas por teclado, cancelamento e preservação de preferências",
+      "framed": false,
+      "order": [
+        0,
+        1
+      ],
+      "width": 390
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        1,
+        0
+      ],
+      "width": 1440,
+      "profile": "moderno"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        1,
+        0
+      ],
+      "width": 1440,
+      "profile": "tabelas"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        1,
+        0
+      ],
+      "width": 1440,
+      "profile": "formularios"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        1,
+        0
+      ],
+      "width": 1440,
+      "profile": "completo"
+    },
+    {
+      "name": "Perfis, abas por teclado, cancelamento e preservação de preferências",
+      "framed": false,
+      "order": [
+        1,
+        0
+      ],
+      "width": 1440
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        1,
+        0
+      ],
+      "width": 768,
+      "profile": "moderno"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        1,
+        0
+      ],
+      "width": 768,
+      "profile": "tabelas"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        1,
+        0
+      ],
+      "width": 768,
+      "profile": "formularios"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        1,
+        0
+      ],
+      "width": 768,
+      "profile": "completo"
+    },
+    {
+      "name": "Perfis, abas por teclado, cancelamento e preservação de preferências",
+      "framed": false,
+      "order": [
+        1,
+        0
+      ],
+      "width": 768
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        1,
+        0
+      ],
+      "width": 390,
+      "profile": "moderno"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        1,
+        0
+      ],
+      "width": 390,
+      "profile": "tabelas"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        1,
+        0
+      ],
+      "width": 390,
+      "profile": "formularios"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": false,
+      "order": [
+        1,
+        0
+      ],
+      "width": 390,
+      "profile": "completo"
+    },
+    {
+      "name": "Perfis, abas por teclado, cancelamento e preservação de preferências",
+      "framed": false,
+      "order": [
+        1,
+        0
+      ],
+      "width": 390
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        0,
+        1
+      ],
+      "width": 1440,
+      "profile": "moderno"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        0,
+        1
+      ],
+      "width": 1440,
+      "profile": "tabelas"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        0,
+        1
+      ],
+      "width": 1440,
+      "profile": "formularios"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        0,
+        1
+      ],
+      "width": 1440,
+      "profile": "completo"
+    },
+    {
+      "name": "Perfis, abas por teclado, cancelamento e preservação de preferências",
+      "framed": true,
+      "order": [
+        0,
+        1
+      ],
+      "width": 1440
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        0,
+        1
+      ],
+      "width": 768,
+      "profile": "moderno"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        0,
+        1
+      ],
+      "width": 768,
+      "profile": "tabelas"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        0,
+        1
+      ],
+      "width": 768,
+      "profile": "formularios"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        0,
+        1
+      ],
+      "width": 768,
+      "profile": "completo"
+    },
+    {
+      "name": "Perfis, abas por teclado, cancelamento e preservação de preferências",
+      "framed": true,
+      "order": [
+        0,
+        1
+      ],
+      "width": 768
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        0,
+        1
+      ],
+      "width": 390,
+      "profile": "moderno"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        0,
+        1
+      ],
+      "width": 390,
+      "profile": "tabelas"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        0,
+        1
+      ],
+      "width": 390,
+      "profile": "formularios"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        0,
+        1
+      ],
+      "width": 390,
+      "profile": "completo"
+    },
+    {
+      "name": "Perfis, abas por teclado, cancelamento e preservação de preferências",
+      "framed": true,
+      "order": [
+        0,
+        1
+      ],
+      "width": 390
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        1,
+        0
+      ],
+      "width": 1440,
+      "profile": "moderno"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        1,
+        0
+      ],
+      "width": 1440,
+      "profile": "tabelas"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        1,
+        0
+      ],
+      "width": 1440,
+      "profile": "formularios"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        1,
+        0
+      ],
+      "width": 1440,
+      "profile": "completo"
+    },
+    {
+      "name": "Perfis, abas por teclado, cancelamento e preservação de preferências",
+      "framed": true,
+      "order": [
+        1,
+        0
+      ],
+      "width": 1440
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        1,
+        0
+      ],
+      "width": 768,
+      "profile": "moderno"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        1,
+        0
+      ],
+      "width": 768,
+      "profile": "tabelas"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        1,
+        0
+      ],
+      "width": 768,
+      "profile": "formularios"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        1,
+        0
+      ],
+      "width": 768,
+      "profile": "completo"
+    },
+    {
+      "name": "Perfis, abas por teclado, cancelamento e preservação de preferências",
+      "framed": true,
+      "order": [
+        1,
+        0
+      ],
+      "width": 768
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        1,
+        0
+      ],
+      "width": 390,
+      "profile": "moderno"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        1,
+        0
+      ],
+      "width": 390,
+      "profile": "tabelas"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        1,
+        0
+      ],
+      "width": 390,
+      "profile": "formularios"
+    },
+    {
+      "name": "Integração de tema e Intimações",
+      "framed": true,
+      "order": [
+        1,
+        0
+      ],
+      "width": 390,
+      "profile": "completo"
+    },
+    {
+      "name": "Perfis, abas por teclado, cancelamento e preservação de preferências",
+      "framed": true,
+      "order": [
+        1,
+        0
+      ],
+      "width": 390
+    }
+  ],
+  "errors": []
+}

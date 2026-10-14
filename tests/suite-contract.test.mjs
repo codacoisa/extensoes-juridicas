@@ -256,11 +256,11 @@ test('Customizações reverte integralmente recursos visuais', () => {
   assert.match(source, /fontAwesomeSprites\.delete\(doc\);[\s\S]{0,100}?Falha ao preparar ícones SVG/, 'uma falha temporária de ícones permanece armazenada');
   assert.match(source, /function ensureFontAwesome\(doc = document\) \{\s*if \(!doc \|\| !doc\.head\) return Promise\.resolve\(null\);/, 'a preparação de ícones pode devolver um valor incompatível com renderFontAwesome');
   assert.doesNotMatch(source, /projudi-customizacoes-open-settings|MOV_TABLE_ROWS_SELECTOR/, 'o script conserva protocolos ou seletores sem consumidor');
-  assert.match(source, /function syncModernTableSemantics\(doc\)[\s\S]{0,700}?normalizeLabel\(cell\.textContent\) === "qtde"[\s\S]{0,180}?data-pjc-column-kind", "quantity"/, 'a coluna Qtde não recebe semântica de alinhamento');
+  assert.match(source, /function syncModernTableSemantics\(doc\)[\s\S]{0,1200}?normalizeLabel\(cell\.textContent\) === "qtde"[\s\S]{0,700}?data-pjc-column-kind", "quantity"/, 'a coluna Qtde não recebe semântica de alinhamento');
   assert.match(source, /table\$\{nativePopupTableGuard\} :is\(th, td\)\[data-pjc-column-kind="quantity"\] \{\s*text-align: center !important;/, 'o cabeçalho Qtde não acompanha o alinhamento dos valores');
   assert.match(source, /function findNativePopupRoots\(doc\)[\s\S]{0,500}?"\.ui-dialog"[\s\S]{0,300}?"#simplemodal-container"/, 'os diálogos nativos conhecidos não são reconhecidos');
   assert.match(source, /normalizeLabel\(ownText\)\.startsWith\("consulta de "\)[\s\S]{0,700}?current\.querySelector\("table"\)/, 'consultas modais sem classe conhecida não possuem detecção estrutural');
-  assert.match(source, /new MutationObserver\(\(\) => scheduleNativePopupTableSync\(doc\)\)[\s\S]{0,140}?childList: true, subtree: true/, 'tabelas inseridas dinamicamente em pop-ups não são protegidas');
+  assert.match(source, /new MutationObserver\(mutations =>[\s\S]{0,140}?onlySuiteMutations\(mutations\)[\s\S]{0,140}?scheduleNativePopupTableSync\(doc\)[\s\S]{0,140}?childList: true, subtree: true/, 'tabelas inseridas dinamicamente em pop-ups não são protegidas');
   assert.match(source, /const nativePopupTableGuard = ":not\(\[data-pjc-native-popup-table\]\)";[\s\S]{0,450}?table\.Tabela:not\(\.pjip-table\)\$\{nativePopupTableGuard\}/, 'tabelas de pop-ups ainda recebem o espaçamento do tema moderno');
   assert.match(source, /function resetLayoutEffects\(\)[\s\S]{0,900}?teardownNativePopupTableObserver\(document\);[\s\S]{0,900}?teardownNativePopupTableObserver\(iframe\.contentDocument\);/, 'desativar as customizações deixa observers de pop-up ativos');
   assert.match(source, /function syncServentiaSelectionContext\(doc\)[\s\S]{0,850}?data-pjc-serventia-selection/, 'a seleção de serventias não possui contexto visual próprio');
@@ -269,7 +269,9 @@ test('Customizações reverte integralmente recursos visuais', () => {
   assert.match(source, /html\[data-pjc-serventia-selection\] body > fieldset \{[\s\S]{0,280}?width: \$\{widthEnabled \? widthValue/, 'os cartões autônomos de serventia escapam da largura configurada');
   assert.match(source, /html\[data-pjc-serventia-selection\] body > fieldset > legend/, 'a estrutura real da seleção de serventias não recebe o visual especializado');
   assert.match(source, /const BASE_CONTENT_FONT_PX = 12;/, 'o tema moderno não preserva a escala tipográfica nativa do Projudi');
-  assert.match(source, /font-size: \$\{settings\.fontScaleEnabled \? scaledFontPx : BASE_CONTENT_FONT_PX\}px !important;/, 'o tema moderno ainda impõe uma fonte maior quando a escala está desativada');
+  const modernVisualCss = source.match(/const modernVisualCss = settings\.modernVisualEnabled \? `([\s\S]*?)` : "";/)?.[1] || '';
+  assert.ok(modernVisualCss, 'CSS do tema moderno ausente');
+  assert.doesNotMatch(modernVisualCss, /font-size:\s*\$\{settings\.fontScaleEnabled/, 'o tema moderno impõe tamanho de fonte sem ajuste explícito de escala');
   assert.match(source, /function isPublicLandingPage\(\)[\s\S]{0,360}?pathname === "\/"/, 'a página pública inicial não é reconhecida explicitamente');
   assert.match(source, /function isStandaloneContentPage\(\)[\s\S]{0,260}?isPublicLandingPage\(\)[\s\S]{0,220}?\/\\\/Usuario\\b\/i/, 'páginas autônomas autenticadas não estão separadas da entrada pública');
   assert.match(source, /!settings\.applyToStandalonePages && !hasStandaloneVisualFeatures\(\)/, 'o visual autônomo ainda depende do ajuste de largura');

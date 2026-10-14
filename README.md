@@ -74,3 +74,5 @@ A [correção dos atalhos de Anotações e Tarefas em 13/10/2026](docs/correcao-
 A [correção da barra com conciliação visível](docs/correcao-barra-processo-2026-10-13/README.md) complementa a revisão dos atalhos: inclui o float nativo do alfinete, mantém os quatro controles em uma linha e verifica a ordem visual e o espaçamento em Chromium/WebKit.
 
 A [correção da largura dos atalhos em 13/10/2026](docs/correcao-largura-atalhos-2026-10-13/README.md) remove o espaço herdado dos campos nativos de dados e verifica o alinhamento da barra à direita.
+
+A [revisão de Customizações em 14/10/2026](docs/customizacoes-2026-10-14/README.md) melhora os perfis e o teclado, preserva as preferências e valida a integração do tema moderno com Intimações.

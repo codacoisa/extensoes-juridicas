@@ -1,0 +1,38 @@
+{
+  "synthetic": true,
+  "version": "2026.10.14-00:25",
+  "engines": {
+    "webkit": {
+      "specific": 60,
+      "interactions": 17,
+      "opening": 5
+    },
+    "chromium": {
+      "specific": 60,
+      "interactions": 17,
+      "opening": 5
+    }
+  },
+  "sources": [
+    {
+      "file": "customizacoes/projudi-customizacoes.user.js",
+      "sha256": "cde9d7cb2af61efb62a89fa29a04a7ae44b753fd4aa86a9bd8886fd52e47d75e"
+    },
+    {
+      "file": "intimacoes/projudi-intimacao-page.user.js",
+      "sha256": "1283936dc05b3f3fe7f895fac4313214a061dcba441ff3405b06b491104ba1aa"
+    }
+  ],
+  "regression": {
+    "sourceCommit": "2131aac",
+    "engine": "webkit",
+    "profile": "moderno",
+    "framed": false,
+    "width": 1440,
+    "order": [
+      0,
+      1
+    ],
+    "failure": "Tema invadiu superfície isolada de extensão"
+  }
+}

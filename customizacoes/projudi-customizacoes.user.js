@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      2026.10.14-00:03
+// @version      2026.10.14-00:25
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv
@@ -1893,9 +1893,15 @@
                     <section class="pjc-section pjc-section--summary">
                         <div class="pjc-section-title">Configurações</div>
                         <div class="pjc-card pjc-card--hero">
-                            <p class="pjc-summary-title">Escolha uma área</p>
+                            <p class="pjc-summary-title">Personalize por área</p>
                             <p class="pjc-card-desc">As opções foram separadas pelo efeito que produzem na interface.</p>
-                            <div class="pjc-category-nav" aria-label="Categorias de configurações">
+                            <div class="pjc-preset-list" aria-label="Perfis de aparência" style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0;">
+                                <button type="button" data-pjc-preset="original">Visual original</button>
+                                <button type="button" data-pjc-preset="comfortable">Leitura confortável</button>
+                                <button type="button" data-pjc-preset="compact">Leitura compacta</button>
+                            </div>
+                            <p class="pjc-card-desc" id="pjc-preset-hint" role="status">Os perfis ajustam tema e leitura; largura, navegação, processos e backup mantêm suas opções.</p>
+                            <div class="pjc-category-nav" role="tablist" aria-label="Categorias de configurações">
                                 <button type="button" class="pjc-category-button" data-pjc-section-target="layout" data-active="true"><i class="fa-solid fa-palette" aria-hidden="true"></i><span>Visual e fonte</span></button>
                                 <button type="button" class="pjc-category-button" data-pjc-section-target="nav"><i class="fa-solid fa-window-maximize" aria-hidden="true"></i><span>Tela e topo</span></button>
                                 <button type="button" class="pjc-category-button" data-pjc-section-target="reading"><i class="fa-solid fa-table-list" aria-hidden="true"></i><span>Leitura e tabelas</span></button>
@@ -2050,7 +2056,7 @@
                             <label class="pjc-card">
                                 <div class="pjc-card-body">
                                     <p class="pjc-card-title">Visual moderno</p>
-                                    <p class="pjc-card-desc">Aplica tipografia confortável, superfícies, títulos e abas mais atuais.</p>
+                                    <p class="pjc-card-desc">Moderniza o Projudi, preservando os painéis de Intimações e das demais extensões.</p>
                                 </div>
                                 <input type="checkbox" id="pj-modern-visual" class="pjc-card-check">
                             </label>
@@ -2343,10 +2349,10 @@
             fontScale.disabled = !enableFontScale.checked;
             googleFont.disabled = !enableGoogleFont.checked;
             sideBg.disabled = !enableSideBg.checked;
-            standalone.disabled = !enableWidth.checked;
+            standalone.disabled = !enabled.checked;
             popupSize.disabled = !processPopup.checked;
             rowSideBg.style.display = enableWidth.checked ? "flex" : "none";
-            rowStandalone.style.display = enableWidth.checked ? "flex" : "none";
+            rowStandalone.style.display = "flex";
             rowPopupSize.style.display = processPopup.checked ? "flex" : "none";
             movSettings.disabled = !enabled.checked || !enableMovimentacoes.checked;
         };
@@ -2406,6 +2412,7 @@
             contentW.value = String(widthPercent);
             popupSize.value = String(popupPercent);
             return {
+                ...settings,
                 enabled: enabled.checked,
                 autoHideHeader: autoHide.checked,
                 enableIframeAutoHeight: iframeH.checked,
@@ -2430,7 +2437,7 @@
                 hideHeaderIcons: hideIcons.checked,
                 enableRemoveScrollbar: removeScrollbar.checked,
                 enableMovimentacoes: enableMovimentacoes.checked,
-                applyToStandalonePages: enableWidth.checked && standalone.checked,
+                applyToStandalonePages: standalone.checked,
                 openProcessFilesInPopup: processPopup.checked,
                 popupSizePercent: popupPercent,
                 enableProcessMirrorPdf: processMirrorPdf.checked
@@ -2451,16 +2458,47 @@
             categoryButtons.forEach((button) => {
                 const active = button.dataset.pjcSectionTarget === sectionName;
                 button.dataset.active = String(active);
-                button.setAttribute("aria-pressed", String(active));
+                button.setAttribute("aria-selected", String(active));
+                button.tabIndex = active ? 0 : -1;
             });
             categoryPanes.forEach((pane) => {
-                pane.dataset.active = String(pane.dataset.pjcPane === sectionName);
+                const active = pane.dataset.pjcPane === sectionName;
+                pane.dataset.active = String(active);
+                pane.hidden = !active;
             });
             const body = panel.querySelector("#pj-panel-body");
             if (body) body.scrollTop = 0;
         };
-        categoryButtons.forEach((button) => {
-            button.addEventListener("click", () => showPanelSection(button.dataset.pjcSectionTarget));
+        categoryButtons.forEach((button, index) => {
+            const section = button.dataset.pjcSectionTarget;
+            button.id = `pjc-tab-${section}`;
+            button.setAttribute("role", "tab");
+            button.setAttribute("aria-controls", `pjc-pane-${section}`);
+            const pane = categoryPanes.find(pane => pane.dataset.pjcPane === section);
+            pane.id = `pjc-pane-${section}`;
+            pane.setAttribute("role", "tabpanel");
+            pane.setAttribute("aria-labelledby", button.id);
+            button.addEventListener("click", () => showPanelSection(section));
+            button.addEventListener("keydown", event => {
+                const offsets = { ArrowRight: 1, ArrowLeft: -1, Home: -index, End: categoryButtons.length - 1 - index };
+                if (!(event.key in offsets)) return;
+                event.preventDefault();
+                const next = categoryButtons[(index + offsets[event.key] + categoryButtons.length) % categoryButtons.length];
+                showPanelSection(next.dataset.pjcSectionTarget);
+                next.focus();
+            });
+        });
+        showPanelSection("layout");
+        const visualPresets = {
+            original: { modernVisualEnabled: false, modernTablesEnabled: false, modernFormsEnabled: false, customHeaderEnabled: false, compactMode: false, fontScaleEnabled: false, googleFontEnabled: false, stickyActionsEnabled: false, stickyTableHeadersEnabled: false, highlightHoveredRowEnabled: false },
+            comfortable: { modernVisualEnabled: true, modernTablesEnabled: true, modernFormsEnabled: true, customHeaderEnabled: true, compactMode: false, fontScaleEnabled: true, fontScalePercent: 110, googleFontEnabled: false, highlightHoveredRowEnabled: true },
+            compact: { modernVisualEnabled: true, modernTablesEnabled: true, modernFormsEnabled: true, customHeaderEnabled: true, compactMode: true, fontScaleEnabled: true, fontScalePercent: 100, googleFontEnabled: false, highlightHoveredRowEnabled: true }
+        };
+        panel.querySelectorAll("[data-pjc-preset]").forEach(button => {
+            button.addEventListener("click", () => {
+                applySettingsToForm(normalizeSettings({ ...settings, ...getPanelSettingsPayload(), ...visualPresets[button.dataset.pjcPreset] }));
+                panel.querySelector("#pjc-preset-hint").textContent = `${button.textContent}: confira as opções e clique em Salvar alterações para aplicar.`;
+            });
         });
         if (backupOpen && backupPopover) {
             backupOpen.addEventListener("click", () => {
@@ -4030,6 +4068,60 @@
         return matches;
     }
 
+    const SUITE_SURFACE = '[data-pj-suite-ui]';
+    let nativeThemeCache = null;
+
+    function isSuiteSurface(node) {
+        const element = node?.nodeType === 1 ? node : node?.parentElement;
+        return !!element?.closest(SUITE_SURFACE);
+    }
+
+    function onlySuiteMutations(mutations) {
+        return mutations.every(mutation => isSuiteSurface(mutation.target) ||
+            ([...mutation.addedNodes, ...mutation.removedNodes].length > 0 &&
+                [...mutation.addedNodes, ...mutation.removedNodes].every(isSuiteSurface)));
+    }
+
+    // O parser CSS do navegador preserva vírgulas em :is(), :not() e atributos.
+    // A proteção inclui a raiz da extensão e seus descendentes, com peso zero.
+    function scopeNativeThemeCss(css, doc) {
+        if (nativeThemeCache?.source === css) return nativeThemeCache.scoped;
+        const parser = doc.implementation.createHTMLDocument('');
+        const style = parser.createElement('style');
+        style.textContent = css;
+        parser.head.appendChild(style);
+        const guard = ':not(:where([data-pj-suite-ui], [data-pj-suite-ui] *, .pjip-table, .pjip-table *))';
+        const splitSelectors = text => {
+            const parts = [];
+            let start = 0, depth = 0, quote = '';
+            for (let index = 0; index < text.length; index++) {
+                const char = text[index];
+                if (char === '\\') { index++; continue; }
+                if (quote) { if (char === quote) quote = ''; continue; }
+                if (char === '"' || char === "'") { quote = char; continue; }
+                if (char === '(' || char === '[') depth++;
+                else if (char === ')' || char === ']') depth--;
+                else if (char === ',' && depth === 0) { parts.push(text.slice(start, index).trim()); start = index + 1; }
+            }
+            parts.push(text.slice(start).trim());
+            return parts;
+        };
+        const protect = rules => {
+            for (const rule of rules) {
+                if (rule.type === 1) {
+                    rule.selectorText = splitSelectors(rule.selectorText).map(selector => {
+                        const pseudo = selector.indexOf('::');
+                        return pseudo < 0 ? selector + guard : selector.slice(0, pseudo) + guard + selector.slice(pseudo);
+                    }).join(', ');
+                } else if (rule.cssRules) protect(rule.cssRules);
+            }
+        };
+        protect(style.sheet.cssRules);
+        const scoped = [...style.sheet.cssRules].map(rule => rule.cssText).join('\n');
+        nativeThemeCache = { source: css, scoped };
+        return scoped;
+    }
+
     function findNativePopupRoots(doc) {
         const roots = new Set(doc.querySelectorAll([
             ".ui-dialog",
@@ -4041,8 +4133,10 @@
             '[class*="modal" i][style]',
             '[id*="modal" i][style]'
         ].join(", ")));
+        roots.forEach(root => { if (isSuiteSurface(root)) roots.delete(root); });
 
         doc.querySelectorAll("div, span, h1, h2, h3, h4, strong").forEach(candidate => {
+            if (isSuiteSurface(candidate)) return;
             const ownText = Array.from(candidate.childNodes)
                 .filter(node => node.nodeType === 3)
                 .map(node => node.textContent)
@@ -4081,15 +4175,19 @@
 
     function syncNativePopupTableContext(doc) {
         if (!doc) return;
-        doc.querySelectorAll("[data-pjc-native-popup-table]").forEach(table => {
-            table.removeAttribute("data-pjc-native-popup-table");
-        });
-        if (!shouldProtectNativePopupTables()) return;
-
-        findNativePopupRoots(doc).forEach(root => {
-            root.querySelectorAll("table").forEach(table => {
-                table.setAttribute("data-pjc-native-popup-table", "true");
+        const protectedTables = new Set();
+        if (shouldProtectNativePopupTables()) {
+            findNativePopupRoots(doc).forEach(root => {
+                root.querySelectorAll("table").forEach(table => {
+                    if (!isSuiteSurface(table)) protectedTables.add(table);
+                });
             });
+        }
+        doc.querySelectorAll("[data-pjc-native-popup-table]").forEach(table => {
+            if (!protectedTables.has(table)) table.removeAttribute("data-pjc-native-popup-table");
+        });
+        protectedTables.forEach(table => {
+            if (!table.hasAttribute("data-pjc-native-popup-table")) table.setAttribute("data-pjc-native-popup-table", "true");
         });
     }
 
@@ -4112,7 +4210,9 @@
         }
         syncNativePopupTableContext(doc);
         if (nativePopupTableObservers.has(doc)) return;
-        const observer = new MutationObserver(() => scheduleNativePopupTableSync(doc));
+        const observer = new MutationObserver(mutations => {
+            if (!onlySuiteMutations(mutations)) scheduleNativePopupTableSync(doc);
+        });
         observer.observe(doc.body, { childList: true, subtree: true });
         nativePopupTableObservers.set(doc, observer);
     }
@@ -4135,17 +4235,20 @@
     function syncModernTableSemantics(doc) {
         if (!doc) return;
         ensureNativePopupTableObserver(doc);
+        const quantities = new Set();
+        if (settings.modernTablesEnabled) {
+            doc.querySelectorAll(
+                "table:not(.pjip-table):not([data-pjc-native-popup-table]) tr:first-child > th, " +
+                "table:not(.pjip-table):not([data-pjc-native-popup-table]) tr:first-child > td"
+            ).forEach(cell => {
+                if (!isSuiteSurface(cell) && normalizeLabel(cell.textContent) === "qtde") quantities.add(cell);
+            });
+        }
         doc.querySelectorAll('[data-pjc-column-kind="quantity"]').forEach(cell => {
-            cell.removeAttribute("data-pjc-column-kind");
+            if (!quantities.has(cell)) cell.removeAttribute("data-pjc-column-kind");
         });
-        if (!settings.modernTablesEnabled) return;
-        doc.querySelectorAll(
-            "table:not([data-pjc-native-popup-table]) tr:first-child > th, " +
-            "table:not([data-pjc-native-popup-table]) tr:first-child > td"
-        ).forEach(cell => {
-            if (normalizeLabel(cell.textContent) === "qtde") {
-                cell.setAttribute("data-pjc-column-kind", "quantity");
-            }
+        quantities.forEach(cell => {
+            if (!cell.hasAttribute("data-pjc-column-kind")) cell.setAttribute("data-pjc-column-kind", "quantity");
         });
     }
 
@@ -4243,11 +4346,9 @@
                 background: var(--pj-ui-canvas) !important;
                 color: var(--pj-ui-text) !important;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
-                font-size: ${settings.fontScaleEnabled ? scaledFontPx : BASE_CONTENT_FONT_PX}px !important;
                 line-height: 1.48 !important;
             }
             :where(table, td, th, label, input, select, textarea, button):not([data-pj-suite-ui] *) {
-                font-size: ${settings.fontScaleEnabled ? scaledFontPx : BASE_CONTENT_FONT_PX}px !important;
             }
             #divCorpo, .divCorpo, #Corpo, #conteudo, #conteudoPrincipal,
             #pgn_corpo, #Formulario, .Tela, .Corpo, .conteudo, #content,
@@ -4665,7 +4766,8 @@
             doc.head.appendChild(style);
         }
 
-        if (style.textContent !== css) style.textContent = css;
+        const scopedCss = scopeNativeThemeCss(css, doc);
+        if (style.textContent !== scopedCss) style.textContent = scopedCss;
     }
 
     function isPublicLandingPage() {
@@ -4739,6 +4841,8 @@
             if (runId !== iframeRetryRunId || !settings.enabled || !shouldManageIframeFeatures()) return;
             injectCSSInIframe();
             ajustarAlturaIframe();
+            const readyDoc = document.getElementById("Principal")?.contentDocument;
+            if (readyDoc?.body && readyDoc.readyState !== "loading") return;
             n += 1;
             if (n < times) rememberTimeout(setTimeout(tick, delay));
         };
@@ -4783,6 +4887,7 @@
     }
 
     function mutationTouchesTopShell(mutations) {
+        if (onlySuiteMutations(mutations)) return false;
         return mutations.some(mutation => {
             if (hasRelevantProcessPopupNode(mutation.addedNodes) || hasRelevantProcessPopupNode(mutation.removedNodes)) return true;
             return Array.from([mutation.target, ...mutation.addedNodes, ...mutation.removedNodes]).some(node => {
@@ -4823,6 +4928,7 @@
     }
 
     function hasStandaloneRelevantMutation(mutations) {
+        if (onlySuiteMutations(mutations)) return false;
         return mutations.some(mutation => {
             return Array.from([mutation.target, ...mutation.addedNodes, ...mutation.removedNodes]).some(node => {
                 if (!node || node.nodeType !== 1) return false;

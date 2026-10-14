@@ -18,9 +18,11 @@ Script para reunir ajustes visuais e de navegação no Projudi do TJGO, deixando
 - atua de forma integrada no ambiente do Projudi;
 - reduz a necessidade de mudanças manuais na visualização.
 
+Os perfis **Visual original**, **Leitura confortável** e **Leitura compacta** preparam as opções de tema, tipografia e leitura. Eles preservam largura, navegação, processos e backup, e só são aplicados ao clicar em **Salvar alterações**. **Cancelar** descarta o rascunho.
+
 As opções visuais são independentes e ficam desativadas por padrão. Assim, cada pessoa pode habilitar somente os ajustes que façam sentido para sua rotina.
 
-O painel organiza as configurações nas categorias **Aparência**, **Navegação**, **Processo** e **Backup**, exibindo uma categoria por vez.
+O painel organiza as configurações nas categorias **Visual e fonte**, **Tela e topo**, **Leitura e tabelas**, **Processo** e **Dados e backup**, exibindo uma categoria por vez. As setas esquerda/direita, Home e End percorrem as categorias pelo teclado.
 
 ## Requisitos
 
@@ -56,3 +58,9 @@ O script atua na experiência de uso da interface, sem alterar o conteúdo proce
 Esta extensão usa os componentes e a identidade visual da suíte: fonte nativa, ícones SVG, botões e campos com foco visível, cartões claros e cabeçalhos azul-marinho. Nos gerenciadores, Tab/Shift+Tab ficam dentro do diálogo; Escape fecha primeiro o backup aberto e depois o painel, devolvendo o foco ao controle de abertura. Os atalhos e dados locais permanecem no mesmo formato.
 
 Veja o [plano visual](../docs/padronizacao-visual/plano.md) e o [relatório de validação](../docs/padronizacao-visual/relatorio.md). O `.user.js` reúne o cabeçalho e o código completo; as URLs de atualização e download apontam para esse mesmo arquivo.
+
+## Compatibilidade e manutenção
+
+O tema, a escala de texto, as tabelas e os formulários preservam as superfícies marcadas pelas outras extensões e as tabelas gerenciadas por Intimações. O visual moderno mantém o tamanho do texto nativo quando a opção de escala está desativada. A opção de páginas diretas funciona sem depender do ajuste de largura. Salvar o painel preserva a configuração personalizada de destaque das movimentações.
+
+O CSS de tema tem cache, as tentativas de aplicação param quando o iframe está pronto e os observers ignoram alterações internas das extensões. O [relatório de 14/10/2026](../docs/customizacoes-2026-10-14/README.md) contém evidências e o limite da validação no Safari. O QA específico está em `scripts/qa-customizacoes.mjs`, com dados fictícios e navegadores descartáveis.
