@@ -1,5 +1,7 @@
 # Identidade visual da suíte Projudi — plano e checkpoint
 
+> Atualização de 14/10/2026: as extensões ativas agora usam apenas `.user.js`, sem arquivos de metadados separados ou gerador de `.meta.js`. As menções abaixo registram o estado histórico da revisão. Para manutenção atual, consulte o README principal.
+
 Data: 01/10/2026. Escopo: todos os cinco userscripts ativos deste checkout.
 Instruções: `AGENTS.md`. Não há `.agents/skills` local neste checkout ou no diretório GitHub. Nenhuma skill de documentos, publicação ou imagem é necessária para editar estes userscripts.
 

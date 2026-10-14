@@ -1,5 +1,7 @@
 # Correção de Anotações e Tarefas — 13/10/2026
 
+> Atualização de 14/10/2026: as extensões ativas agora usam apenas `.user.js`, sem arquivos de metadados separados ou gerador de `.meta.js`. As menções abaixo registram o estado histórico da revisão. Para manutenção atual, consulte o README principal.
+
 Esta revisão foi complementada pela [correção da barra com conciliação visível](../correcao-barra-processo-2026-10-13/README.md), que inclui a regra nativa de float omitida na fixture anterior.
 
 ## Diagnóstico no Safari
@@ -64,7 +66,6 @@ Com Playwright e navegadores disponíveis, definir `PROJUDI_PLAYWRIGHT_MODULE`, 
 curl -fLsS https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/sprites/solid.svg -o /private/tmp/projudi-fa-solid.svg
 curl -fLsS https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/webfonts/fa-solid-900.woff2 -o /private/tmp/projudi-native-fa-solid-900.woff2
 node scripts/sync-suite-ui.mjs --check
-node scripts/sync-metadata.mjs --check
 node --test tests/suite-contract.test.mjs
 node scripts/qa-process-actions.mjs
 PROJUDI_QA_WIDTHS=1440,390 node scripts/qa-process-actions.mjs --late-font

@@ -1,5 +1,7 @@
 # Padronização visual — relatório final
 
+> Atualização de 14/10/2026: as extensões ativas agora usam apenas `.user.js`, sem arquivos de metadados separados ou gerador de `.meta.js`. As menções abaixo registram o estado histórico da revisão. Para manutenção atual, consulte o README principal.
+
 Concluída nas **cinco extensões ativas** em 01/10/2026. Versão dos cinco userscripts e seus cinco metadados: **2026.10.01-14:20**, no fuso `America/Sao_Paulo`. Commit local autorizado pelo usuário após a entrega da implementação. Sem push, publicação, deploy ou merge.
 
 ## Resultado
@@ -58,7 +60,6 @@ O Playwright e seu navegador precisam estar disponíveis. Os scripts aceitam `PR
 ```sh
 node --test tests/suite-contract.test.mjs
 node scripts/sync-suite-ui.mjs --check
-node scripts/sync-metadata.mjs --check
 node scripts/qa-browser.mjs
 node scripts/qa-browser.mjs --populated
 node scripts/qa-browser.mjs --offline-icons

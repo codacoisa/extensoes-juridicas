@@ -1,5 +1,7 @@
 # Revisão das cinco extensões — Safari / wBlock — 08/10/2026
 
+> Atualização de 14/10/2026: as extensões ativas agora usam apenas `.user.js`, sem arquivos de metadados separados ou gerador de `.meta.js`. As menções abaixo registram o estado histórico da revisão. Para manutenção atual, consulte o README principal.
+
 Versões instaladas: **Central de Guias 2026.10.08-01:01**; **Anotações, Customizações, Intimações e Tarefas 2026.10.08-00:28**. Escopo: Anotações, Central de Guias, Customizações, Intimações e Tarefas. A pasta `arquivo/` não foi alterada.
 
 ## Correções
@@ -72,7 +74,6 @@ As importações locais no wBlock não são atualizadas automaticamente. Os arqu
 ```sh
 node --test tests/suite-contract.test.mjs
 node scripts/sync-suite-ui.mjs --check
-node scripts/sync-metadata.mjs --check
 node scripts/qa-browser.mjs --populated
 node scripts/qa-interactions.mjs
 ```

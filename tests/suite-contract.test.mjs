@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -16,15 +16,7 @@ const scripts = {
 const sources = Object.fromEntries(
   await Promise.all(Object.entries(scripts).map(async ([id, path]) => [id, await readFile(resolve(root, path), 'utf8')]))
 );
-const metadata = {
-  anotacoes: await readFile(resolve(root, 'anotacoes/projudi-anotacoes-locais.meta.js'), 'utf8'),
-  customizacoes: await readFile(resolve(root, 'customizacoes/projudi-customizacoes.meta.js'), 'utf8'),
-  'central-guias': await readFile(resolve(root, 'centraldeguias/projudi-central-guias.meta.js'), 'utf8'),
-  intimacoes: await readFile(resolve(root, 'intimacoes/projudi-intimacao-page.meta.js'), 'utf8'),
-  tarefas: await readFile(resolve(root, 'tarefas/projudi-tarefas-locais.meta.js'), 'utf8')
-};
-
-test('userscripts mantêm meta.js separado e atualizável pelo wblock', () => {
+test('userscripts concentram atualização, autoria e contributors no user.js', async () => {
   const files = {
     anotacoes: ['anotacoes/projudi-anotacoes-locais', 'projudi-anotacoes-locais'],
     customizacoes: ['customizacoes/projudi-customizacoes', 'projudi-customizacoes'],
@@ -34,16 +26,16 @@ test('userscripts mantêm meta.js separado e atualizável pelo wblock', () => {
   };
   for (const [id, [path, namespace]] of Object.entries(files)) {
     const source = sources[id];
-    const meta = metadata[id];
+    const header = source.match(/^\/\/ ==UserScript==\n[\s\S]*?\/\/ ==\/UserScript==\n/)?.[0];
+    assert.ok(header, `${id}: cabeçalho de userscript ausente`);
     const base = `https://raw.githubusercontent.com/codacoisa/extensoes-juridicas/refs/heads/main/${path}`;
     assert.match(source, new RegExp(`^// @namespace\\s+${namespace}\\.user\\.js$`, 'm'), `${id}: namespace inconsistente`);
-    assert.match(source, new RegExp(`^// @updateURL\\s+${base}\\.meta\\.js$`, 'm'), `${id}: user.js não aponta para a meta de atualização`);
+    assert.match(header, new RegExp(`^// @updateURL\\s+${base}\\.user\\.js$`, 'm'), `${id}: atualização não aponta para o user.js`);
     assert.match(source, new RegExp(`^// @downloadURL\\s+${base}\\.user\\.js$`, 'm'), `${id}: user.js não aponta para o download instalável`);
-    assert.match(meta, /^\/\/ ==UserScript==$/m, `${id}: meta.js não possui cabeçalho de userscript`);
-    assert.match(meta, new RegExp(`^// @updateURL\\s+${base}\\.meta\\.js$`, 'm'), `${id}: meta.js não aponta para a própria atualização`);
-    assert.match(meta, new RegExp(`^// @downloadURL\\s+${base}\\.user\\.js$`, 'm'), `${id}: meta.js não aponta para o código instalável`);
-    assert.doesNotMatch(meta, /\(function\s*\(|\(\(\)\s*=>/, `${id}: meta.js contém código de execução`);
-    assert.equal(meta.match(/^\/\/ @version\s+(.+)$/m)?.[1], source.match(/^\/\/ @version\s+(.+)$/m)?.[1], `${id}: versões de meta.js e user.js divergem`);
+    assert.deepEqual([...header.matchAll(/^\/\/ @author\s+(.+)$/gm)].map(match => match[1]), ['lourencosv'], `${id}: autoria inconsistente`);
+    assert.deepEqual([...header.matchAll(/^\/\/ @contributor\s+(.+)$/gm)].map(match => match[1]), ['Codex <codex@openai.com>', 'Claude <noreply@anthropic.com>'], `${id}: contributors inconsistentes`);
+    const filesInFolder = await readdir(resolve(root, dirname(scripts[id])));
+    assert.ok(!filesInFolder.some(file => file.endsWith('.meta.js')), `${id}: arquivo meta.js ainda presente`);
   }
 });
 
@@ -362,13 +354,6 @@ test('backups grandes ou remotos inválidos não bloqueiam novo envio', () => {
     assert.match(source, /^\/\/ @connect\s+gist\.githubusercontent\.com$/m, `${id}: permissão para raw_url ausente`);
     if (id !== 'customizacoes') assert.match(source, /invalidOk:\s*true/, `${id}: envio não tolera JSON remoto inválido`);
     assert.match(source, /incompleto ou contém JSON inválido/, `${id}: erro amigável de restauração ausente`);
-  }
-});
-
-test('todos os cabeçalhos meta.js são cópias integrais dos userscripts', () => {
-  for (const [id, source] of Object.entries(sources)) {
-    const header = source.match(/^\/\/ ==UserScript==\n[\s\S]*?\/\/ ==\/UserScript==\n/)?.[0];
-    assert.equal(metadata[id], header, `${id}: cabeçalho e metadados divergentes`);
   }
 });
 

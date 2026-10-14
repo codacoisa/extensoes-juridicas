@@ -1,12 +1,14 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      2026.10.13-23:38
+// @version      2026.10.14-00:03
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
-// @author       lourencosv (GPT)
+// @author       lourencosv
+// @contributor  Codex <codex@openai.com>
+// @contributor  Claude <noreply@anthropic.com>
 // @license      CC BY-NC 4.0
-// @updateURL    https://raw.githubusercontent.com/codacoisa/extensoes-juridicas/refs/heads/main/customizacoes/projudi-customizacoes.meta.js
+// @updateURL    https://raw.githubusercontent.com/codacoisa/extensoes-juridicas/refs/heads/main/customizacoes/projudi-customizacoes.user.js
 // @downloadURL  https://raw.githubusercontent.com/codacoisa/extensoes-juridicas/refs/heads/main/customizacoes/projudi-customizacoes.user.js
 // @match        *://projudi.tjgo.jus.br/*
 // @run-at       document-end

@@ -1,5 +1,7 @@
 # Barra do processo com conciliação — 13/10/2026
 
+> Atualização de 14/10/2026: as extensões ativas agora usam apenas `.user.js`, sem arquivos de metadados separados ou gerador de `.meta.js`. As menções abaixo registram o estado histórico da revisão. Para manutenção atual, consulte o README principal.
+
 ## Causa da falha anterior
 
 O novo print e a inspeção do Safari mostraram conciliação visível, alfinete à direita e os atalhos locais fora da sequência. A regra que faltava na fixture é `.notaProcesso { position: relative; float: right; }`, carregada pelo [CSS nativo especificos.css](https://projudi.tjgo.jus.br/css/especificos.css?v=20230516). A barra `.divBotoesDireita` também flutua à direita.
@@ -53,7 +55,6 @@ Com Playwright, navegadores e os assets locais da revisão anterior disponíveis
 
 ```sh
 node scripts/sync-suite-ui.mjs --check
-node scripts/sync-metadata.mjs --check
 node --test tests/suite-contract.test.mjs
 node scripts/qa-process-actions.mjs --conciliation
 node scripts/qa-process-actions.mjs

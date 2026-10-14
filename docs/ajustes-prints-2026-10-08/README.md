@@ -1,5 +1,7 @@
 # Ajustes dos cinco prints — 08/10/2026
 
+> Atualização de 14/10/2026: as extensões ativas agora usam apenas `.user.js`, sem arquivos de metadados separados ou gerador de `.meta.js`. As menções abaixo registram o estado histórico da revisão. Para manutenção atual, consulte o README principal.
+
 As fontes foram corrigidas a partir dos prints e da inspeção da sessão autenticada do Projudi no Safari. O wBlock não foi aberto nem alterado nesta rodada. As novas fontes não foram carregadas na sessão pessoal; as verificações das correções usam páginas fictícias em navegadores descartáveis. A pasta `arquivo/` permaneceu fora do escopo.
 
 ## Correções por print
@@ -55,7 +57,6 @@ Com Playwright e os navegadores de teste já disponíveis:
 
 ```sh
 node scripts/sync-suite-ui.mjs --check
-node scripts/sync-metadata.mjs --check
 node --test tests/suite-contract.test.mjs
 node scripts/qa-browser.mjs --populated
 node scripts/qa-interactions.mjs

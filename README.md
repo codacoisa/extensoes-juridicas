@@ -57,13 +57,11 @@ Os arquivos `ui/suite-ui.css` e `ui/suite-ui.js` são a fonte comum de cores, co
 
 ```sh
 node scripts/sync-suite-ui.mjs
-node scripts/sync-metadata.mjs
 node scripts/sync-suite-ui.mjs --check
-node scripts/sync-metadata.mjs --check
 node --test tests/suite-contract.test.mjs
 ```
 
-Atualize primeiro `@version` dos userscripts afetados no formato e fuso documentados; o sincronizador de metadados copia os cabeçalhos integrais. As URLs de atualização dos cinco scripts apontam para os respectivos `.meta.js`, derivados dos caminhos de download existentes. Os arquivos preparados localmente só ficam disponíveis remotamente quando o responsável publicar o checkout.
+Atualize `@version` dos userscripts afetados no formato e fuso documentados. Cada extensão ativa mantém somente o `.user.js`, com cabeçalho e código completo; `@updateURL` e `@downloadURL` apontam para esse mesmo arquivo. Os cabeçalhos usam `@author lourencosv` e os contributors Codex e Claude, e são verificados pelos contratos da suíte. Os arquivos preparados localmente só ficam disponíveis remotamente quando o responsável publicar o checkout.
 
 O núcleo usa seletores limitados a `[data-pj-suite-ui]` e uma camada CSS para proteger os componentes contra estilos nativos. Os temas opcionais de Customizações continuam sujeitos às preferências existentes. Os diálogos contêm Tab/Shift+Tab, fecham com Escape (backup primeiro) e devolvem o foco ao controle de abertura.
 
