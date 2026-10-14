@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Central de Guias
 // @namespace    projudi-central-guias.user.js
-// @version      2026.10.13-10:38
+// @version      2026.10.13-23:38
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Central local para sincronizar, acompanhar e alertar sobre guias de pagamento no Projudi.
 // @author       lourencosv
@@ -392,6 +392,12 @@
       observer.observe(group, { childList: true });
       refreshSpacing();
     }
+    // O Projudi reserva 255 px e padding para spans de dados do processo.
+    // Este span contém ações: ocupa somente seus botões, inclusive quando
+    // uma das extensões ainda usa o helper da versão anterior.
+    for (const [name, value] of Object.entries({
+      width: 'auto', 'min-width': '0', 'padding-right': '0', flex: '0 0 auto'
+    })) group.style.setProperty(name, value, 'important');
     // A ordem permanece a mesma, independentemente da ordem de carregamento.
     retainedButtons.forEach(retained => group.appendChild(retained));
     const tasksButton = group.querySelector('#pj-todo-proc-btn');

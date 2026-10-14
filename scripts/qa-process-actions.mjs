@@ -65,7 +65,16 @@ try {
       const native = document.querySelector('.notaProcesso');
       const nodes = [native.querySelector('i'), ...ids.map(id => document.querySelector(`#${id} svg`))];
       if (getComputedStyle(document.getElementById('btnQueroConciliar')).display !== 'none') nodes.push(document.querySelector('#btnQueroConciliar i'));
-      return { nativeColor: getComputedStyle(native).color, addedColors: ids.map(id=>getComputedStyle(document.querySelector(`#${id} svg`)).color), rects: nodes.map(n=>{ const r=n.getBoundingClientRect();return { id:n.closest("button").id || "native", x:r.x,y:r.y,width:r.width,height:r.height }; }), groupCount: document.querySelectorAll('#pj-local-process-actions').length };
+      const bar = native.parentElement;
+      const barBox = bar.getBoundingClientRect();
+      const fieldset = bar.closest('fieldset');
+      const fieldsetBox = fieldset.getBoundingClientRect();
+      const fieldsetStyle = getComputedStyle(fieldset);
+      const rightmostIcon = Math.max(...nodes.map(n => n.getBoundingClientRect().right));
+      return { nativeColor: getComputedStyle(native).color, addedColors: ids.map(id=>getComputedStyle(document.querySelector(`#${id} svg`)).color), rects: nodes.map(n=>{ const r=n.getBoundingClientRect();return { id:n.closest("button").id || "native", x:r.x,y:r.y,width:r.width,height:r.height }; }), groupCount: document.querySelectorAll('#pj-local-process-actions').length,
+        trailingSpace: barBox.right - rightmostIcon,
+        rightInset: fieldsetBox.right - parseFloat(fieldsetStyle.borderRightWidth) - parseFloat(fieldsetStyle.paddingRight) - barBox.right,
+        barRight: barBox.right };
     }, ids);
     const failures = [];
     const expectedOrder = [...(conciliation ? ['btnQueroConciliar'] : []), 'native', ...(order.includes(0) ? ['pj-add-btn'] : []), ...(order.includes(4) ? ['pj-todo-proc-btn'] : [])];
@@ -73,6 +82,8 @@ try {
     if (JSON.stringify(after) !== JSON.stringify(original) || JSON.stringify(toolbarAfter.attributes.filter(([name])=>name!=='style')) !== JSON.stringify(toolbarMarkup.attributes.filter(([name])=>name!=='style'))) failures.push('Estilos ou atributos nativos alterados');
     if (geometry.addedColors.some(color=>color!==geometry.nativeColor)) failures.push('Atalhos herdaram a cor especial do alfinete');
     const rects = geometry.rects.sort((a,b)=>a.x-b.x);
+    if (geometry.trailingSpace > 6 || geometry.trailingSpace < -1) failures.push('Espaço vazio após o último ícone');
+    if (Math.abs(geometry.rightInset) > 1) failures.push('Barra afastada da borda direita do conteúdo');
     for (let n=1;n<rects.length;n++) if (rects[n].x - rects[n-1].x - rects[n-1].width < 7.9) failures.push('Desenhos de ícones sem folga de 8 px');
     for (let n=1;n<rects.length;n++) if (rects[n].x - rects[n-1].x - rects[n-1].width > 32) failures.push('Ações separadas por espaço excessivo');
     const centers = rects.map(rect => rect.y + rect.height / 2);
@@ -85,7 +96,7 @@ try {
       const offset = framed ? await page.locator('#Principal').boundingBox() : { x:0, y:0 };
       const left = Math.min(...rects.map(r=>r.x));
       const top = Math.min(...rects.map(r=>r.y));
-      const right = Math.max(...rects.map(r=>r.x+r.width));
+      const right = Math.max(geometry.barRight, ...rects.map(r=>r.x+r.width));
       const bottom = Math.max(...rects.map(r=>r.y+r.height));
       await page.screenshot({ path: resolve(output, `${before?'before':'after'}-${framed?'iframe':'top'}.png`), clip: { x:left+offset.x-8, y:top+offset.y-8, width:right-left+16, height:bottom-top+16 } });
     }
