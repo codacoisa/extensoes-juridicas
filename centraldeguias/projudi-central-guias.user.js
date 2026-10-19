@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Central de Guias
 // @namespace    projudi-central-guias.user.js
-// @version      2026.10.14-00:03
+// @version      2026.10.19-11:27
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Central local para sincronizar, acompanhar e alertar sobre guias de pagamento no Projudi.
 // @author       lourencosv
@@ -33,7 +33,7 @@
       ? opts => GM.xmlHttpRequest(opts)
       : opts => {
         try {
-          fetch(opts.url, { method: opts.method || 'GET', headers: opts.headers || {} })
+          fetch(opts.url, { method: opts.method || 'GET', headers: opts.headers || {}, body: opts.data, signal: AbortSignal.timeout(opts.timeout || 30000) })
             .then(response => response.text().then(responseText => ({ status: response.status, responseText, finalUrl: response.url })))
             .then(result => { if (typeof opts.onload === 'function') opts.onload(result); })
             .catch(error => { if (typeof opts.onerror === 'function') opts.onerror(error); });
@@ -114,6 +114,7 @@
     }
   })();
   const BACKUP_KEY = 'projudi-suite::central-guias::gist';
+  const CLEANUP_SIGNATURE_KEY = 'projudi-suite::central-guias::cleanup-backup-signature';
   const MENU_LABEL = 'Gerenciar Central de Guias';
   const BACKUP_SCHEMA = 'projudi-central-guias-backup-v1';
   const FA_SPRITE_URL = 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/sprites/solid.svg';
@@ -599,6 +600,8 @@
     file: '#pj-guides-backup-file',
     send: '#pj-guides-backup-send',
     restore: '#pj-guides-backup-restore',
+    cleanLocal: '#pj-guides-backup-clean-local',
+    cleanRemote: '#pj-guides-backup-clean-remote',
     clear: '#pj-guides-backup-clear',
     status: '#pj-guides-backup-status',
     last: '#pj-guides-backup-last'
@@ -632,6 +635,7 @@
     wasHomePage: false,
     homeAlertShown: false,
     backupTimer: null,
+    backupBusy: false,
     automaticGuidesSyncProcessKey: '',
     automaticGuidesSyncFrame: null,
     automaticGuidesSyncTimer: null
@@ -873,6 +877,7 @@
         url: options.url,
         headers: options.headers || {},
         data: options.data,
+        timeout: 30000,
         onload: resolve,
         onerror: () => reject(new Error('Falha de rede ao acessar o GitHub.')),
         ontimeout: () => reject(new Error('Tempo esgotado ao acessar o GitHub.'))
@@ -961,6 +966,109 @@
       if (options.invalidOk) return null;
       throw new Error('O arquivo de backup no Gist está incompleto ou contém JSON inválido. Envie um novo backup para substituí-lo.');
     }
+  }
+
+  function confirmExtensionCleanup(panel, title, description) {
+    const doc = panel.ownerDocument;
+    const backdrop = doc.createElement('div');
+    backdrop.className = 'pj-backup-ui__popover';
+    backdrop.dataset.open = 'true';
+    backdrop.innerHTML = `<section class="pj-backup-ui__dialog" aria-label="Confirmar limpeza" aria-describedby="pj-guides-cleanup-description">
+      <h2 class="pj-backup-ui__title" style="color:#b42318!important"><svg class="pj-suite-fa" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3 2 21h20L12 3Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9v5m0 3v.1" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span></span></h2>
+      <p id="pj-guides-cleanup-description" style="color:#b42318!important;font-weight:700;overflow-wrap:anywhere"></p>
+      <div class="pj-backup-ui__actions" style="grid-template-columns:repeat(2,minmax(0,1fr))!important">
+        <button type="button" class="pj-backup-ui__button" data-pj-guides-cancel>Cancelar</button>
+        <button type="button" class="pj-backup-ui__button pj-backup-ui__button--danger" data-pj-guides-confirm>Confirmar limpeza</button>
+      </div>
+    </section>`;
+    backdrop.querySelector('h2 span').textContent = title;
+    backdrop.querySelector('p').textContent = description;
+    const backgroundDialog = panel.querySelector('.pj-backup-ui__popover[data-open="true"] .pj-backup-ui__dialog');
+    const wasInert = backgroundDialog?.inert;
+    const previousBusy = panel.getAttribute('aria-busy');
+    panel.setAttribute('aria-busy', 'false');
+    if (backgroundDialog) backgroundDialog.inert = true;
+    panel.appendChild(backdrop);
+    renderFontAwesome(backdrop);
+    const dialog = backdrop.querySelector('section');
+    return new Promise(resolve => {
+      let settled = false;
+      const finish = confirmed => {
+        if (settled) return;
+        settled = true;
+        if (backgroundDialog) backgroundDialog.inert = wasInert;
+        if (previousBusy === null) panel.removeAttribute('aria-busy');
+        else panel.setAttribute('aria-busy', previousBusy);
+        deactivateSuiteDialog(dialog);
+        releaseSuiteUI(backdrop);
+        backdrop.remove();
+        resolve(confirmed);
+      };
+      backdrop.querySelector('[data-pj-guides-cancel]').addEventListener('click', () => finish(false));
+      backdrop.querySelector('[data-pj-guides-confirm]').addEventListener('click', () => finish(true));
+      backdrop.addEventListener('click', event => { if (event.target === backdrop) finish(false); });
+      activateSuiteDialog(dialog, () => finish(false));
+    });
+  }
+
+  async function writeCleanupValue(key, value) {
+    // A limpeza precisa propagar falhas nos dois armazenamentos, sem o fallback silencioso usado nas gravações comuns.
+    if (typeof GM_setValue === 'function') await GM_setValue(key, value);
+    localStorage.setItem(key, JSON.stringify(value));
+  }
+
+  function isCleanupBackupSuppressed(value) {
+    try {
+      if (typeof GM_getValue === 'function') {
+        const signature = GM_getValue(CLEANUP_SIGNATURE_KEY, undefined);
+        if (signature !== undefined) return signature === buildBackupSignature(value);
+      }
+      return JSON.parse(localStorage.getItem(CLEANUP_SIGNATURE_KEY) || 'null') === buildBackupSignature(value);
+    } catch (_) {
+      // Se a proteção não puder ser lida, não recriar automaticamente um backup limpo.
+      return true;
+    }
+  }
+
+  async function clearLocalExtensionData() {
+    const empty = normalizeDb(null);
+    await writeCleanupValue(CLEANUP_SIGNATURE_KEY, buildBackupSignature(empty));
+    clearTimeout(state.backupTimer);
+    state.backupTimer = null;
+    cancelAutomaticGuidesSync();
+    await writeCleanupValue(STORAGE_KEY, empty);
+    state.alertsShown.clear();
+    state.homeAlertShown = false;
+    return empty;
+  }
+
+  async function clearRemoteExtensionData(backupSettings) {
+    if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
+    if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
+    const url = `https://api.github.com/gists/${encodeURIComponent(backupSettings.gistId)}`;
+    const headers = { Accept: 'application/vnd.github+json', Authorization: `Bearer ${backupSettings.token}` };
+    const response = await githubRequest({ method: 'GET', url, headers });
+    if (response.status < 200 || response.status >= 300) throw new Error(parseGithubError(response));
+    const gist = JSON.parse(response.responseText || '{}');
+    const file = gist.files && Object.prototype.hasOwnProperty.call(gist.files, backupSettings.fileName) ? gist.files[backupSettings.fileName] : null;
+    if (!file) throw new Error('Arquivo de backup não encontrado; nenhum arquivo foi alterado.');
+    if (file.truncated || typeof file.content !== 'string' || !file.content) {
+      throw new Error('Não foi possível verificar o arquivo completo; a limpeza foi interrompida.');
+    }
+    const current = JSON.parse(file.content);
+    if (!current || current.schema !== BACKUP_SCHEMA || current.scriptId !== SCRIPT_META.id || !current.db || typeof current.db !== 'object' || Array.isArray(current.db)) {
+      throw new Error('O arquivo não é um backup compatível desta extensão; nenhum arquivo foi alterado.');
+    }
+    await writeCleanupValue(CLEANUP_SIGNATURE_KEY, buildBackupSignature());
+    clearTimeout(state.backupTimer);
+    state.backupTimer = null;
+    const payload = buildBackupPayload(normalizeDb(null));
+    const updated = await githubRequest({
+      method: 'PATCH', url,
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      data: JSON.stringify({ files: { [backupSettings.fileName]: { content: JSON.stringify(payload, null, 2) } } })
+    });
+    if (updated.status < 200 || updated.status >= 300) throw new Error(parseGithubError(updated));
   }
 
   function nowIso() {
@@ -1126,7 +1234,7 @@
     clearTimeout(state.backupTimer);
     state.backupTimer = null;
     const backupSettings = loadBackupSettings();
-    if (!backupSettings.enabled || !backupSettings.autoBackupOnSave) return;
+    if (!backupSettings.enabled || !backupSettings.autoBackupOnSave || isCleanupBackupSuppressed(db)) return;
     const backupSignature = buildBackupSignature(db);
     if (backupSignature === backupSettings.lastBackupSignature) return;
     const lastBackupTime = new Date(backupSettings.lastBackupAt || 0).getTime();
@@ -1136,10 +1244,14 @@
     const delay = Math.max(AUTO_BACKUP_IDLE_DELAY_MS, intervalWait);
     state.backupTimer = setTimeout(async () => {
       state.backupTimer = null;
+      if (state.backupBusy || isCleanupBackupSuppressed(db) || buildBackupSignature(db) !== buildBackupSignature()) return;
+      state.backupBusy = true;
       try {
         await pushBackupToGist(backupSettings, buildBackupPayload(db));
         saveBackupSettings({ ...backupSettings, lastBackupAt: nowIso(), lastBackupSignature: backupSignature });
-      } catch (_) {}
+      } catch (_) {} finally {
+        state.backupBusy = false;
+      }
     }, delay);
   }
 
@@ -2648,6 +2760,9 @@
       .pj-guides-toast--warn { background: #9a6613; }
       .pj-guides-toast--danger { background: #9b2e2e; }
       ${BACKUP_UI_CSS}
+    [data-pj-suite-ui="central-guias"] .pj-backup-ui__actions { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+    @media (max-width: 720px) { [data-pj-suite-ui="central-guias"] .pj-backup-ui__actions { grid-template-columns: 1fr !important; } }
+
     `;
     document.head.appendChild(style);
     state.styleMounted = true;
@@ -2892,6 +3007,7 @@
     };
 
     frame.addEventListener('load', () => {
+      if (state.automaticGuidesSyncFrame !== frame) return;
       let result = null;
       try {
         result = syncGuidesFromDocument(frame.contentDocument, {
@@ -3176,6 +3292,8 @@
       elements.send,
       elements.restore,
       elements.clear,
+      elements.cleanLocal,
+      elements.cleanRemote,
       elements.status,
       elements.last
     ].every(Boolean);
@@ -3245,39 +3363,75 @@
         : 'Backup enviado com sucesso.');
     }
 
+    async function withBackupLock(action) {
+      if (state.backupBusy) {
+        setBackupStatus(elements, 'Aguarde a operação de backup em andamento.', true);
+        return;
+      }
+      state.backupBusy = true;
+      const previousFocus = panel.ownerDocument.activeElement;
+      const controls = [...panel.querySelectorAll('button, input, select, textarea')].map(node => [node, node.disabled]);
+      controls.forEach(([node]) => { node.disabled = true; });
+      const busyRegion = elements.popover?.querySelector('.pj-backup-ui__dialog') || panel;
+      busyRegion.setAttribute('aria-busy', 'true');
+      try {
+        await action();
+      } catch (error) {
+        setBackupStatus(elements, error?.message || 'Falha na operação. Verifique o estado dos dados antes de tentar novamente.', true);
+      } finally {
+        state.backupBusy = false;
+        controls.forEach(([node, disabled]) => { node.disabled = disabled; });
+        busyRegion.removeAttribute('aria-busy');
+        if (previousFocus?.isConnected && !previousFocus.disabled) previousFocus.focus({ preventScroll: true });
+      }
+    }
+
     if (hasUi) {
-      elements.send.addEventListener('click', async () => {
-        try {
-          await runBackupNow();
-        } catch (error) {
-          setBackupStatus(elements, error && error.message ? error.message : 'Falha ao enviar backup.', true);
-        }
-      });
-
-      elements.restore.addEventListener('click', async () => {
-        try {
-          let nextSettings = readSettings();
-          setBackupStatus(elements, 'Restaurando backup...');
-          const payload = await readBackupFromGist(nextSettings);
-          applyBackupPayload(payload);
-          nextSettings = saveBackupSettings({ ...nextSettings, lastBackupSignature: buildBackupSignature(payload.db || loadDb()) });
-          backupSettings = nextSettings;
-          setBackupStatus(elements, 'Backup restaurado com sucesso.');
-          if (typeof options.onRestore === 'function') options.onRestore();
-        } catch (error) {
-          setBackupStatus(elements, error && error.message ? error.message : 'Falha ao restaurar backup.', true);
-        }
-      });
-
-      elements.clear.addEventListener('click', () => {
+      elements.send.addEventListener('click', () => withBackupLock(runBackupNow));
+      elements.restore.addEventListener('click', () => withBackupLock(async () => {
+        let nextSettings = readSettings();
+        setBackupStatus(elements, 'Restaurando backup...');
+        const payload = await readBackupFromGist(nextSettings);
+        applyBackupPayload(payload);
+        nextSettings = saveBackupSettings({ ...nextSettings, lastBackupSignature: buildBackupSignature(payload.db || loadDb()) });
+        backupSettings = nextSettings;
+        setBackupStatus(elements, 'Backup restaurado com sucesso.');
+        if (typeof options.onRestore === 'function') options.onRestore();
+      }));
+      elements.clear.addEventListener('click', () => withBackupLock(() => {
         backupSettings = saveBackupSettings(DEFAULT_BACKUP_SETTINGS);
         fillBackupForm(elements, backupSettings);
         setBackupStatus(elements, 'Configuração de backup removida.');
-      });
-
+      }));
+      elements.cleanLocal.addEventListener('click', () => withBackupLock(async () => {
+        if (!await confirmExtensionCleanup(panel, 'Limpar dados locais da Central de Guias?',
+          'Atenção: os processos, guias e marcações locais da Central de Guias serão apagados. Esta ação não pode ser desfeita pela extensão. A preferência do resumo inicial, as credenciais, a configuração de backup e os dados de outras extensões serão preservados. O backup remoto não será alterado. O envio automático ficará suspenso para estes dados até uma nova alteração.')) return;
+        setBackupStatus(elements, 'Limpando dados locais...');
+        await clearLocalExtensionData();
+        document.getElementById('pj-guides-home-panel')?.remove();
+        ['pj-guides-process-card', 'pj-guides-guide-card'].forEach(id => {
+          const card = document.getElementById(id);
+          if (card) card.textContent = 'Dados locais da Central de Guias limpos. Reabra o processo para sincronizar novamente.';
+        });
+        document.querySelectorAll('#pj-guides-toast-host [data-pj-guides-scope="home"]').forEach(node => node.remove());
+        if (isHomePage()) mountHomePanel();
+        if (typeof options.onRestore === 'function') options.onRestore();
+        setBackupStatus(elements, 'Dados locais limpos. Configuração e backup remoto preservados.');
+      }));
+      elements.cleanRemote.addEventListener('click', () => withBackupLock(async () => {
+        const target = normalizeBackupSettings({
+          ...backupSettings, gistId: elements.gist.value, token: elements.token.value, fileName: elements.file.value
+        });
+        if (!await confirmExtensionCleanup(panel, 'Limpar dados remotos da Central de Guias?',
+          `Atenção: somente o arquivo “${target.fileName}” do Gist “${target.gistId}” será substituído por um backup válido sem processos ou guias, após verificar que pertence à Central de Guias. Esta ação não pode ser desfeita pela extensão; o histórico do GitHub pode manter versões anteriores. O Gist, seus outros arquivos, os dados locais e as credenciais serão preservados. O envio automático ficará suspenso para os dados atuais até uma nova alteração.`)) return;
+        setBackupStatus(elements, 'Limpando dados remotos...');
+        await clearRemoteExtensionData(target);
+        setBackupStatus(elements, 'Dados remotos limpos; arquivo vazio válido mantido. Dados locais e configuração preservados.');
+      }));
       [elements.enabled, elements.auto, elements.gist, elements.token, elements.file].forEach(el => {
         const eventName = el.type === 'checkbox' ? 'change' : 'input';
         el.addEventListener(eventName, () => {
+          if (state.backupBusy) return;
           readSettings();
           if (elements.status.textContent) setBackupStatus(elements, '');
         });
@@ -3286,11 +3440,12 @@
 
     if (elements.toggleBtn && elements.popover) {
       elements.toggleBtn.addEventListener('click', () => {
-        setSuitePopoverOpen(elements.popover, true, () => setSuitePopoverOpen(elements.popover, false));
+        if (state.backupBusy) return;
+        setSuitePopoverOpen(elements.popover, true, () => { if (!state.backupBusy) setSuitePopoverOpen(elements.popover, false); });
         setBackupToggleLabel(elements.toggleBtn);
       });
       elements.popover.addEventListener('click', event => {
-        if (event.target === elements.popover || event.target.closest('[data-pj-guides-backup-close]')) {
+        if (!state.backupBusy && (event.target === elements.popover || event.target.closest('[data-pj-guides-backup-close]'))) {
           setSuitePopoverOpen(elements.popover, false);
         }
       });
@@ -3305,6 +3460,7 @@
   }
 
   function openManager(focusProcessKey = '') {
+    if (state.backupBusy) return;
     if (!isTopWindow()) {
       getTopWindow().postMessage({ type: MSG_OPEN_MANAGER, focusProcessKey }, window.location.origin);
       return;
@@ -3410,6 +3566,8 @@
             <div class="pj-guides-manager__backup-actions pj-backup-ui__actions">
               <button type="button" id="pj-guides-backup-send" class="pj-guides-btn pj-guides-manager__backup-primary pj-backup-ui__button pj-backup-ui__button--primary"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Enviar backup</span></button>
               <button type="button" id="pj-guides-backup-restore" class="pj-guides-btn pj-guides-manager__backup-success pj-backup-ui__button pj-backup-ui__button--success"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span>Restaurar backup</span></button>
+              <button type="button" id="pj-guides-backup-clean-local" class="pj-guides-btn pj-backup-ui__button pj-backup-ui__button--danger"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>Limpar dados locais</span></button>
+              <button type="button" id="pj-guides-backup-clean-remote" class="pj-guides-btn pj-backup-ui__button pj-backup-ui__button--danger"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>Limpar dados remotos</span></button>
               <button type="button" id="pj-guides-backup-clear" class="pj-guides-btn pj-guides-btn--danger pj-backup-ui__button pj-backup-ui__button--danger"><i class="fa-solid fa-key" aria-hidden="true"></i><span>Remover configuração</span></button>
               <button type="button" class="pj-guides-btn pj-backup-ui__button" data-pj-guides-backup-close><i class="fa-solid fa-xmark" aria-hidden="true"></i><span>Fechar</span></button>
             </div>
@@ -3422,6 +3580,7 @@
 
     const closeBtn = panel.querySelector('.pj-guides-manager__header .pj-guides-btn');
     const closeManager = () => {
+      if (state.backupBusy) return;
       deactivateSuiteDialog(panel);
       releaseSuiteUI(overlay);
       overlay.remove();

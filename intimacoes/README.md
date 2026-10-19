@@ -50,3 +50,9 @@ Veja o [plano visual](../docs/padronizacao-visual/plano.md) e o [relatório de v
 ## Filtro de prazos na tabela
 
 No painel, escolha **Data exata**, **Período** ou **Sem data limite** e clique em **Aplicar filtro**. São exibidos somente os campos do tipo escolhido. O texto abaixo indica o filtro ativo; **Limpar filtro da tabela** restaura todas as linhas e limpa os campos de data e período. Esses controles atuam na tabela da página atual do Projudi, enquanto busca e status atuam nos itens monitorados do painel. Períodos invertidos não são aplicados.
+
+## Limpar dados no painel de backup
+
+**Limpar dados locais** remove apenas os itens monitorados de Intimações e preserva filtros, preferências e credenciais. **Limpar dados remotos** valida a identidade do arquivo selecionado e substitui seu conteúdo por um backup vazio da extensão; preserva o Gist e os demais arquivos, inclusive quando há apenas um arquivo. O histórico do GitHub pode conservar versões anteriores.
+
+As duas ações exigem confirmação com aviso vermelho e ícone de atenção. Cancelar recebe o foco inicial; Escape cancela e Tab/Shift+Tab circulam no diálogo. A limpeza não pode ser desfeita pela extensão. O backup automático permanece suspenso para os dados limpos até uma mudança nos itens; o envio manual continua disponível. Falhas de validação ou armazenamento são exibidas no painel.

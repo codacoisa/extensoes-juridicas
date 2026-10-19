@@ -402,3 +402,15 @@ test('cores principais e secundárias mantêm contraste AA', async () => {
 test('Intimações inicializa após criar todos os caches locais', () => {
   assert.ok(sources.intimacoes.lastIndexOf('  init();') > sources.intimacoes.indexOf('const fontAwesomeSprites = new WeakMap()'));
 });
+
+test('limpezas das cinco extensões exigem aviso local e preservam o escopo do armazenamento', () => {
+  for (const [id, source] of Object.entries(sources)) {
+    assert.match(source, /<span>Limpar dados locais<\/span>/, `${id}: opção local ausente`);
+    assert.match(source, /<span>Limpar dados remotos<\/span>/, `${id}: opção remota ausente`);
+    assert.match(source, /function clearLocalExtensionData\(/, `${id}: limpeza local ausente`);
+    assert.match(source, /function clearRemoteExtensionData\(/, `${id}: limpeza remota ausente`);
+    assert.match(source, /viewBox="0 0 24 24"[^>]*aria-hidden="true"[\s\S]*?<path\b[^>]*\bd=/, `${id}: atenção depende do sprite remoto`);
+    assert.match(source, /aria-describedby/, `${id}: aviso não está associado ao diálogo`);
+    assert.doesNotMatch(source, /localStorage\.clear\(|sessionStorage\.clear\(|method:\s*['"]DELETE['"]/, `${id}: limpeza ampla encontrada`);
+  }
+});

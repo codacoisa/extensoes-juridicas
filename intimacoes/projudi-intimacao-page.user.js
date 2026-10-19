@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intimações
 // @namespace    projudi-intimacao-page.user.js
-// @version      2026.10.14-00:03
+// @version      2026.10.19-11:27
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Reúne intimações, exporta CSV/PDF, permite triagem local e destaca/filtra prazos do Projudi.
 // @author       lourencosv
@@ -682,6 +682,7 @@
     modalRoot: null,
     toastTimer: 0,
     backupTimer: 0,
+    backupBusy: false,
     pdfPromise: null,
     deadlineState: buildDeadlineState(),
     deadlineCellAnalysisCache: new WeakMap(),
@@ -1505,6 +1506,7 @@
         updatedAt: String(source.updatedAt || new Date().toISOString()),
         items: source.items && typeof source.items === 'object' ? source.items : Object.create(null),
         deadline,
+        clearedBackupSignature: String(source.clearedBackupSignature || ''),
         ui: {
           panelOpen: Boolean(source.ui?.panelOpen),
           hideDone: source.ui?.hideDone !== false,
@@ -1593,11 +1595,12 @@
     window.clearTimeout(state.backupTimer);
     state.backupTimer = 0;
 
+    if (state.backupBusy) return;
     const settings = loadBackupSettings();
     if (!settings.enabled || !settings.autoBackupOnSave) return;
 
     const signature = buildBackupSignature();
-    if (signature === settings.lastBackupSignature) return;
+    if (signature === state.store.clearedBackupSignature || signature === settings.lastBackupSignature) return;
     const lastBackupTime = new Date(settings.lastBackupAt || 0).getTime();
     const intervalWait = Number.isNaN(lastBackupTime)
       ? 0
@@ -1605,16 +1608,28 @@
     const delay = Math.max(AUTO_BACKUP_IDLE_DELAY_MS, intervalWait);
 
     state.backupTimer = window.setTimeout(async () => {
+      if (state.backupBusy) return;
+      setBackupBusy(true);
       try {
-        await pushBackupToGist(settings, buildBackupPayload());
+        // Revalidar a pausa e os dados persistidos evita usar um snapshot anterior à limpeza em outra aba.
+        const raw = localStorage.getItem(STORAGE_KEYS.store);
+        const latest = raw ? JSON.parse(raw) : null;
+        if (!latest || !latest.items || typeof latest.items !== 'object' || Array.isArray(latest.items)) return;
+        state.store = loadStore();
+        const currentSettings = loadBackupSettings();
+        const currentSignature = buildBackupSignature();
+        if (!currentSettings.enabled || !currentSettings.autoBackupOnSave || currentSignature === state.store.clearedBackupSignature || currentSignature === currentSettings.lastBackupSignature) return;
+        await pushBackupToGist(currentSettings, buildBackupPayload());
         saveBackupSettings({
-          ...settings,
+          ...currentSettings,
           lastBackupAt: new Date().toISOString(),
-          lastBackupSignature: signature
+          lastBackupSignature: currentSignature
         });
         if (state.modalOpen) renderModal();
       } catch (error) {
         logWarn('Falha no backup automatico.', error);
+      } finally {
+        setBackupBusy(false);
       }
     }, delay);
   }
@@ -1663,6 +1678,7 @@
 
       gmXmlHttpRequest({
         method: options.method || 'GET',
+        timeout: 30000,
         url: options.url,
         headers: options.headers || {},
         data: options.data,
@@ -1740,6 +1756,94 @@
         orderedItems[key] = payload.items[key];
       });
     return JSON.stringify({ schema: BACKUP_SCHEMA, items: orderedItems });
+  }
+
+  // A supressão acompanha a assinatura: abrir/fechar o painel não recria o backup limpo.
+  function clearLocalExtensionData() {
+    const emptySignature = JSON.stringify({ schema: BACKUP_SCHEMA, items: {} });
+    const next = {
+      ...state.store,
+      items: {},
+      revision: Number(state.store.revision || 0) + 1,
+      updatedAt: new Date().toISOString(),
+      clearedBackupSignature: emptySignature
+    };
+    localStorage.setItem(STORAGE_KEYS.store, JSON.stringify(next));
+    state.store = next;
+    window.clearTimeout(state.backupTimer);
+    state.backupTimer = 0;
+  }
+
+  async function clearRemoteExtensionData(settings) {
+    if (!settings.gistId || !settings.token) throw new Error('Informe o Gist ID e o token do GitHub.');
+    const url = `https://api.github.com/gists/${encodeURIComponent(settings.gistId)}`;
+    const headers = { Accept: 'application/vnd.github+json', Authorization: `Bearer ${settings.token}` };
+    const response = await githubRequest({ method: 'GET', url, headers });
+    if (response.status < 200 || response.status >= 300) throw new Error(parseGithubError(response));
+    const file = JSON.parse(response.responseText || '{}').files?.[settings.fileName];
+    if (!file) throw new Error('Arquivo de backup não encontrado no Gist.');
+    if (file.truncated || typeof file.content !== 'string') throw new Error('Não foi possível validar o arquivo completo; nenhuma limpeza foi enviada.');
+    let payload;
+    try { payload = JSON.parse(file.content); } catch (_) { throw new Error('Backup inválido; nenhuma limpeza foi enviada.'); }
+    if (!getPayloadBackupSignature(payload)) throw new Error('Backup incompatível com Intimações; nenhuma limpeza foi enviada.');
+    const empty = {
+      schema: BACKUP_SCHEMA, scriptId: SCRIPT_ID, scriptName: SCRIPT_NAME,
+      version: SCRIPT_VERSION, exportedAt: new Date().toISOString(),
+      backupSignature: JSON.stringify({ schema: BACKUP_SCHEMA, items: {} }), items: {}
+    };
+    // Persistir antes da rede permite impedir reposição automática mesmo após recarregar.
+    const next = { ...state.store, clearedBackupSignature: buildBackupSignature() };
+    localStorage.setItem(STORAGE_KEYS.store, JSON.stringify(next));
+    state.store = next;
+    window.clearTimeout(state.backupTimer);
+    state.backupTimer = 0;
+    const etag = String(response.responseHeaders || '').match(/^etag:\s*(.+)$/im)?.[1]?.trim();
+    const result = await githubRequest({
+      method: 'PATCH', url,
+      headers: { ...headers, 'Content-Type': 'application/json', ...(etag ? { 'If-Match': etag } : {}) },
+      data: JSON.stringify({ files: { [settings.fileName]: { content: JSON.stringify(empty, null, 2) } } })
+    });
+    if (result.status < 200 || result.status >= 300) throw new Error(parseGithubError(result));
+  }
+
+  function setBackupBusy(busy) {
+    state.backupBusy = busy;
+    const root = state.modalRoot;
+    const panel = root?.querySelector('[data-role="backup-panel"]');
+    panel?.setAttribute('aria-busy', String(busy));
+    root?.querySelectorAll('[data-role="backup-panel"] button, [data-role="backup-panel"] input').forEach(node => { node.disabled = busy; });
+  }
+
+  function confirmExtensionDataClear(root, remote, settings) {
+    return new Promise(resolve => {
+      const doc = root.ownerDocument;
+      const overlay = doc.createElement('div');
+      overlay.className = 'pjip-cleanup-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(15,23,42,.6)';
+      overlay.innerHTML = `<section class="pj-backup-ui__dialog" aria-labelledby="pjip-cleanup-title" aria-describedby="pjip-cleanup-warning">
+        <h2 id="pjip-cleanup-title" class="pj-backup-ui__title" style="color:#b42318!important"><svg class="pj-suite-fa" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3 2 21h20L12 3Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 9v5m0 3v1" stroke="currentColor" stroke-width="2"/></svg> Atenção: limpar dados ${remote ? 'remotos' : 'locais'}</h2>
+        <p id="pjip-cleanup-warning" style="color:#b42318!important;border:1px solid #f2b8b5;background:#fff7f7;padding:12px;border-radius:8px;overflow-wrap:anywhere"></p>
+        <div class="pj-backup-ui__actions" style="grid-template-columns:repeat(2,minmax(0,1fr))!important"><button type="button" data-pjip-cleanup="cancel" class="pjip-modal-btn pj-backup-ui__button">Cancelar</button>
+        <button type="button" data-pjip-cleanup="confirm" class="pjip-modal-btn pj-backup-ui__button pj-backup-ui__button--danger">Confirmar limpeza</button></div>
+      </section>`;
+      const dialog = overlay.querySelector('section');
+      overlay.querySelector('p').textContent = remote
+        ? `Esta ação substituirá os dados de Intimações no arquivo “${settings.fileName}” do Gist “${settings.gistId}” por um backup vazio. É irreversível pela extensão. O Gist, outros arquivos, dados locais e credenciais serão preservados. O histórico do GitHub pode manter versões anteriores. O backup automático só voltará após alterar os dados ou enviar manualmente.`
+        : 'Esta ação apagará todos os itens monitorados de Intimações neste navegador. É irreversível pela extensão. Filtros, preferências, credenciais, backup remoto e outras extensões serão preservados. O backup automático só voltará após alterar os dados ou enviar manualmente.';
+      const finish = confirmed => {
+        deactivateSuiteDialog(dialog);
+        releaseSuiteUI(overlay);
+        overlay.remove();
+        resolve(confirmed);
+      };
+      overlay.querySelector('[data-pjip-cleanup="cancel"]').addEventListener('click', () => finish(false));
+      overlay.querySelector('[data-pjip-cleanup="confirm"]').addEventListener('click', () => finish(true));
+      root.querySelector('[data-role="backup-panel"]').appendChild(overlay);
+      root.querySelector('[data-role="backup-panel"]').setAttribute('aria-busy', 'false');
+      renderFontAwesome(overlay);
+      activateSuiteDialog(dialog, () => finish(false));
+      dialog.setAttribute('role', 'alertdialog');
+    });
   }
 
   /**
@@ -3463,6 +3567,7 @@
    * Fecha o painel de gerenciamento.
    */
   function closeModal() {
+    if (state.backupBusy) return;
     state.modalOpen = false;
     state.store.ui.panelOpen = false;
     state.store.ui.backupExpanded = false;
@@ -3666,6 +3771,8 @@
             <button type="button" class="pjip-modal-btn pjip-backup-primary pj-backup-ui__button pj-backup-ui__button--primary" data-role="backup-send"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><span>Enviar backup</span></button>
             <button type="button" class="pjip-modal-btn pjip-backup-success pj-backup-ui__button pj-backup-ui__button--success" data-role="backup-restore"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span>Restaurar backup</span></button>
             <button type="button" class="pjip-modal-btn pjip-backup-danger pj-backup-ui__button pj-backup-ui__button--danger" data-role="backup-clear"><i class="fa-solid fa-key" aria-hidden="true"></i><span>Remover configuração</span></button>
+            <button type="button" class="pjip-modal-btn pj-backup-ui__button pj-backup-ui__button--danger" data-role="backup-clean-local"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>Limpar dados locais</span></button>
+            <button type="button" class="pjip-modal-btn pj-backup-ui__button pj-backup-ui__button--danger" data-role="backup-clean-remote"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>Limpar dados remotos</span></button>
             <button type="button" class="pjip-modal-btn pj-backup-ui__button" data-role="backup-close"><i class="fa-solid fa-xmark" aria-hidden="true"></i><span>Fechar</span></button>
           </div>
           <div class="pjip-backup-meta pj-backup-ui__status" data-role="backup-status" role="status" aria-live="polite"></div>
@@ -3736,19 +3843,22 @@
     });
 
     body.querySelectorAll('[data-role="backup-close"]').forEach(button => button.addEventListener('click', () => {
+      if (state.backupBusy) return;
       state.store.ui.backupExpanded = false;
       persistStore();
       renderModal();
     }));
 
     body.querySelector('[data-role="backup-popover"]')?.addEventListener('click', (event) => {
-      if (event.target !== event.currentTarget) return;
+      if (event.target !== event.currentTarget || state.backupBusy) return;
       state.store.ui.backupExpanded = false;
       persistStore();
       renderModal();
     });
 
     body.querySelector('[data-role="backup-send"]')?.addEventListener('click', async () => {
+      if (state.backupBusy) return;
+      setBackupBusy(true);
       const statusNode = body.querySelector('[data-role="backup-status"]');
       try {
         const settings = saveBackupSettings(readBackupSettingsFromModal(body));
@@ -3769,10 +3879,14 @@
       } catch (error) {
         setNodeText(statusNode, error instanceof Error ? error.message : 'Falha ao enviar backup.');
         if (statusNode instanceof HTMLElement) statusNode.dataset.state = 'error';
+      } finally {
+        setBackupBusy(false);
       }
     });
 
     body.querySelector('[data-role="backup-restore"]')?.addEventListener('click', async () => {
+      if (state.backupBusy) return;
+      setBackupBusy(true);
       const statusNode = body.querySelector('[data-role="backup-status"]');
       try {
         const settings = saveBackupSettings(readBackupSettingsFromModal(body));
@@ -3795,12 +3909,47 @@
       } catch (error) {
         setNodeText(statusNode, error instanceof Error ? error.message : 'Falha ao restaurar backup.');
         if (statusNode instanceof HTMLElement) statusNode.dataset.state = 'error';
+      } finally {
+        setBackupBusy(false);
       }
     });
 
     body.querySelector('[data-role="backup-clear"]')?.addEventListener('click', () => {
+      if (state.backupBusy) return;
       saveBackupSettings(BACKUP_DEFAULTS);
       renderModal();
+    });
+
+    ['local', 'remote'].forEach(scope => {
+      const button = body.querySelector(`[data-role="backup-clean-${scope}"]`);
+      button.addEventListener('click', async () => {
+        if (state.backupBusy) return;
+        state.backupBusy = true;
+        const remote = scope === 'remote';
+        const settings = readBackupSettingsFromModal(body);
+        const statusNode = body.querySelector('[data-role="backup-status"]');
+        // Bloqueia ações concorrentes, mas mantém o acionador habilitado para restaurar foco.
+        setBackupBusy(true);
+        button.disabled = false;
+        try {
+          if (!await confirmExtensionDataClear(body, remote, settings)) return;
+          setBackupBusy(true);
+          button.disabled = true;
+          setNodeText(statusNode, 'Limpando dados...');
+          statusNode.dataset.state = 'progress';
+          if (remote) await clearRemoteExtensionData(settings);
+          else { clearLocalExtensionData(); refreshFrameContext(); }
+          renderModal();
+          setNodeText(statusNode, remote ? 'Dados remotos limpos; arquivo de backup vazio preservado.' : 'Dados locais de Intimações limpos.');
+          statusNode.dataset.state = 'success';
+        } catch (error) {
+          setNodeText(statusNode, error instanceof Error ? error.message : 'Falha ao limpar dados.');
+          statusNode.dataset.state = 'error';
+        } finally {
+          setBackupBusy(false);
+          button.focus({ preventScroll: true });
+        }
+      });
     });
 
     const deadlineMode = body.querySelector('[data-role="deadline-mode"]');
@@ -3876,6 +4025,7 @@
     const root = state.modalRoot;
     activateSuiteDialog(root.querySelector(`#${IDS.modalPanel}`), closeModal);
     const backupSettings = loadBackupSettings();
+    setBackupBusy(state.backupBusy);
     const todayYmd = toYmd(cloneDay(new Date()));
     const filterDate = getDeadlineFilterDate() || todayYmd;
     const summary = buildItemsSummary();

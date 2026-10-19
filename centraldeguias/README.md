@@ -60,3 +60,11 @@ Veja o [plano visual](../docs/padronizacao-visual/plano.md) e o [relatório de v
 ## Resumo na página inicial
 
 Abra **Central de Guias** pelo menu do Projudi ou pelo atalho `Ctrl+;` seguido de `G`. Em **Filtros e navegação**, desmarque **Mostrar resumo na página inicial** para ocultar o cartão inicial e os alertas emitidos por ele. Marque novamente para reativar. A preferência fica neste navegador; os cartões do processo e da consulta de guias continuam disponíveis.
+
+## Limpeza de dados
+
+O painel **Backup remoto** inclui **Limpar dados locais** e **Limpar dados remotos**. As duas ações exigem confirmação com aviso vermelho e ícone de atenção. **Cancelar** recebe o foco inicial; Escape cancela, Tab e Shift+Tab permanecem na confirmação e o foco volta ao botão de origem. Os controles ficam bloqueados durante a operação, com resultado ou erro no próprio painel.
+
+A limpeza local redefine apenas processos, guias e marcações desta extensão, preservando a preferência do resumo inicial, as credenciais e a configuração de backup. A limpeza remota verifica a identidade do backup e substitui somente o arquivo configurado por um backup válido vazio, preservando o Gist e seus demais arquivos. Arquivos ausentes, truncados, inválidos ou de outra extensão interrompem a operação. O histórico do GitHub pode manter versões anteriores; a extensão não oferece desfazer.
+
+A limpeza cancela o envio automático pendente e grava uma proteção local que suspende novos envios automáticos para a mesma assinatura dos dados, inclusive após reabrir o painel ou recarregar. Novas alterações nos dados permitem novos backups; **Enviar backup** continua disponível como ação explícita. Os dados das outras extensões não são alterados.

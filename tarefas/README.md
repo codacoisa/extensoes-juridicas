@@ -48,3 +48,11 @@ Veja o [plano visual](../docs/padronizacao-visual/plano.md) e o [relatório de v
 ## Painel do processo
 
 A janela de tarefas do processo tem largura de até 380 px e altura ajustada ao conteúdo. O estado vazio ocupa apenas o espaço necessário; listas maiores e telas baixas mantêm rolagem interna. Os atalhos de Anotações e Tarefas ficam em um grupo local, com cor normal dos botões e espaço reservado para o alfinete girado. A cor própria, os estilos e o evento do alfinete nativo são preservados.
+
+## Limpeza de dados no painel de backup
+
+- **Limpar dados locais** remove somente as tarefas globais, tarefas dos processos e o índice de processos da extensão neste navegador, preservando preferências, configuração, credenciais, outras extensões e o backup remoto.
+- **Limpar dados remotos** valida o arquivo configurado e substitui seu conteúdo por um backup vazio da extensão. Preserva o Gist, todos os outros arquivos e os dados locais. O histórico do GitHub pode manter versões anteriores; a limpeza não elimina esse histórico.
+- As duas ações exigem confirmação com aviso vermelho e ícone de atenção. **Cancelar** recebe o foco inicial; Tab/Shift+Tab circulam na confirmação e Escape cancela. Os controles ficam bloqueados durante a operação.
+- A limpeza cancela o agendamento pendente e suspende o backup automático para os dados atuais, inclusive depois de recarregar. Uma edição posterior dos dados permite retomá-lo; o envio manual continua disponível.
+- Falhas de armazenamento ou rede são exibidas no painel. Arquivos incompatíveis ou truncados na API do GitHub não são alterados.

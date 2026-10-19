@@ -64,3 +64,11 @@ Veja o [plano visual](../docs/padronizacao-visual/plano.md) e o [relatório de v
 O tema, a escala de texto, as tabelas e os formulários preservam as superfícies marcadas pelas outras extensões e as tabelas gerenciadas por Intimações. O visual moderno mantém o tamanho do texto nativo quando a opção de escala está desativada. A opção de páginas diretas funciona sem depender do ajuste de largura. Salvar o painel preserva a configuração personalizada de destaque das movimentações.
 
 O CSS de tema tem cache, as tentativas de aplicação param quando o iframe está pronto e os observers ignoram alterações internas das extensões. O [relatório de 14/10/2026](../docs/customizacoes-2026-10-14/README.md) contém evidências e o limite da validação no Safari. O QA específico está em `scripts/qa-customizacoes.mjs`, com dados fictícios e navegadores descartáveis.
+
+## Limpeza de dados
+
+O painel **Backup remoto** inclui **Limpar dados locais** e **Limpar dados remotos**. As duas ações exigem confirmação com aviso vermelho e ícone de atenção. **Cancelar** recebe o foco inicial; Escape cancela, Tab e Shift+Tab permanecem na confirmação e o foco volta ao botão de origem. Os controles ficam bloqueados durante a operação, com resultado ou erro no próprio painel.
+
+Nesta extensão, os dados locais são as próprias preferências: a limpeza redefine as personalizações para o padrão, inclusive as regras de destaque das movimentações. As credenciais, a configuração de backup e o backup remoto são preservados. A limpeza remota verifica a identidade do backup e substitui somente o arquivo configurado por um backup válido sem personalizações (`settings: {}`), preservando o Gist e seus demais arquivos. Arquivos ausentes, truncados, inválidos ou de outra extensão interrompem a operação. O histórico do GitHub pode manter versões anteriores; a extensão não oferece desfazer.
+
+Após a limpeza, o envio automático ao salvar fica suspenso para as mesmas preferências, inclusive após reabrir o painel ou recarregar. Novas alterações permitem novos backups; **Enviar backup** continua disponível como ação explícita. Os dados das outras extensões não são alterados.
