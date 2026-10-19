@@ -82,3 +82,7 @@ A cópia existente em `localStorage` é a referência compartilhada entre top e 
 As gravações usam Web Locks da origem e verificam se o snapshot ainda é atual; uma edição concorrente antiga é recusada para nova tentativa, sem substituir dados mais recentes. Sem suporte a Web Locks, a extensão permite leitura e recusa gravações. Limpeza e restauração explícitas criam um novo marcador que cancela capturas anteriores. Metadados de revisão ficam apenas no documento local; o formato do backup permanece inalterado.
 
 O painel aberto se atualiza ao receber eventos da chave de dados ou aviso da própria extensão, sem apagar busca/filtros nem disparar captura ou backup ao renderizar. Depois de instalar a atualização, reabra as páginas já abertas para que todos os contextos executem o mesmo protocolo. A correção não recupera automaticamente registros que já tenham sido sobrescritos; uma recuperação deve usar um backup escolhido pelo usuário.
+
+## Marcações anteriores de aviso
+
+A função **Avisadas** foi removida: não há contador, botão para marcar aviso nem indicação de cliente avisado nas guias. O resumo inicial continua mostrando processos ativos. Marcações de aviso presentes em dados ou backups antigos são preservadas como metadados de compatibilidade, sem efeito nos filtros, status ou contadores. Nenhuma guia ou arquivo de backup é apagado por essa alteração.

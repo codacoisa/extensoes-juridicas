@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Central de Guias
 // @namespace    projudi-central-guias.user.js
-// @version      2026.10.19-12:26
+// @version      2026.10.19-12:28
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Central local para sincronizar, acompanhar e alertar sobre guias de pagamento no Projudi.
 // @author       lourencosv
@@ -1668,7 +1668,6 @@
       paid: 0,
       canceled: 0,
       ignored: 0,
-      notified: 0,
       nearestDueDate: null,
       nearestDueGuide: null,
       staleSync: false,
@@ -1678,7 +1677,6 @@
     guides.forEach(guide => {
       const status = computeGuideStatus(guide, baseDate);
       const due = guide.dueDate ? new Date(guide.dueDate) : null;
-      if (guide.manual && guide.manual.notified) summary.notified += 1;
       if (status === 'overdue') summary.overdue += 1;
       else if (status === 'due_today') summary.dueToday += 1;
       else if (status === 'due_soon') summary.dueSoon += 1;
@@ -2305,7 +2303,7 @@
       }
       .pj-guides-manager__stats {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 10px;
       }
       .pj-guides-manager__stat {
@@ -2361,12 +2359,6 @@
       }
       .pj-guides-manager__stat--warn .pj-guides-manager__stat-value {
         color: #8d5b0a;
-      }
-      .pj-guides-manager__stat--ok {
-        background: linear-gradient(180deg, #f3fbf5 0%, #e6f5ea 100%);
-      }
-      .pj-guides-manager__stat--ok .pj-guides-manager__stat-value {
-        color: #1e6a33;
       }
       .pj-guides-manager__list-shell {
         display: grid;
@@ -2631,11 +2623,6 @@
         gap: 6px;
         min-width: 0;
       }
-      .pj-guides-status-note {
-        color: #5d6f86;
-        font-size: 11px;
-        line-height: 1.2;
-      }
       .pj-guides-manager__empty {
         padding: 18px;
         border: 1px dashed #cfdbe8;
@@ -2706,7 +2693,7 @@
       }
       @media (max-width: 1080px) {
         .pj-guides-manager__stats {
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
         .pj-guides-manager__toolbar-grid {
           grid-template-columns: minmax(0, 1fr) minmax(180px, .8fr);
@@ -2853,7 +2840,7 @@
         <div class="pj-guides-stat"><span class="pj-guides-stat__label">${htmlEscape(labels.open || 'Em aberto')}</span><span class="pj-guides-stat__value">${summary.open}</span></div>
         <div class="pj-guides-stat"><span class="pj-guides-stat__label">${htmlEscape(labels.overdue || 'Vencidas')}</span><span class="pj-guides-stat__value">${summary.overdue}</span></div>
         <div class="pj-guides-stat"><span class="pj-guides-stat__label">${htmlEscape(labels.soon || 'Próximos vencimentos')}</span><span class="pj-guides-stat__value">${summary.dueToday + summary.dueSoon}</span></div>
-        <div class="pj-guides-stat"><span class="pj-guides-stat__label">${htmlEscape(labels.extra || 'Avisadas')}</span><span class="pj-guides-stat__value">${summary.notified}</span></div>
+        ${labels.extra ? `<div class="pj-guides-stat"><span class="pj-guides-stat__label">${htmlEscape(labels.extra)}</span><span class="pj-guides-stat__value">${summary.extra}</span></div>` : ''}
       </div>
     `;
   }
@@ -3207,7 +3194,7 @@
         </div>
       </div>
       ${buildSummaryStats(
-        { open: counts.open, overdue: counts.overdue, dueToday: counts.dueToday, dueSoon: counts.dueSoon, notified: counts.activeProcesses },
+        { open: counts.open, overdue: counts.overdue, dueToday: counts.dueToday, dueSoon: counts.dueSoon, extra: counts.activeProcesses },
         { extra: 'Processos ativos' }
       )}
     `;
@@ -3349,15 +3336,12 @@
     const processes = allProcessesSorted(db);
     const openStatuses = ['open', 'due_week', 'due_soon', 'due_today', 'overdue'];
     const criticalStatuses = ['overdue', 'due_today', 'due_soon'];
-    const paidStatuses = ['paid', 'gratuidade', 'paid_manual', 'parcelamento_pago', 'parcelamento_realizado'];
     return {
       processCount: processes.length,
       totalGuides: rows.length,
       open: rows.filter(row => openStatuses.includes(row.status)).length,
       critical: rows.filter(row => criticalStatuses.includes(row.status)).length,
-      notified: rows.filter(row => row.guide && row.guide.manual && row.guide.manual.notified).length,
       ignored: rows.filter(row => row.status === 'ignored').length,
-      paid: rows.filter(row => paidStatuses.includes(row.status)).length,
       staleProcesses: processes.filter(processRecord => {
         const summary = computeProcessSummary(processRecord);
         return summary.staleSync || summary.neverSynced;
@@ -3798,12 +3782,6 @@
             <span class="pj-guides-manager__stat-value">${stats.critical}</span>
             <span class="pj-guides-manager__stat-note">Vencidas, hoje ou em breve</span>
           </div>
-          <div class="pj-guides-manager__stat pj-guides-manager__stat--ok">
-            <i class="fa-solid fa-circle-check pj-guides-manager__stat-icon" aria-hidden="true"></i>
-            <span class="pj-guides-manager__stat-label">Avisadas</span>
-            <span class="pj-guides-manager__stat-value">${stats.notified}</span>
-            <span class="pj-guides-manager__stat-note">${stats.paid} guia(s) já baixadas</span>
-          </div>
           <div class="pj-guides-manager__stat pj-guides-manager__stat--warn${filter === 'sync_stale' ? ' pj-guides-manager__stat--active' : ''}" data-filter="sync_stale" title="Listar processos sem atualização recente">
             <i class="fa-solid fa-rotate pj-guides-manager__stat-icon" aria-hidden="true"></i>
             <span class="pj-guides-manager__stat-label">Sync pendente</span>
@@ -4037,14 +4015,12 @@
                     <td>
                       <div class="pj-guides-status-cell">
                         <span class="pj-guides-badge pj-guides-badge--${row.status}">${htmlEscape(getStatusLabel(row.status))}</span>
-                        ${(guide.manual && guide.manual.notified) ? '<span class="pj-guides-status-note">Cliente avisado</span>' : ''}
                       </div>
                     </td>
                     <td><span class="pj-guides-sync">${formatDateTimeSingleLine(proc.lastGuidesSyncAt)}</span></td>
                     <td>
                       <div class="pj-guides-row-actions">
                         <button type="button" class="pj-guides-btn pj-guides-btn--icon" data-action="paid" data-process-key="${htmlEscape(proc.key)}" data-guide-key="${htmlEscape(identifier)}" title="${htmlEscape(guide.manual && guide.manual.paid ? 'Desfazer pago' : 'Marcar pago')}" aria-label="${htmlEscape(guide.manual && guide.manual.paid ? 'Desfazer pago' : 'Marcar pago')}"><i class="fa-solid ${guide.manual && guide.manual.paid ? 'fa-arrow-rotate-left' : 'fa-circle-check'}" aria-hidden="true"></i><span class="pj-guides-sr-only">${htmlEscape(guide.manual && guide.manual.paid ? 'Desfazer pago' : 'Marcar pago')}</span></button>
-                        <button type="button" class="pj-guides-btn pj-guides-btn--icon" data-action="notify" data-process-key="${htmlEscape(proc.key)}" data-guide-key="${htmlEscape(identifier)}" title="${htmlEscape(guide.manual && guide.manual.notified ? 'Desfazer aviso' : 'Marcar aviso')}" aria-label="${htmlEscape(guide.manual && guide.manual.notified ? 'Desfazer aviso' : 'Marcar aviso')}"><i class="fa-solid ${guide.manual && guide.manual.notified ? 'fa-bell-slash' : 'fa-bell'}" aria-hidden="true"></i><span class="pj-guides-sr-only">${htmlEscape(guide.manual && guide.manual.notified ? 'Desfazer aviso' : 'Marcar aviso')}</span></button>
                         <button type="button" class="pj-guides-btn pj-guides-btn--warn pj-guides-btn--icon" data-action="ignore" data-process-key="${htmlEscape(proc.key)}" data-guide-key="${htmlEscape(identifier)}" title="${htmlEscape(guide.manual && guide.manual.ignored ? 'Reativar' : 'Ignorar')}" aria-label="${htmlEscape(guide.manual && guide.manual.ignored ? 'Reativar' : 'Ignorar')}"><i class="fa-solid ${guide.manual && guide.manual.ignored ? 'fa-eye' : 'fa-ban'}" aria-hidden="true"></i><span class="pj-guides-sr-only">${htmlEscape(guide.manual && guide.manual.ignored ? 'Reativar' : 'Ignorar')}</span></button>
                         <button type="button" class="pj-guides-btn pj-guides-btn--icon" data-action="open" data-process-key="${htmlEscape(proc.key)}" title="Abrir processo" aria-label="Abrir processo"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i><span class="pj-guides-sr-only">Abrir processo</span></button>
                       </div>
@@ -4099,7 +4075,6 @@
         const guide = findGuide(loadDb(), processKey, guideKey);
         const manual = (guide && guide.manual) || {};
         if (action === 'paid') await updateGuideManual(processKey, guideKey, { paid: !manual.paid });
-        else if (action === 'notify') await updateGuideManual(processKey, guideKey, { notified: !manual.notified });
         else if (action === 'ignore') await updateGuideManual(processKey, guideKey, { ignored: !manual.ignored });
         else return;
         render();
