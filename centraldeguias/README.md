@@ -68,3 +68,9 @@ O painel **Backup remoto** inclui **Limpar dados locais** e **Limpar dados remot
 A limpeza local redefine apenas processos, guias e marcações desta extensão, preservando a preferência do resumo inicial, as credenciais e a configuração de backup. A limpeza remota verifica a identidade do backup e substitui somente o arquivo configurado por um backup válido vazio, preservando o Gist e seus demais arquivos. Arquivos ausentes, truncados, inválidos ou de outra extensão interrompem a operação. O histórico do GitHub pode manter versões anteriores; a extensão não oferece desfazer.
 
 A limpeza cancela o envio automático pendente e grava uma proteção local que suspende novos envios automáticos para a mesma assinatura dos dados, inclusive após reabrir o painel ou recarregar. Novas alterações nos dados permitem novos backups; **Enviar backup** continua disponível como ação explícita. Os dados das outras extensões não são alterados.
+
+## Captura automática ao abrir processo
+
+A captura distingue execução em andamento, repetição pendente e leitura concluída. Se a tabela de guias aparecer depois do carregamento do iframe, a extensão aguarda dentro do limite de 20 segundos. Uma tabela válida sem guias é aceita normalmente.
+
+Erro ou timeout permite uma única nova leitura após um segundo, sem repetição contínua. A navegação ou o cancelamento interrompe as tentativas pendentes; eventos de um iframe antigo são ignorados e a identidade do processo é conferida antes da gravação local. Se as duas tentativas falharem, o cartão orienta abrir as guias para conferir. Isso é independente do backup remoto por Gist.

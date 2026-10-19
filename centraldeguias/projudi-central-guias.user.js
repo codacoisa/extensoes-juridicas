@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Central de Guias
 // @namespace    projudi-central-guias.user.js
-// @version      2026.10.19-11:27
+// @version      2026.10.19-12:06
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Central local para sincronizar, acompanhar e alertar sobre guias de pagamento no Projudi.
 // @author       lourencosv
@@ -638,7 +638,9 @@
     backupBusy: false,
     automaticGuidesSyncProcessKey: '',
     automaticGuidesSyncFrame: null,
-    automaticGuidesSyncTimer: null
+    automaticGuidesSyncTimer: null,
+    automaticGuidesSyncReadTimer: null,
+    automaticGuidesSyncStatus: 'idle'
   };
 
   const storage = {
@@ -2961,6 +2963,8 @@
   }
 
   function cancelAutomaticGuidesSync() {
+    clearTimeout(state.automaticGuidesSyncReadTimer);
+    state.automaticGuidesSyncReadTimer = null;
     if (state.automaticGuidesSyncTimer) {
       clearTimeout(state.automaticGuidesSyncTimer);
       state.automaticGuidesSyncTimer = null;
@@ -2968,6 +2972,10 @@
     if (state.automaticGuidesSyncFrame) {
       state.automaticGuidesSyncFrame.remove();
       state.automaticGuidesSyncFrame = null;
+    }
+    if (state.automaticGuidesSyncStatus !== 'complete') {
+      state.automaticGuidesSyncProcessKey = '';
+      state.automaticGuidesSyncStatus = 'idle';
     }
   }
 
@@ -2977,12 +2985,22 @@
     scheduleEvaluate(0);
   }
 
-  function startAutomaticGuidesSync(processRecord) {
+  function matchesAutomaticGuidesProcess(processRecord, identity) {
+    if (!identity) return false;
+    if (processRecord.processId && identity.processId) return processRecord.processId === identity.processId;
+    return [identity.cnj, identity.shortNumber, identity.processId].filter(Boolean)
+      .some(candidate => processMatchesCandidate(processRecord, candidate));
+  }
+
+  function startAutomaticGuidesSync(processRecord, attempt = 0) {
     if (!processRecord) return;
     const processKey = String(processRecord.key || processRecord.processId || processRecord.shortNumber || '').trim();
-    if (!processKey || state.automaticGuidesSyncProcessKey === processKey) return;
-    state.automaticGuidesSyncProcessKey = processKey;
+    if (!processKey || (state.automaticGuidesSyncProcessKey === processKey &&
+      ['running', 'retrying', 'complete'].includes(state.automaticGuidesSyncStatus))) return;
+    if (!matchesAutomaticGuidesProcess(processRecord, extractProcessPageContext(document))) return;
     cancelAutomaticGuidesSync();
+    state.automaticGuidesSyncProcessKey = processKey;
+    state.automaticGuidesSyncStatus = 'running';
 
     const frame = document.createElement('iframe');
     frame.id = 'pj-guides-automatic-sync-frame';
@@ -2993,30 +3011,66 @@
 
     let settled = false;
     const finish = result => {
-      if (settled) return;
+      // Um evento atrasado de um iframe cancelado não pode encerrar a captura atual.
+      if (settled || state.automaticGuidesSyncFrame !== frame) return;
       settled = true;
-      if (state.automaticGuidesSyncTimer) {
-        clearTimeout(state.automaticGuidesSyncTimer);
-        state.automaticGuidesSyncTimer = null;
-      }
-      if (state.automaticGuidesSyncFrame === frame) state.automaticGuidesSyncFrame = null;
+      clearTimeout(state.automaticGuidesSyncTimer);
+      clearTimeout(state.automaticGuidesSyncReadTimer);
+      state.automaticGuidesSyncTimer = null;
+      state.automaticGuidesSyncReadTimer = null;
+      state.automaticGuidesSyncFrame = null;
       frame.remove();
-      if (result && result.processRecord && state.automaticGuidesSyncProcessKey === processKey) {
+      if (result && result.processRecord) {
+        state.automaticGuidesSyncStatus = 'complete';
         refreshProcessCardAfterAutomaticGuidesSync();
+        return;
       }
+      state.automaticGuidesSyncProcessKey = '';
+      state.automaticGuidesSyncStatus = 'failed';
+      if (!matchesAutomaticGuidesProcess(processRecord, extractProcessPageContext(document))) return;
+      if (attempt === 0) {
+        // No máximo duas leituras de rede por abertura; nenhuma repetição sem limite.
+        state.automaticGuidesSyncProcessKey = processKey;
+        state.automaticGuidesSyncStatus = 'retrying';
+        state.automaticGuidesSyncTimer = setTimeout(() => {
+          if (state.automaticGuidesSyncStatus !== 'retrying' || state.automaticGuidesSyncProcessKey !== processKey) return;
+          state.automaticGuidesSyncTimer = null;
+          state.automaticGuidesSyncStatus = 'idle';
+          startAutomaticGuidesSync(processRecord, 1);
+        }, 1000);
+        return;
+      }
+      const meta = document.querySelector('#pj-guides-process-card .pj-guides-inline__meta');
+      if (meta) meta.textContent = 'Atualização automática indisponível. Abra as guias do processo para conferir.';
     };
 
-    frame.addEventListener('load', () => {
-      if (state.automaticGuidesSyncFrame !== frame) return;
-      let result = null;
+    const readWhenReady = () => {
+      if (settled || state.automaticGuidesSyncFrame !== frame) return;
+      if (!matchesAutomaticGuidesProcess(processRecord, extractProcessPageContext(document))) {
+        cancelAutomaticGuidesSync();
+        return;
+      }
       try {
-        result = syncGuidesFromDocument(frame.contentDocument, {
-          silent: true,
-          source: 'GuiaEmissao?PaginaAtual=6 (automática)'
-        });
-      } catch (_) {}
-      finish(result);
-    }, { once: true });
+        const doc = frame.contentDocument;
+        if (doc && doc.readyState !== 'loading' && isGuidesPage(doc)) {
+          // Validar a identidade antes de persistir impede capturar outro processo após navegação.
+          const ctx = extractGuidesPageContext(doc, { processes: { [processKey]: processRecord } });
+          if (!matchesAutomaticGuidesProcess(processRecord, ctx)) { finish(null); return; }
+          const result = syncGuidesFromDocument(doc, {
+            silent: true,
+            source: 'GuiaEmissao?PaginaAtual=6 (automática)'
+          });
+          finish(result);
+          return;
+        }
+      } catch (_) { finish(null); return; }
+      // Alguns carregamentos completam antes de montar a tabela. Aguardar dentro do timeout,
+      // sem novas requisições; uma tabela válida sem linhas continua sendo um resultado válido.
+      clearTimeout(state.automaticGuidesSyncReadTimer);
+      state.automaticGuidesSyncReadTimer = setTimeout(readWhenReady, 250);
+    };
+
+    frame.addEventListener('load', readWhenReady, { once: true });
     frame.addEventListener('error', () => finish(null), { once: true });
     state.automaticGuidesSyncFrame = frame;
     state.automaticGuidesSyncTimer = setTimeout(() => finish(null), AUTO_GUIDES_SYNC_TIMEOUT_MS);
@@ -4134,10 +4188,8 @@
 
   function init() {
     ensureStyles();
-    if (isAutomaticGuidesFrame()) {
-      syncGuidesFromPage({ silent: true, source: 'GuiaEmissao?PaginaAtual=6 (automática)' });
-      return;
-    }
+    // O documento pai é o único responsável pela captura e pela validação de identidade.
+    if (isAutomaticGuidesFrame()) return;
     registerMenu();
     registerHeaderMenuEntry();
     evaluate();
