@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customizações
 // @namespace    projudi-customizacoes.user.js
-// @version      2026.10.19-11:27
+// @version      2026.10.19-13:05
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Centraliza customizações visuais, navegação, scrollbar e destaques de movimentações do Projudi.
 // @author       lourencosv
@@ -25,6 +25,97 @@
 
 (function () {
     "use strict";
+
+  const BACKUP_SIGNATURE_DOMAIN = 'projudi-customizacoes';
+  // BEGIN BACKUP_SIGNATURE_HELPERS
+  const backupSignatureCache = new Map();
+  let backupScheduleNonce = 0;
+
+  function backupKeyOrder(a, b) {
+    return a < b ? -1 : a > b ? 1 : 0;
+  }
+
+  function canonicalBackupJSON(value) {
+    if (value === null || typeof value !== 'object') return JSON.stringify(value);
+    if (Array.isArray(value)) return `[${value.map(canonicalBackupJSON).join(',')}]`;
+    return `{${Object.keys(value).sort(backupKeyOrder).map(key => `${JSON.stringify(key)}:${canonicalBackupJSON(value[key])}`).join(',')}}`;
+  }
+
+  function immutableBackupSnapshot(value) {
+    const copy = JSON.parse(JSON.stringify(value));
+    function freeze(node) {
+      if (node && typeof node === 'object') {
+        Object.values(node).forEach(freeze);
+        Object.freeze(node);
+      }
+      return node;
+    }
+    return freeze(copy);
+  }
+
+  function knownBackupSignature(value) {
+    const input = String(value || '');
+    return backupSignatureCache.get(input)?.signature || input;
+  }
+
+  async function compactBackupSignature(value) {
+    const input = typeof value === 'string' ? value : JSON.stringify(value);
+    if (/^sha256-v1:[A-Za-z0-9_-]{43}$/.test(input)) return input;
+    if (backupSignatureCache.has(input)) return backupSignatureCache.get(input).promise;
+    let parsed;
+    try { parsed = JSON.parse(input); }
+    catch (_) { throw new Error('Assinatura de backup inválida ou versão não suportada.'); }
+    // Canonicalizar e codificar antes do primeiro await isola o conteúdo calculado.
+    const projection = normalizeBackupSignatureInput(parsed);
+    const bytes = new TextEncoder().encode(canonicalBackupJSON({ version: 1, script: BACKUP_SIGNATURE_DOMAIN, data: projection }));
+    if (typeof crypto === 'undefined' || !crypto.subtle || typeof crypto.subtle.digest !== 'function') {
+      throw new Error('SHA-256 indisponível neste contexto. Abra o Projudi por HTTPS; dados não foram limpos.');
+    }
+    const entry = {};
+    entry.promise = Promise.resolve(crypto.subtle.digest('SHA-256', bytes)).then(buffer => {
+      const digest = btoa(String.fromCharCode(...new Uint8Array(buffer))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      entry.signature = `sha256-v1:${digest}`;
+      return entry.signature;
+    }).catch(error => { backupSignatureCache.delete(input); throw error; });
+    backupSignatureCache.set(input, entry);
+    while (backupSignatureCache.size > 4) backupSignatureCache.delete(backupSignatureCache.keys().next().value);
+    return entry.promise;
+  }
+
+  async function backupSignaturesMatch(stored, input) {
+    if (!stored) return false;
+    // Metadados desconhecidos não são prova de igualdade nem impedem um novo envio.
+    if (!/^sha256-v1:[A-Za-z0-9_-]{43}$/.test(String(stored))) {
+      try { normalizeBackupSignatureInput(JSON.parse(String(stored))); }
+      catch (_) { return false; }
+    }
+    return await compactBackupSignature(String(stored)) === await compactBackupSignature(input);
+  }
+
+  async function getPayloadBackupSignature(payload) {
+    const input = getPayloadBackupSignatureInput(payload);
+    return input ? compactBackupSignature(input) : '';
+  }
+
+  async function prepareCompactBackupPayload(payload, includeSignature = true) {
+    const snapshot = immutableBackupSnapshot(payload);
+    const backupSignature = await getPayloadBackupSignature(snapshot);
+    if (!backupSignature) throw new Error('Backup incompatível; assinatura não calculada.');
+    return {
+      payload: immutableBackupSnapshot(includeSignature ? { ...snapshot, backupSignature } : snapshot),
+      backupSignature
+    };
+  }
+  // END BACKUP_SIGNATURE_HELPERS
+  function normalizeBackupSignatureInput(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Assinatura de Customizações incompatível.');
+    return normalizeSettings(value);
+  }
+
+  function getPayloadBackupSignatureInput(payload) {
+    if (!payload || payload.schema !== BACKUP_SCHEMA || payload.scriptId !== SCRIPT_META.id || !payload.settings || typeof payload.settings !== 'object' || Array.isArray(payload.settings)) return '';
+    return JSON.stringify(normalizeSettings(payload.settings));
+  }
 
     // Compatibilidade local com gestores de userscript, sem publicar APIs no window do Projudi.
     const gmRegisterMenuCommand = typeof GM_registerMenuCommand === "function" ? GM_registerMenuCommand : () => null;
@@ -1012,6 +1103,7 @@
     }
 
     async function pushBackupToGist(backupSettings, payload) {
+      const snapshot = immutableBackupSnapshot(payload);
         if (!backupSettings.gistId) throw new Error("Informe o Gist ID.");
         if (!backupSettings.token) throw new Error("Informe o token do GitHub.");
         const response = await githubRequest({
@@ -1025,7 +1117,7 @@
             data: JSON.stringify({
                 files: {
                     [backupSettings.fileName]: {
-                        content: JSON.stringify(payload, null, 2)
+                        content: JSON.stringify(snapshot, null, 2)
                     }
                 }
             })
@@ -1132,22 +1224,23 @@
     localStorage.setItem(key, JSON.stringify(value));
   }
 
-  function isCleanupBackupSuppressed(value) {
+  async function isCleanupBackupSuppressed(value) {
     try {
-      if (typeof GM_getValue === 'function') {
-        const signature = GM_getValue(CLEANUP_SIGNATURE_KEY, undefined);
-        if (signature !== undefined) return JSON.parse(signature) === JSON.stringify(normalizeSettings(value));
+      const raw = localStorage.getItem(CLEANUP_SIGNATURE_KEY);
+      let stored = raw === null ? undefined : JSON.parse(raw);
+      if (stored === undefined && typeof GM_getValue === 'function') {
+        stored = GM_getValue(CLEANUP_SIGNATURE_KEY, undefined);
+        if (typeof stored === 'string') {
+          try { stored = JSON.parse(stored); } catch (_) {}
+        }
       }
-      return JSON.parse(localStorage.getItem(CLEANUP_SIGNATURE_KEY) || 'null') === JSON.stringify(normalizeSettings(value));
-    } catch (_) {
-      // Se a proteção não puder ser lida, não recriar automaticamente um backup limpo.
-      return true;
-    }
+      return await backupSignaturesMatch(stored, JSON.stringify(normalizeSettings(value)));
+    } catch (_) { return true; }
   }
 
   async function clearLocalExtensionData() {
     const empty = normalizeSettings(DEFAULT_SETTINGS);
-    await writeCleanupValue(CLEANUP_SIGNATURE_KEY, JSON.stringify(empty));
+    await writeCleanupValue(CLEANUP_SIGNATURE_KEY, await compactBackupSignature(empty));
 
     await writeCleanupValue(STORAGE_KEY, empty);
     settings = empty;
@@ -1172,7 +1265,7 @@
     if (!current || current.schema !== BACKUP_SCHEMA || current.scriptId !== SCRIPT_META.id || !current.settings || typeof current.settings !== 'object' || Array.isArray(current.settings)) {
       throw new Error('O arquivo não é um backup compatível desta extensão; nenhum arquivo foi alterado.');
     }
-    await writeCleanupValue(CLEANUP_SIGNATURE_KEY, JSON.stringify(normalizeSettings(settings)));
+    await writeCleanupValue(CLEANUP_SIGNATURE_KEY, await compactBackupSignature(normalizeSettings(settings)));
 
     const payload = { ...buildBackupPayload(DEFAULT_SETTINGS), settings: {} };
     const updated = await githubRequest({
@@ -2747,7 +2840,7 @@
                 backupSettings = saveBackupSettings(readBackupSettingsFromPanel());
                 saveSettings(nextSettings);
                 applySettingsNow();
-                if (backupSettings.enabled && backupSettings.autoBackupOnSave && !isCleanupBackupSuppressed(nextSettings)) {
+                if (backupSettings.enabled && backupSettings.autoBackupOnSave && !await isCleanupBackupSuppressed(nextSettings)) {
                     await runBackupNow(nextSettings);
                 }
                 saved = true;

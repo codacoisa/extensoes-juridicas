@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
+import { webcrypto, createHash } from 'node:crypto';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const paths = {
@@ -63,6 +64,7 @@ function harness(id) {
   const getData = () => JSON.parse(local.get(dataKey));
   const mockGet = (key, fallback) => gm.has(key) ? copy(gm.get(key)) : copy(fallback);
   const context = vm.createContext({
+    crypto: webcrypto, TextEncoder, btoa: value => Buffer.from(value, 'binary').toString('base64'),
     fixtureSettings: settings,
     initialData: copy(initial),
     localStorage: {
@@ -136,8 +138,12 @@ function harness(id) {
       }
     }
   }
+  constants.push('BACKUP_SIGNATURE_DOMAIN');
+  names.push('normalizeBackupSignatureInput', 'getPayloadBackupSignatureInput');
+  if (id !== 'customizacoes') names.push(id === 'tarefas' ? 'buildTodoBackupSignatureInput' : 'buildBackupSignatureInput');
+  const helpers = source.match(/  \/\/ BEGIN BACKUP_SIGNATURE_HELPERS[\s\S]*?  \/\/ END BACKUP_SIGNATURE_HELPERS/)[0];
   setup += 'var AUTO_BACKUP_IDLE_DELAY_MS = 10; var AUTO_BACKUP_MIN_INTERVAL_MS = 100;';
-  vm.runInContext(`${setup}\n${constants.map(name => constantSource(source, name)).join('\n')}\n${names.map(name => functionSource(source, name)).join('\n')}`, context, { filename: `${id}-extracted-fixture.js` });
+  vm.runInContext(`${setup}\n${constants.map(name => constantSource(source, name)).join('\n')}\n${helpers}\n${[...new Set(names)].filter(name => name !== 'getPayloadBackupSignature').map(name => functionSource(source, name)).join('\n')}`, context, { filename: `${id}-extracted-fixture.js` });
   const payload = id === 'tarefas' ? context.buildTodoBackupPayload() : context.buildBackupPayload();
   let remoteFiles = { [settings.fileName]: { content: JSON.stringify(payload) }, 'other-extension.json': { content: '{"keep":true}' } };
   let responder = request => {
@@ -151,7 +157,7 @@ function harness(id) {
     }
     throw new Error(`Método remoto proibido: ${request.method}`);
   };
-  const currentSignature = () => id === 'tarefas' ? context.buildTodoBackupSignature() : id === 'customizacoes' ? JSON.stringify(context.normalizeSettings(context.settings)) : context.buildBackupSignature();
+  const currentSignature = () => id === 'tarefas' ? context.buildTodoBackupSignatureInput() : id === 'customizacoes' ? JSON.stringify(context.normalizeSettings(context.settings)) : context.buildBackupSignatureInput();
   return {
     id, source, context, local, gm, dataKey, backupKey, settings, initial, payload, requests, timers, effects, getData, currentSignature,
     clearLocal: () => context.clearLocalExtensionData(),
@@ -159,8 +165,8 @@ function harness(id) {
     remoteFiles: () => copy(remoteFiles),
     setFiles: files => { remoteFiles = copy(files); },
     respond: handler => { responder = handler; },
-    schedule: () => id === 'tarefas' ? context.scheduleTodoAutoBackup() : id === 'customizacoes' ? !context.isCleanupBackupSuppressed(context.settings) : context.scheduleAutoBackup(),
-    suppressed: () => id === 'customizacoes' ? context.isCleanupBackupSuppressed(context.settings) : id === 'central-guias' ? context.isCleanupBackupSuppressed(context.loadDb()) : id === 'intimacoes' ? context.state.store.clearedBackupSignature === currentSignature() : (id === 'anotacoes' ? context.loadNotesDataEnvelope() : context.loadTaskDataEnvelope()).pausedBackupSignature === currentSignature()
+    schedule: async () => id === 'tarefas' ? context.scheduleTodoAutoBackup() : id === 'customizacoes' ? !await context.isCleanupBackupSuppressed(context.settings) : context.scheduleAutoBackup(),
+    suppressed: async () => id === 'customizacoes' ? context.isCleanupBackupSuppressed(context.settings) : id === 'central-guias' ? context.isCleanupBackupSuppressed(context.loadDb()) : context.backupSignaturesMatch(id === 'intimacoes' ? context.state.store.clearedBackupSignature : (id === 'anotacoes' ? context.loadNotesDataEnvelope() : context.loadTaskDataEnvelope()).pausedBackupSignature, currentSignature())
   };
 }
 
@@ -197,8 +203,8 @@ for (const id of Object.keys(paths)) {
     }
     if (id === 'intimacoes') assert.deepEqual(h.getData().preferences, h.initial.preferences);
     assert.equal(h.requests.length, 0, 'A limpeza local não deve acessar o Gist.');
-    assert.equal(h.suppressed(), true, 'Uma atualização de interface não deve recriar o backup.');
-    h.schedule();
+    assert.equal(await h.suppressed(), true, 'Uma atualização de interface não deve recriar o backup.');
+    await h.schedule();
     assert.equal(h.timers.size, 0, 'Não agendar upload do estado recém-limpo.');
   });
 
@@ -228,8 +234,8 @@ for (const id of Object.keys(paths)) {
       if (id === 'anotacoes' || id === 'tarefas') assert.deepEqual(localData.values, beforeData.values);
       if (id === 'intimacoes') assert.deepEqual(localData.items, beforeData.items);
       if (id === 'central-guias' || id === 'customizacoes') assert.deepEqual(localData, beforeData);
-      assert.equal(h.suppressed(), true);
-      h.schedule();
+      assert.equal(await h.suppressed(), true);
+      await h.schedule();
       assert.equal(h.timers.size, 0, 'O conteúdo local antigo não deve repovoar automaticamente o remoto.');
     }
   });
@@ -299,7 +305,7 @@ for (const id of Object.keys(paths)) {
   test(`${id}: nova edição dos dados libera a suspensão de backup automático`, async () => {
     const h = harness(id);
     await h.clearRemote();
-    assert.equal(h.suppressed(), true);
+    assert.equal(await h.suppressed(), true);
     const edited = h.getData();
     if (id === 'anotacoes') edited.values['projudi_note::cnj_1::main'] = '<p>Nova nota</p>';
     if (id === 'tarefas') edited.values['projudi_todo::global::items'].push({ id: 'new', text: 'Nova tarefa' });
@@ -312,8 +318,8 @@ for (const id of Object.keys(paths)) {
     if (id === 'tarefas') h.context.taskDataCache = null;
     if (id === 'intimacoes') h.context.state.store = edited;
     if (id === 'customizacoes') h.context.settings = edited;
-    assert.equal(h.suppressed(), false);
-    h.schedule();
+    assert.equal(await h.suppressed(), false);
+    await h.schedule();
     if (id !== 'customizacoes') assert.equal(h.timers.size, 1);
   });
   if (id !== 'customizacoes') {
@@ -321,7 +327,7 @@ for (const id of Object.keys(paths)) {
       const h = harness(id);
       let uploads = 0;
       h.context.pushBackupToGist = async () => { uploads++; };
-      h.schedule();
+      await h.schedule();
       const oldCallback = [...h.timers.values()][0];
       assert.equal(typeof oldCallback, 'function');
       await h.clearLocal();
@@ -368,7 +374,7 @@ function cleanupHandlers(id) {
     invalidateNotesCaches() {}, renderNoteItems() {}, updateNoteIndicator() {},
     unmount() {}, scheduleEvaluate() {}, renderManagerRows() {}, syncPanelStates() {},
     applySettingsToForm() {}, isHomePage: () => false,
-    refreshFrameContext: () => { calls.refreshed++; }, renderModal() {}
+    refreshFrameContext: () => { calls.refreshed++; }, renderModal() {}, scheduleAutoBackup() {}, scheduleTodoAutoBackup() {}
   });
   let code;
   if (id === 'anotacoes' || id === 'tarefas') {
@@ -444,3 +450,178 @@ for (const id of Object.keys(paths)) {
     await retry;
   });
 }
+
+function editFixture(h, suffix = 'new') {
+  const edited = h.getData();
+  if (h.id === 'anotacoes') edited.values['projudi_note::cnj_1::main'] += suffix;
+  if (h.id === 'tarefas') edited.values['projudi_todo::global::items'].push({ id: suffix, text: suffix });
+  if (h.id === 'central-guias') edited.processes.p1.guides.push({ guideId: suffix, number: suffix });
+  if (h.id === 'intimacoes') edited.items.p1.note += suffix;
+  if (h.id === 'customizacoes') edited.fontScalePercent = 110;
+  h.local.set(h.dataKey, JSON.stringify(edited)); h.gm.set(h.dataKey, copy(edited));
+  if (h.id === 'anotacoes') h.context.notesDataCache = null;
+  if (h.id === 'tarefas') h.context.taskDataCache = null;
+  if (h.id === 'intimacoes') h.context.state.store = edited;
+  if (h.id === 'customizacoes') h.context.settings = edited;
+}
+const tick = () => new Promise(resolve => setImmediate(resolve));
+function deferredDigest(h) {
+  const pending = [];
+  h.context.crypto = { subtle: { digest: (algorithm, bytes) => new Promise((resolve, reject) => pending.push(() => webcrypto.subtle.digest(algorithm, bytes).then(resolve, reject))) } };
+  return pending;
+}
+
+for (const id of Object.keys(paths)) {
+  test(`${id}: SHA-256 canônico tem 53 caracteres e vetor independente confere`, async () => {
+    const h = harness(id); const input = h.currentSignature();
+    const projection = h.context.normalizeBackupSignatureInput(JSON.parse(input));
+    const domain = sources[id].match(/const BACKUP_SIGNATURE_DOMAIN = '([^']+)'/)[1];
+    const canonical = h.context.canonicalBackupJSON({ version: 1, script: domain, data: projection });
+    const expected = `sha256-v1:${createHash('sha256').update(canonical).digest('base64url')}`;
+    const result = await h.context.compactBackupSignature(input);
+    assert.equal(result, expected); assert.equal(result.length, 53);
+    const reversedKeys = Object.fromEntries(Object.entries(JSON.parse(input)).reverse());
+    assert.equal(await h.context.compactBackupSignature(reversedKeys), result);
+    assert.equal(await h.context.backupSignaturesMatch(input, input), true, 'JSON legado continua válido.');
+    assert.equal(await h.context.backupSignaturesMatch(result, input), true);
+    assert.equal(h.context.knownBackupSignature(input), result, 'Próxima gravação normal pode compactar metadados sem regravar snapshot antigo.');
+    assert.equal(await h.context.backupSignaturesMatch('sha256-v2:future', input), false);
+    assert.equal(await h.context.backupSignaturesMatch('{broken', input), false);
+    editFixture(h);
+    assert.notEqual(await h.context.compactBackupSignature(h.currentSignature()), result);
+  });
+
+  test(`${id}: marcador curto e legado preservam a suspensão inclusive após recarregar cache`, async () => {
+    const h = harness(id); await h.clearRemote();
+    let marker;
+    if (id === 'customizacoes' || id === 'central-guias') marker = JSON.parse(h.local.get(`projudi-suite::${id}::cleanup-backup-signature`));
+    else marker = h.getData()[id === 'intimacoes' ? 'clearedBackupSignature' : 'pausedBackupSignature'];
+    assert.match(marker, /^sha256-v1:[A-Za-z0-9_-]{43}$/);
+    vm.runInContext('backupSignatureCache.clear()', h.context);
+    assert.equal(await h.suppressed(), true);
+    const legacy = h.currentSignature();
+    if (id === 'customizacoes' || id === 'central-guias') h.local.set(`projudi-suite::${id}::cleanup-backup-signature`, JSON.stringify(legacy));
+    else {
+      const data = h.getData(); data[id === 'intimacoes' ? 'clearedBackupSignature' : 'pausedBackupSignature'] = legacy;
+      h.local.set(h.dataKey, JSON.stringify(data)); h.gm.set(h.dataKey, copy(data));
+      if (id === 'intimacoes') h.context.state.store = data;
+      if (id === 'anotacoes') h.context.notesDataCache = null;
+      if (id === 'tarefas') h.context.taskDataCache = null;
+    }
+    assert.equal(await h.suppressed(), true); await h.schedule(); assert.equal(h.timers.size, 0);
+  });
+
+  test(`${id}: falha ou ausência de SHA-256 não limpa dados nem envia PATCH`, async () => {
+    for (const crypto of [undefined, { subtle: { digest: async () => { throw new Error('fixture digest failure'); } } }]) {
+      const h = harness(id); h.context.crypto = crypto; const before = [...h.local];
+      await assert.rejects(h.clearLocal(), /SHA-256|fixture digest failure/);
+      assert.deepEqual([...h.local], before); assert.equal(h.requests.length, 0);
+      await assert.rejects(h.clearRemote(), /SHA-256|fixture digest failure/);
+      assert.deepEqual([...h.local], before); assert.ok(h.requests.every(request => request.method === 'GET'));
+    }
+  });
+
+  test(`${id}: snapshot e bytes do digest não acompanham mutação durante await`, async () => {
+    const h = harness(id); const payload = copy(h.payload); const expected = await h.context.getPayloadBackupSignature(payload);
+    vm.runInContext('backupSignatureCache.clear()', h.context);
+    const pending = deferredDigest(h); const preparing = h.context.prepareCompactBackupPayload(payload, id !== 'customizacoes');
+    assert.equal(pending.length, 1);
+    payload.exportedAt = 'changed';
+    if (id === 'anotacoes') payload.notes[0].html = 'changed';
+    if (id === 'tarefas') payload.data['projudi_todo::global::items'][0].text = 'changed';
+    if (id === 'central-guias') payload.db.processes.p1.guides[0].number = 'changed';
+    if (id === 'intimacoes') payload.items.p1.note = 'changed';
+    if (id === 'customizacoes') payload.settings.fontScalePercent = 110;
+    await pending.shift()(); const result = await preparing;
+    assert.equal(result.backupSignature, expected);
+    assert.deepEqual(copy(result.payload), copy(id === 'customizacoes' ? h.payload : { ...h.payload, backupSignature: expected }));
+    assert.ok(Object.isFrozen(result.payload));
+  });
+
+  if (id === 'customizacoes') continue;
+
+  test(`${id}: declarações de assinatura remota não ocultam alterações do conteúdo`, async () => {
+    const h = harness(id); const expected = await h.context.getPayloadBackupSignature(h.payload);
+    for (const declared of [undefined, h.currentSignature(), 'sha256-v1:' + 'A'.repeat(43)]) {
+      assert.equal(await h.context.getPayloadBackupSignature({ ...h.payload, exportedAt: 'changed', host: 'elsewhere', backupSignature: declared }), expected);
+    }
+    const wrong = copy(h.payload); wrong.backupSignature = expected;
+    if (id === 'anotacoes') wrong.notes[0].html = 'remote difference';
+    if (id === 'tarefas') wrong.data['projudi_todo::global::items'][0].text = 'remote difference';
+    if (id === 'central-guias') wrong.db.processes.p1.guides[0].number = 'remote difference';
+    if (id === 'intimacoes') wrong.items.p1.note = 'remote difference';
+    assert.notEqual(await h.context.getPayloadBackupSignature(wrong), expected);
+    h.setFiles({ [h.settings.fileName]: { content: JSON.stringify(wrong) } });
+    vm.runInContext(functionSource(h.source, 'pushBackupToGist') + '\n' + (id === 'central-guias' || id === 'intimacoes' ? functionSource(h.source, 'readBackupFromGist') : ''), h.context);
+    const result = await h.context.pushBackupToGist(h.settings, h.payload);
+    assert.equal(result.skipped, false); assert.equal(result.backupSignature, expected);
+    const sent = JSON.parse(JSON.parse(h.requests.at(-1).data).files[h.settings.fileName].content);
+    assert.equal(await h.context.getPayloadBackupSignature(sent), sent.backupSignature);
+  });
+
+  test(`${id}: limpeza invalida planejamento cujo digest termina depois`, async () => {
+    const h = harness(id); h.settings.lastBackupSignature = h.currentSignature();
+    const pending = deferredDigest(h); const planning = h.schedule();
+    await tick(); assert.ok(pending.length > 0);
+    const clearing = h.clearLocal(); await tick();
+    while (pending.length) await pending.shift()();
+    await Promise.all([planning, clearing]); await tick();
+    assert.equal(h.timers.size, 0); assert.equal(h.requests.length, 0);
+  });
+
+  test(`${id}: envio grava assinatura do snapshot e agenda edição ocorrida durante a rede`, async () => {
+    const h = harness(id); let release; let sent;
+    h.context.saveBackupSettings = value => { Object.assign(h.settings, copy(value)); return copy(value); };
+    h.context.pushBackupToGist = async (_settings, payload) => {
+      sent = payload; const backupSignature = await h.context.getPayloadBackupSignature(payload);
+      await new Promise(resolve => { release = resolve; }); return { backupSignature };
+    };
+    await h.schedule(); const callback = [...h.timers.values()][0]; h.timers.clear();
+    const sending = callback(); while (!release) await tick();
+    const signature = await h.context.getPayloadBackupSignature(sent); editFixture(h);
+    await h.schedule(); release(); await sending; await tick();
+    assert.equal(h.settings.lastBackupSignature, signature);
+    assert.notEqual(signature, await h.context.compactBackupSignature(h.currentSignature()));
+    assert.equal(h.timers.size, 1, 'Mudança durante envio deve ter próxima tentativa.');
+  });
+}
+
+test('canonização preserva ordem de arrays e distingue textos Unicode', () => {
+  const h = harness('tarefas');
+  assert.notEqual(h.context.canonicalBackupJSON({ list: [1, 2] }), h.context.canonicalBackupJSON({ list: [2, 1] }));
+  assert.notEqual(h.context.canonicalBackupJSON('á'), h.context.canonicalBackupJSON('a'));
+});
+
+for (const id of ['anotacoes', 'central-guias', 'intimacoes', 'tarefas']) {
+  test(`${id}: planejamento antigo não cancela nem substitui timer mais recente`, async () => {
+    const h = harness(id); h.settings.lastBackupSignature = h.currentSignature(); editFixture(h, 'first');
+    const pending = deferredDigest(h); const older = h.schedule(); await tick();
+    editFixture(h, 'second'); const newer = h.schedule(); await tick();
+    await pending.shift()(); await tick();
+    assert.equal(pending.length, 2, 'Cada planejamento deve calcular seu próprio snapshot.');
+    await pending.pop()(); await newer; assert.equal(h.timers.size, 1); const latestTimer = [...h.timers.keys()][0];
+    await pending.shift()(); await older;
+    assert.deepEqual([...h.timers.keys()], [latestTimer]); assert.equal(h.requests.length, 0);
+  });
+}
+
+test('vetor canônico fixo, projeções por identidade e conteúdo grande', async () => {
+  const h = harness('tarefas');
+  assert.equal(h.context.canonicalBackupJSON({ z: [2, { b: 'á', a: 1 }], a: true }), '{"a":true,"z":[2,{"a":1,"b":"á"}]}');
+  const input = { schema: 'fixture', data: { z: [{ text: 'á'.repeat(1024 * 1024) }], a: [] } };
+  const literal = '{"data":{"data":{"a":[],"z":[{"text":' + JSON.stringify(input.data.z[0].text) + '}]},"schema":"fixture"},"script":"projudi-tarefas-locais","version":1}';
+  assert.equal(await h.context.compactBackupSignature(input), 'sha256-v1:' + createHash('sha256').update(literal).digest('base64url'));
+  const notes = harness('anotacoes'); const first = JSON.parse(notes.currentSignature());
+  first.notes.push({ ...first.notes[0], key: 'projudi_note::2::main' });
+  assert.equal(await notes.context.compactBackupSignature(first), await notes.context.compactBackupSignature({ ...first, notes: [...first.notes].reverse() }));
+});
+
+test('intimacoes: marcador remoto calculado com atraso não sobrescreve uma edição local', async () => {
+  const h = harness('intimacoes'); const signature = await h.context.compactBackupSignature(h.currentSignature());
+  let release;
+  h.context.buildBackupSignature = () => new Promise(resolve => { release = () => resolve(signature); });
+  const clearing = h.clearRemote(); while (!release) await tick();
+  editFixture(h, 'during-digest'); const edited = copy(h.getData().items); release(); await clearing;
+  assert.deepEqual(h.getData().items, edited);
+  assert.equal(await h.suppressed(), false, 'Edição mais nova deve poder gerar seu próprio backup.');
+});

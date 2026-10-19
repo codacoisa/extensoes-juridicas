@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
+import { webcrypto } from 'node:crypto';
 
 const source = await readFile(new URL('../centraldeguias/projudi-central-guias.user.js', import.meta.url), 'utf8');
 const DATA = 'projudi-suite::central-guias::data';
@@ -40,7 +41,8 @@ function environment(initial = seed()) {
       BACKUP_SCHEMA: 'fixture-backup-schema', SCRIPT_META: { id: 'fixture-script', name: 'fixture', version: 'fixture' }, location: { host: 'fixture.invalid' },
       dataSnapshots: new WeakMap(),
       navigator: { locks },
-      crypto: { randomUUID: () => `fixture-write-${++serial}` },
+      TextEncoder, btoa: value => Buffer.from(value, 'binary').toString('base64'),
+      crypto: { subtle: webcrypto.subtle, randomUUID: () => `fixture-write-${++serial}` },
       state: { automaticGuidesSyncStatus: 'idle', automaticGuidesSyncResetId: '', managerRender: null, dataRefreshTimer: null, backupTimer: null, alertsShown: new Set(), homeAlertShown: false },
       window: win, CustomEvent: win.CustomEvent,
       getTopWindow: () => top ? top.window : win,
@@ -67,9 +69,10 @@ function environment(initial = seed()) {
       computeProcessSummary: proc => ({ total: proc.guides.length }),
       showToast: () => { throw new Error('Fixture de captura usa silent.'); }
     });
-    const names = ['normalizeManual','normalizeDb','loadDb','createDataWriteId','saveDb','saveDbIfChanged','normalizeShortNumber','sameShortNumber','pickCanonicalShortNumber','processMatchesCandidate','mergeGuideLists','ensureProcessRecord','syncGuidesFromDocument','buildBackupDbSnapshot','buildBackupSignature','buildBackupPayload','applyBackupPayload','writeCleanupValue','isCleanupBackupSuppressed','clearLocalExtensionData','allProcessesSorted','flattenGuides','notifyCentralDataChanged','onCentralDataChanged'];
+    const names = ['normalizeManual','normalizeDb','loadDb','createDataWriteId','saveDb','saveDbIfChanged','normalizeShortNumber','sameShortNumber','pickCanonicalShortNumber','processMatchesCandidate','mergeGuideLists','ensureProcessRecord','syncGuidesFromDocument','buildBackupDbSnapshot','buildBackupSignature','buildBackupSignatureInput','normalizeBackupSignatureInput','buildBackupPayload','applyBackupPayload','writeCleanupValue','isCleanupBackupSuppressed','clearLocalExtensionData','allProcessesSorted','flattenGuides','notifyCentralDataChanged','onCentralDataChanged'];
     const storageCode = source.match(/^  const storage = \{[\s\S]*?^  \};/m)[0];
-    vm.runInContext(storageCode + '\n' + names.map(declaration).join('\n') + '\nglobalThis.storeApi = storage;', context);
+    const helpers = source.match(/  \/\/ BEGIN BACKUP_SIGNATURE_HELPERS[\s\S]*?  \/\/ END BACKUP_SIGNATURE_HELPERS/)[0];
+    vm.runInContext("const BACKUP_SIGNATURE_DOMAIN = 'projudi-central-guias';\n" + helpers + '\n' + storageCode + '\n' + names.map(declaration).join('\n') + '\nglobalThis.storeApi = storage;', context);
     win.addEventListener(EVENT, context.onCentralDataChanged);
     win.addEventListener('storage', context.onCentralDataChanged);
     context.state.managerRender = () => { panel.rows = context.flattenGuides(context.loadDb()).length; panel.renders++; };
@@ -131,7 +134,7 @@ test('limpeza intencional impede restauração por snapshot antigo, GM atrasado 
   assert.equal(old.gm.get(DATA).processes.fixture.guides.length, 1, 'Cache antigo continua simulado.');
   assert.equal(Object.keys(old.context.loadDb().processes).length, 0);
   assert.equal(JSON.parse(e.local.get(DATA)).resetId, reset);
-  assert.equal(fresh.context.isCleanupBackupSuppressed(fresh.context.loadDb()), true);
+  assert.equal(await fresh.context.isCleanupBackupSuppressed(fresh.context.loadDb()), true);
 });
 
 test('evento de dados do iframe atualiza painel aberto sem mudar filtros ou fazer gravações', async () => {

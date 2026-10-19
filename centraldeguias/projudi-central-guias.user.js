@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Central de Guias
 // @namespace    projudi-central-guias.user.js
-// @version      2026.10.19-12:28
+// @version      2026.10.19-13:05
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Central local para sincronizar, acompanhar e alertar sobre guias de pagamento no Projudi.
 // @author       lourencosv
@@ -24,6 +24,97 @@
 
 (function () {
   'use strict';
+
+  const BACKUP_SIGNATURE_DOMAIN = 'projudi-central-guias';
+  // BEGIN BACKUP_SIGNATURE_HELPERS
+  const backupSignatureCache = new Map();
+  let backupScheduleNonce = 0;
+
+  function backupKeyOrder(a, b) {
+    return a < b ? -1 : a > b ? 1 : 0;
+  }
+
+  function canonicalBackupJSON(value) {
+    if (value === null || typeof value !== 'object') return JSON.stringify(value);
+    if (Array.isArray(value)) return `[${value.map(canonicalBackupJSON).join(',')}]`;
+    return `{${Object.keys(value).sort(backupKeyOrder).map(key => `${JSON.stringify(key)}:${canonicalBackupJSON(value[key])}`).join(',')}}`;
+  }
+
+  function immutableBackupSnapshot(value) {
+    const copy = JSON.parse(JSON.stringify(value));
+    function freeze(node) {
+      if (node && typeof node === 'object') {
+        Object.values(node).forEach(freeze);
+        Object.freeze(node);
+      }
+      return node;
+    }
+    return freeze(copy);
+  }
+
+  function knownBackupSignature(value) {
+    const input = String(value || '');
+    return backupSignatureCache.get(input)?.signature || input;
+  }
+
+  async function compactBackupSignature(value) {
+    const input = typeof value === 'string' ? value : JSON.stringify(value);
+    if (/^sha256-v1:[A-Za-z0-9_-]{43}$/.test(input)) return input;
+    if (backupSignatureCache.has(input)) return backupSignatureCache.get(input).promise;
+    let parsed;
+    try { parsed = JSON.parse(input); }
+    catch (_) { throw new Error('Assinatura de backup inválida ou versão não suportada.'); }
+    // Canonicalizar e codificar antes do primeiro await isola o conteúdo calculado.
+    const projection = normalizeBackupSignatureInput(parsed);
+    const bytes = new TextEncoder().encode(canonicalBackupJSON({ version: 1, script: BACKUP_SIGNATURE_DOMAIN, data: projection }));
+    if (typeof crypto === 'undefined' || !crypto.subtle || typeof crypto.subtle.digest !== 'function') {
+      throw new Error('SHA-256 indisponível neste contexto. Abra o Projudi por HTTPS; dados não foram limpos.');
+    }
+    const entry = {};
+    entry.promise = Promise.resolve(crypto.subtle.digest('SHA-256', bytes)).then(buffer => {
+      const digest = btoa(String.fromCharCode(...new Uint8Array(buffer))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      entry.signature = `sha256-v1:${digest}`;
+      return entry.signature;
+    }).catch(error => { backupSignatureCache.delete(input); throw error; });
+    backupSignatureCache.set(input, entry);
+    while (backupSignatureCache.size > 4) backupSignatureCache.delete(backupSignatureCache.keys().next().value);
+    return entry.promise;
+  }
+
+  async function backupSignaturesMatch(stored, input) {
+    if (!stored) return false;
+    // Metadados desconhecidos não são prova de igualdade nem impedem um novo envio.
+    if (!/^sha256-v1:[A-Za-z0-9_-]{43}$/.test(String(stored))) {
+      try { normalizeBackupSignatureInput(JSON.parse(String(stored))); }
+      catch (_) { return false; }
+    }
+    return await compactBackupSignature(String(stored)) === await compactBackupSignature(input);
+  }
+
+  async function getPayloadBackupSignature(payload) {
+    const input = getPayloadBackupSignatureInput(payload);
+    return input ? compactBackupSignature(input) : '';
+  }
+
+  async function prepareCompactBackupPayload(payload, includeSignature = true) {
+    const snapshot = immutableBackupSnapshot(payload);
+    const backupSignature = await getPayloadBackupSignature(snapshot);
+    if (!backupSignature) throw new Error('Backup incompatível; assinatura não calculada.');
+    return {
+      payload: immutableBackupSnapshot(includeSignature ? { ...snapshot, backupSignature } : snapshot),
+      backupSignature
+    };
+  }
+  // END BACKUP_SIGNATURE_HELPERS
+  function normalizeBackupSignatureInput(value) {
+    if (!value || !value.processes || typeof value.processes !== 'object' || Array.isArray(value.processes)) throw new Error('Assinatura da Central incompatível.');
+    return buildBackupDbSnapshot(value);
+  }
+
+  async function buildBackupSignature(db = loadDb()) {
+    return compactBackupSignature(buildBackupSignatureInput(db));
+  }
+
 
   // Compatibilidade local com gestores de userscript, sem publicar APIs no window do Projudi.
   const gmRegisterMenuCommand = typeof GM_registerMenuCommand === 'function' ? GM_registerMenuCommand : () => null;
@@ -683,7 +774,7 @@
     next.fileName = String(next.fileName || SCRIPT_META.fileName).trim() || SCRIPT_META.fileName;
     next.autoBackupOnSave = !!next.autoBackupOnSave;
     next.lastBackupAt = String(next.lastBackupAt || '').trim();
-    next.lastBackupSignature = String(next.lastBackupSignature || '').trim();
+    next.lastBackupSignature = knownBackupSignature(String(next.lastBackupSignature || '').trim());
     return next;
   }
 
@@ -803,7 +894,7 @@
 
   function buildBackupDbSnapshot(db = loadDb()) {
     const source = normalizeDb(db);
-    const processKeys = Object.keys(source.processes || {}).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    const processKeys = Object.keys(source.processes || {}).sort((a, b) => backupKeyOrder(a, b));
     const processes = {};
     processKeys.forEach(key => {
       const proc = source.processes[key];
@@ -825,7 +916,7 @@
           .sort((a, b) => {
             const rowDiff = (Number(a.rowNumber) || Number.MAX_SAFE_INTEGER) - (Number(b.rowNumber) || Number.MAX_SAFE_INTEGER);
             if (rowDiff !== 0) return rowDiff;
-            return String(a.guideId || a.number || '').localeCompare(String(b.guideId || b.number || ''), 'pt-BR');
+            return backupKeyOrder(String(a.guideId || a.number || ''), String(b.guideId || b.number || ''));
           })
           .map(guide => ({
             rowNumber: guide.rowNumber || '',
@@ -849,7 +940,7 @@
     return { version: 1, processes };
   }
 
-  function buildBackupSignature(db = loadDb()) {
+  function buildBackupSignatureInput(db = loadDb()) {
     return JSON.stringify(buildBackupDbSnapshot(db));
   }
 
@@ -861,7 +952,6 @@
       version: SCRIPT_META.version,
       exportedAt: nowIso(),
       host: location.host,
-      backupSignature: buildBackupSignature(db),
       db: buildBackupDbSnapshot(db)
     };
   }
@@ -903,10 +993,11 @@
   async function pushBackupToGist(backupSettings, payload) {
     if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
     if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
-    const nextSignature = getPayloadBackupSignature(payload);
+    const prepared = await prepareCompactBackupPayload(payload);
+    const nextSignature = prepared.backupSignature;
     const remotePayload = await readBackupFromGist(backupSettings, { missingOk: true, invalidOk: true });
-    if (remotePayload && getPayloadBackupSignature(remotePayload) === nextSignature) {
-      return { skipped: true };
+    if (remotePayload && await getPayloadBackupSignature(remotePayload) === nextSignature) {
+      return { skipped: true, backupSignature: nextSignature };
     }
     const response = await githubRequest({
       method: 'PATCH',
@@ -916,16 +1007,15 @@
         Authorization: `Bearer ${backupSettings.token}`,
         'Content-Type': 'application/json'
       },
-      data: JSON.stringify({ files: { [backupSettings.fileName]: { content: JSON.stringify(payload, null, 2) } } })
+      data: JSON.stringify({ files: { [backupSettings.fileName]: { content: JSON.stringify(prepared.payload, null, 2) } } })
     });
     if (response.status < 200 || response.status >= 300) throw new Error(parseGithubError(response));
-    return { skipped: false };
+    return { skipped: false, backupSignature: nextSignature };
   }
 
-  function getPayloadBackupSignature(payload) {
+  function getPayloadBackupSignatureInput(payload) {
     if (!payload || payload.schema !== BACKUP_SCHEMA || payload.scriptId !== SCRIPT_META.id || !payload.db || typeof payload.db !== 'object') return '';
-    if (payload.backupSignature) return String(payload.backupSignature);
-    return buildBackupSignature(payload.db);
+    return buildBackupSignatureInput(payload.db);
   }
 
   async function readBackupFromGist(backupSettings, options = {}) {
@@ -1028,14 +1118,15 @@
     if (typeof GM_setValue === 'function') await GM_setValue(key, value);
   }
 
-  function isCleanupBackupSuppressed(value) {
-    try { return storage.get(CLEANUP_SIGNATURE_KEY, null) === buildBackupSignature(value); }
+  async function isCleanupBackupSuppressed(value) {
+    try { return await backupSignaturesMatch(storage.get(CLEANUP_SIGNATURE_KEY, null), buildBackupSignatureInput(value)); }
     catch (_) { return true; }
   }
 
   async function clearLocalExtensionData() {
+    backupScheduleNonce += 1;
     const empty = normalizeDb(null);
-    await writeCleanupValue(CLEANUP_SIGNATURE_KEY, buildBackupSignature(empty));
+    await writeCleanupValue(CLEANUP_SIGNATURE_KEY, await buildBackupSignature(empty));
     clearTimeout(state.backupTimer);
     state.backupTimer = null;
     cancelAutomaticGuidesSync();
@@ -1046,6 +1137,7 @@
   }
 
   async function clearRemoteExtensionData(backupSettings) {
+    backupScheduleNonce += 1;
     if (!backupSettings.gistId) throw new Error('Informe o Gist ID.');
     if (!backupSettings.token) throw new Error('Informe o token do GitHub.');
     const url = `https://api.github.com/gists/${encodeURIComponent(backupSettings.gistId)}`;
@@ -1062,14 +1154,14 @@
     if (!current || current.schema !== BACKUP_SCHEMA || current.scriptId !== SCRIPT_META.id || !current.db || typeof current.db !== 'object' || Array.isArray(current.db)) {
       throw new Error('O arquivo não é um backup compatível desta extensão; nenhum arquivo foi alterado.');
     }
-    await writeCleanupValue(CLEANUP_SIGNATURE_KEY, buildBackupSignature());
+    await writeCleanupValue(CLEANUP_SIGNATURE_KEY, await buildBackupSignature());
     clearTimeout(state.backupTimer);
     state.backupTimer = null;
-    const payload = buildBackupPayload(normalizeDb(null));
+    const prepared = await prepareCompactBackupPayload(buildBackupPayload(normalizeDb(null)));
     const updated = await githubRequest({
       method: 'PATCH', url,
       headers: { ...headers, 'Content-Type': 'application/json' },
-      data: JSON.stringify({ files: { [backupSettings.fileName]: { content: JSON.stringify(payload, null, 2) } } })
+      data: JSON.stringify({ files: { [backupSettings.fileName]: { content: JSON.stringify(prepared.payload, null, 2) } } })
     });
     if (updated.status < 200 || updated.status >= 300) throw new Error(parseGithubError(updated));
   }
@@ -1265,35 +1357,44 @@
   }
 
   async function saveDbIfChanged(db, options = {}) {
-    const previousSignature = buildBackupSignature();
-    const nextSignature = buildBackupSignature(db);
+    const previousSignature = buildBackupSignatureInput();
+    const nextSignature = buildBackupSignatureInput(db);
     if (previousSignature === nextSignature) return false;
     return saveDb(db, options);
   }
 
-  function scheduleAutoBackup(db = loadDb()) {
+  async function scheduleAutoBackup(db = loadDb()) {
+    const plan = ++backupScheduleNonce;
     clearTimeout(state.backupTimer);
     state.backupTimer = null;
-    const backupSettings = loadBackupSettings();
-    if (!backupSettings.enabled || !backupSettings.autoBackupOnSave || isCleanupBackupSuppressed(db)) return;
-    const backupSignature = buildBackupSignature(db);
-    if (backupSignature === backupSettings.lastBackupSignature) return;
-    const lastBackupTime = new Date(backupSettings.lastBackupAt || 0).getTime();
-    const intervalWait = Number.isNaN(lastBackupTime)
-      ? 0
-      : Math.max(0, AUTO_BACKUP_MIN_INTERVAL_MS - (Date.now() - lastBackupTime));
-    const delay = Math.max(AUTO_BACKUP_IDLE_DELAY_MS, intervalWait);
-    state.backupTimer = setTimeout(async () => {
-      state.backupTimer = null;
-      if (state.backupBusy || isCleanupBackupSuppressed(db) || buildBackupSignature(db) !== buildBackupSignature()) return;
-      state.backupBusy = true;
-      try {
-        await pushBackupToGist(backupSettings, buildBackupPayload(db));
-        saveBackupSettings({ ...backupSettings, lastBackupAt: nowIso(), lastBackupSignature: backupSignature });
-      } catch (_) {} finally {
-        state.backupBusy = false;
-      }
-    }, delay);
+    try {
+      const settings = loadBackupSettings();
+      if (!settings.enabled || !settings.autoBackupOnSave) return;
+      const input = buildBackupSignatureInput(db);
+      if (await isCleanupBackupSuppressed(db) || await backupSignaturesMatch(settings.lastBackupSignature, input)) return;
+      if (plan !== backupScheduleNonce || input !== buildBackupSignatureInput()) return;
+      const lastTime = new Date(settings.lastBackupAt || 0).getTime();
+      const intervalWait = Number.isNaN(lastTime) ? 0 : Math.max(0, AUTO_BACKUP_MIN_INTERVAL_MS - (Date.now() - lastTime));
+      state.backupTimer = setTimeout(async () => {
+        state.backupTimer = null;
+        if (plan !== backupScheduleNonce || state.backupBusy) return;
+        state.backupBusy = true;
+        let sentInput = '';
+        try {
+          const current = loadBackupSettings();
+          const currentDb = loadDb();
+          const payload = immutableBackupSnapshot(buildBackupPayload(currentDb));
+          sentInput = getPayloadBackupSignatureInput(payload);
+          if (!current.enabled || !current.autoBackupOnSave || await isCleanupBackupSuppressed(currentDb) || await backupSignaturesMatch(current.lastBackupSignature, sentInput)) return;
+          if (plan !== backupScheduleNonce || sentInput !== buildBackupSignatureInput()) return;
+          const result = await pushBackupToGist(current, payload);
+          saveBackupSettings({ ...current, lastBackupAt: nowIso(), lastBackupSignature: result.backupSignature });
+        } catch (_) {} finally {
+          state.backupBusy = false;
+          if (sentInput && sentInput !== buildBackupSignatureInput()) scheduleAutoBackup();
+        }
+      }, Math.max(AUTO_BACKUP_IDLE_DELAY_MS, intervalWait));
+    } catch (_) {}
   }
 
   function normalizeManual(manual) {
@@ -3437,9 +3538,8 @@
     async function runBackupNow() {
       let nextSettings = readSettings();
       setBackupStatus(elements, 'Enviando backup...');
-      const backupSignature = buildBackupSignature();
       const result = await pushBackupToGist(nextSettings, buildBackupPayload(loadDb()));
-      nextSettings = saveBackupSettings({ ...nextSettings, lastBackupAt: nowIso(), lastBackupSignature: backupSignature });
+      nextSettings = saveBackupSettings({ ...nextSettings, lastBackupAt: nowIso(), lastBackupSignature: result.backupSignature });
       backupSettings = nextSettings;
       refreshLastBackupLabel();
       setBackupStatus(elements, result && result.skipped
@@ -3464,6 +3564,7 @@
         setBackupStatus(elements, error?.message || 'Falha na operação. Verifique o estado dos dados antes de tentar novamente.', true);
       } finally {
         state.backupBusy = false;
+        scheduleAutoBackup();
         controls.forEach(([node, disabled]) => { node.disabled = disabled; });
         busyRegion.removeAttribute('aria-busy');
         if (previousFocus?.isConnected && !previousFocus.disabled) previousFocus.focus({ preventScroll: true });
@@ -3477,7 +3578,7 @@
         setBackupStatus(elements, 'Restaurando backup...');
         const payload = await readBackupFromGist(nextSettings);
         await applyBackupPayload(payload);
-        nextSettings = saveBackupSettings({ ...nextSettings, lastBackupSignature: buildBackupSignature(payload.db || loadDb()) });
+        nextSettings = saveBackupSettings({ ...nextSettings, lastBackupSignature: await buildBackupSignature(payload.db || loadDb()) });
         backupSettings = nextSettings;
         setBackupStatus(elements, 'Backup restaurado com sucesso.');
         if (typeof options.onRestore === 'function') options.onRestore();

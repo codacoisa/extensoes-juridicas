@@ -86,3 +86,12 @@ O painel aberto se atualiza ao receber eventos da chave de dados ou aviso da pr�
 ## Marcações anteriores de aviso
 
 A função **Avisadas** foi removida: não há contador, botão para marcar aviso nem indicação de cliente avisado nas guias. O resumo inicial continua mostrando processos ativos. Marcações de aviso presentes em dados ou backups antigos são preservadas como metadados de compatibilidade, sem efeito nos filtros, status ou contadores. Nenhuma guia ou arquivo de backup é apagado por essa alteração.
+
+
+## Assinaturas compactas de backup
+
+Os novos marcadores usam `sha256-v1:` seguido de SHA-256 em Base64 URL sem preenchimento: 53 caracteres, independentemente do tamanho dos dados. O cálculo ordena as chaves dos objetos e inclui a identidade da extensão; preserva a ordem das listas, exceto coleções já ordenadas por identidade (notas e guias). Datas de exportação, versão do script e configuração privada de backup não entram na assinatura. Ela detecta mudanças e evita envios repetidos; não autentica o arquivo.
+
+Backups e marcadores anteriores em JSON continuam legíveis, sem mudança de schema. Novos envios e limpezas gravam o formato curto. Metadados de documentos já calculados podem ser compactados na próxima gravação normal; não há conversão em lote, regravação tardia de snapshots nem alteração automática de arquivos remotos ao iniciar. Marcadores de suspensão antigos continuam impedindo a reposição automática dos dados limpos.
+
+O cálculo exige Web Crypto com SHA-256 (acesse o Projudi por HTTPS). Se estiver indisponível ou falhar, a limpeza para antes de alterar dados. O envio usa uma cópia imutável; alterações feitas durante o cálculo ou envio permanecem pendentes para outro backup. Reabra páginas antigas após atualizar todos os scripts.

@@ -414,3 +414,20 @@ test('limpezas das cinco extensões exigem aviso local e preservam o escopo do a
     assert.doesNotMatch(source, /localStorage\.clear\(|sessionStorage\.clear\(|method:\s*['"]DELETE['"]/, `${id}: limpeza ampla encontrada`);
   }
 });
+
+test('assinatura compacta mantém helper comum, domínio próprio e snapshot imutável', () => {
+  let common;
+  const domains = new Set();
+  for (const [id, source] of Object.entries(sources)) {
+    const helper = source.match(/  \/\/ BEGIN BACKUP_SIGNATURE_HELPERS[\s\S]*?  \/\/ END BACKUP_SIGNATURE_HELPERS/)?.[0];
+    assert.ok(helper, `${id}: helper de assinatura ausente`);
+    if (common) assert.equal(helper, common, `${id}: helper divergente`);
+    common = helper;
+    domains.add(source.match(/const BACKUP_SIGNATURE_DOMAIN = '([^']+)'/)?.[1]);
+    assert.match(helper, /crypto\.subtle\.digest\('SHA-256', bytes\)/);
+    assert.match(helper, /Object\.freeze\(node\)/);
+    assert.doesNotMatch(source, /if\s*\(payload\.backupSignature\)\s*return/);
+    if (id !== 'customizacoes') assert.match(source, /lastBackupSignature: result\.backupSignature/);
+  }
+  assert.equal(domains.size, 5);
+});

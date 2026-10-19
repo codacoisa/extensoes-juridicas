@@ -56,3 +56,12 @@ No painel, escolha **Data exata**, **Período** ou **Sem data limite** e clique 
 **Limpar dados locais** remove apenas os itens monitorados de Intimações e preserva filtros, preferências e credenciais. **Limpar dados remotos** valida a identidade do arquivo selecionado e substitui seu conteúdo por um backup vazio da extensão; preserva o Gist e os demais arquivos, inclusive quando há apenas um arquivo. O histórico do GitHub pode conservar versões anteriores.
 
 As duas ações exigem confirmação com aviso vermelho e ícone de atenção. Cancelar recebe o foco inicial; Escape cancela e Tab/Shift+Tab circulam no diálogo. A limpeza não pode ser desfeita pela extensão. O backup automático permanece suspenso para os dados limpos até uma mudança nos itens; o envio manual continua disponível. Falhas de validação ou armazenamento são exibidas no painel.
+
+
+## Assinaturas compactas de backup
+
+Os novos marcadores usam `sha256-v1:` seguido de SHA-256 em Base64 URL sem preenchimento: 53 caracteres, independentemente do tamanho dos dados. O cálculo ordena as chaves dos objetos e inclui a identidade da extensão; preserva a ordem das listas, exceto coleções já ordenadas por identidade (notas e guias). Datas de exportação, versão do script e configuração privada de backup não entram na assinatura. Ela detecta mudanças e evita envios repetidos; não autentica o arquivo.
+
+Backups e marcadores anteriores em JSON continuam legíveis, sem mudança de schema. Novos envios e limpezas gravam o formato curto. Metadados de documentos já calculados podem ser compactados na próxima gravação normal; não há conversão em lote, regravação tardia de snapshots nem alteração automática de arquivos remotos ao iniciar. Marcadores de suspensão antigos continuam impedindo a reposição automática dos dados limpos.
+
+O cálculo exige Web Crypto com SHA-256 (acesse o Projudi por HTTPS). Se estiver indisponível ou falhar, a limpeza para antes de alterar dados. O envio usa uma cópia imutável; alterações feitas durante o cálculo ou envio permanecem pendentes para outro backup. Reabra páginas antigas após atualizar todos os scripts.

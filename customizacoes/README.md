@@ -72,3 +72,14 @@ O painel **Backup remoto** inclui **Limpar dados locais** e **Limpar dados remot
 Nesta extensão, os dados locais são as próprias preferências: a limpeza redefine as personalizações para o padrão, inclusive as regras de destaque das movimentações. As credenciais, a configuração de backup e o backup remoto são preservados. A limpeza remota verifica a identidade do backup e substitui somente o arquivo configurado por um backup válido sem personalizações (`settings: {}`), preservando o Gist e seus demais arquivos. Arquivos ausentes, truncados, inválidos ou de outra extensão interrompem a operação. O histórico do GitHub pode manter versões anteriores; a extensão não oferece desfazer.
 
 Após a limpeza, o envio automático ao salvar fica suspenso para as mesmas preferências, inclusive após reabrir o painel ou recarregar. Novas alterações permitem novos backups; **Enviar backup** continua disponível como ação explícita. Os dados das outras extensões não são alterados.
+
+
+## Assinaturas compactas de backup
+
+Os novos marcadores usam `sha256-v1:` seguido de SHA-256 em Base64 URL sem preenchimento: 53 caracteres, independentemente do tamanho dos dados. O cálculo ordena as chaves dos objetos e inclui a identidade da extensão; preserva a ordem das listas, exceto coleções já ordenadas por identidade (notas e guias). Datas de exportação, versão do script e configuração privada de backup não entram na assinatura. Ela detecta mudanças e evita envios repetidos; não autentica o arquivo.
+
+Backups e marcadores anteriores em JSON continuam legíveis, sem mudança de schema. Novos envios e limpezas gravam o formato curto. Metadados de documentos já calculados podem ser compactados na próxima gravação normal; não há conversão em lote, regravação tardia de snapshots nem alteração automática de arquivos remotos ao iniciar. Marcadores de suspensão antigos continuam impedindo a reposição automática dos dados limpos.
+
+O cálculo exige Web Crypto com SHA-256 (acesse o Projudi por HTTPS). Se estiver indisponível ou falhar, a limpeza para antes de alterar dados. O envio usa uma cópia imutável; alterações feitas durante o cálculo ou envio permanecem pendentes para outro backup. Reabra páginas antigas após atualizar todos os scripts.
+
+Em Customizações, o marcador compacto identifica a suspensão após limpeza; o backup remoto mantém somente seu formato de configurações, sem acrescentar um campo de assinatura.
