@@ -123,7 +123,10 @@ function harness(id) {
       constants.push('STORAGE_KEY', 'CLEANUP_SIGNATURE_KEY', 'BACKUP_SCHEMA');
       names.push('writeCleanupValue', 'isCleanupBackupSuppressed', 'buildBackupPayload');
       if (id === 'central-guias') {
-        names.push('normalizeDb', 'normalizeManual', 'loadDb', 'buildBackupDbSnapshot', 'buildBackupSignature', 'scheduleAutoBackup');
+        names.push('normalizeDb', 'normalizeManual', 'loadDb', 'saveDb', 'createDataWriteId', 'buildBackupDbSnapshot', 'buildBackupSignature', 'scheduleAutoBackup');
+        context.navigator = { locks: { request: async (_key, callback) => callback() } };
+        context.notifyCentralDataChanged = () => {};
+        setup += 'var dataSnapshots = new WeakMap();';
         context.storage = { get: (key, fallback) => local.has(key) ? JSON.parse(local.get(key)) : fallback };
         setup += 'var state = { backupTimer: null, backupBusy: false, alertsShown: new Set(["p1"]), homeAlertShown: true };';
       } else {

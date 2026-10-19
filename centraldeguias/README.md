@@ -74,3 +74,11 @@ A limpeza cancela o envio automático pendente e grava uma proteção local que 
 A captura distingue execução em andamento, repetição pendente e leitura concluída. Se a tabela de guias aparecer depois do carregamento do iframe, a extensão aguarda dentro do limite de 20 segundos. Uma tabela válida sem guias é aceita normalmente.
 
 Erro ou timeout permite uma única nova leitura após um segundo, sem repetição contínua. A navegação ou o cancelamento interrompe as tentativas pendentes; eventos de um iframe antigo são ignorados e a identidade do processo é conferida antes da gravação local. Se as duas tentativas falharem, o cartão orienta abrir as guias para conferir. Isso é independente do backup remoto por Gist.
+
+## Armazenamento e atualização do painel
+
+A cópia existente em `localStorage` é a referência compartilhada entre top e iframe, inclusive depois de uma limpeza intencional. Leituras não gravam dados nem mesclam registros com caches GM antigos. GM é consultado somente quando a chave local não existe e continua recebendo um espelho das gravações. Credenciais e preferências de backup permanecem em chave separada.
+
+As gravações usam Web Locks da origem e verificam se o snapshot ainda é atual; uma edição concorrente antiga é recusada para nova tentativa, sem substituir dados mais recentes. Sem suporte a Web Locks, a extensão permite leitura e recusa gravações. Limpeza e restauração explícitas criam um novo marcador que cancela capturas anteriores. Metadados de revisão ficam apenas no documento local; o formato do backup permanece inalterado.
+
+O painel aberto se atualiza ao receber eventos da chave de dados ou aviso da própria extensão, sem apagar busca/filtros nem disparar captura ou backup ao renderizar. Depois de instalar a atualização, reabra as páginas já abertas para que todos os contextos executem o mesmo protocolo. A correção não recupera automaticamente registros que já tenham sido sobrescritos; uma recuperação deve usar um backup escolhido pelo usuário.

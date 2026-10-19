@@ -90,7 +90,7 @@ test('Central de Guias resume os polos do processo', () => {
 
 test('Central de Guias mantém o cartão do processo compacto', () => {
   const source = sources['central-guias'];
-  const processCard = source.match(/function mountProcessCard\(\) \{([\s\S]*?)\n  \}\n\n  function syncGuidesFromDocument/)?.[1] || '';
+  const processCard = source.match(/function mountProcessCard\(\) \{([\s\S]*?)\n  \}\n\n  (?:async )?function syncGuidesFromDocument/)?.[1] || '';
   assert.match(processCard, /pj-guides-inline--process/, 'central-guias: cartão do processo não possui variante própria');
   assert.match(processCard, /createIconButton\(\s*'fa-solid fa-file-invoice-dollar'/, 'central-guias: ação compacta de consulta não usa ícone de guia');
   assert.match(processCard, /'Abrir guias do processo'/, 'central-guias: ícone não possui rótulo de abertura');

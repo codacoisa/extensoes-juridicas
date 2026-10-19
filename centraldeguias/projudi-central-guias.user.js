@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Central de Guias
 // @namespace    projudi-central-guias.user.js
-// @version      2026.10.19-12:06
+// @version      2026.10.19-12:26
 // @icon         https://img.icons8.com/ios-filled/100/scales--v1.png
 // @description  Central local para sincronizar, acompanhar e alertar sobre guias de pagamento no Projudi.
 // @author       lourencosv
@@ -91,6 +91,8 @@
   }
 
   const STORAGE_KEY = 'projudi-suite::central-guias::data';
+  const DATA_CHANGED_EVENT = 'projudi-suite::central-guias::data-changed';
+  const dataSnapshots = new WeakMap();
   const HOME_SUMMARY_KEY = 'projudi-suite::central-guias::show-home-summary';
   const SCRIPT_META = (() => {
     const fallbackName = 'Central de Guias';
@@ -636,6 +638,9 @@
     homeAlertShown: false,
     backupTimer: null,
     backupBusy: false,
+    managerRender: null,
+    dataRefreshTimer: null,
+    evaluating: false,
     automaticGuidesSyncProcessKey: '',
     automaticGuidesSyncFrame: null,
     automaticGuidesSyncTimer: null,
@@ -645,29 +650,29 @@
 
   const storage = {
     get(key, fallback) {
-      try {
-        if (typeof GM_getValue === 'function') {
-          const value = GM_getValue(key, undefined);
-          if (value !== undefined) {
-            localStorage.setItem(key, JSON.stringify(value));
-            return value;
-          }
+      // A cópia compartilhada pela origem prevalece, inclusive quando está vazia.
+      // Ler nunca grava: um cache GM antigo de outro iframe não pode substituir dados.
+      const raw = localStorage.getItem(key);
+      if (raw !== null) {
+        try { return JSON.parse(raw); }
+        catch (_) {
+          if (key === STORAGE_KEY) throw new Error('Dados locais da Central ilegíveis; nenhuma cópia foi substituída.');
+          return fallback;
         }
-      } catch (_) {}
-      try {
-        const raw = localStorage.getItem(key);
-        if (raw === null || typeof raw === 'undefined') return fallback;
-        return JSON.parse(raw);
-      } catch (_) {
-        return fallback;
       }
+      if (typeof GM_getValue === 'function') {
+        const value = GM_getValue(key, undefined);
+        if (value && typeof value.then === 'function') throw new Error('O gerenciador não fornece leitura GM síncrona; dados não foram alterados.');
+        if (value !== undefined) return value;
+      }
+      return fallback;
     },
     set(key, value) {
-      try {
-        if (typeof GM_setValue === 'function') GM_setValue(key, value);
-      } catch (_) {}
       localStorage.setItem(key, JSON.stringify(value));
-    },
+      try {
+        if (typeof GM_setValue === 'function') Promise.resolve(GM_setValue(key, value)).catch(() => {});
+      } catch (_) {}
+    }
   };
 
   function normalizeBackupSettings(value) {
@@ -861,11 +866,11 @@
     };
   }
 
-  function applyBackupPayload(payload) {
+  async function applyBackupPayload(payload) {
     if (!payload || typeof payload !== 'object' || payload.schema !== BACKUP_SCHEMA || payload.scriptId !== SCRIPT_META.id || !payload.db || typeof payload.db !== 'object') {
       throw new Error('Backup incompatível com a Central de Guias.');
     }
-    saveDb(normalizeDb(payload.db));
+    await saveDb(normalizeDb(payload.db), { replace: true, reset: true });
   }
 
   function githubRequest(options) {
@@ -1014,22 +1019,18 @@
   }
 
   async function writeCleanupValue(key, value) {
-    // A limpeza precisa propagar falhas nos dois armazenamentos, sem o fallback silencioso usado nas gravações comuns.
-    if (typeof GM_setValue === 'function') await GM_setValue(key, value);
+    if (key === STORAGE_KEY) {
+      await saveDb(normalizeDb(value), { replace: true, reset: true, autoBackup: false, strictMirror: true });
+      return;
+    }
+    // A proteção é persistida antes de qualquer operação remota.
     localStorage.setItem(key, JSON.stringify(value));
+    if (typeof GM_setValue === 'function') await GM_setValue(key, value);
   }
 
   function isCleanupBackupSuppressed(value) {
-    try {
-      if (typeof GM_getValue === 'function') {
-        const signature = GM_getValue(CLEANUP_SIGNATURE_KEY, undefined);
-        if (signature !== undefined) return signature === buildBackupSignature(value);
-      }
-      return JSON.parse(localStorage.getItem(CLEANUP_SIGNATURE_KEY) || 'null') === buildBackupSignature(value);
-    } catch (_) {
-      // Se a proteção não puder ser lida, não recriar automaticamente um backup limpo.
-      return true;
-    }
+    try { return storage.get(CLEANUP_SIGNATURE_KEY, null) === buildBackupSignature(value); }
+    catch (_) { return true; }
   }
 
   async function clearLocalExtensionData() {
@@ -1167,7 +1168,13 @@
   }
 
   function loadDb() {
-    return normalizeDb(storage.get(STORAGE_KEY, null));
+    const value = storage.get(STORAGE_KEY, null);
+    if (value !== null && (!value || typeof value !== 'object' || !value.processes || typeof value.processes !== 'object' || Array.isArray(value.processes))) {
+      throw new Error('Estrutura local da Central inválida; dados não foram substituídos.');
+    }
+    const db = normalizeDb(value);
+    dataSnapshots.set(db, JSON.stringify(value));
+    return db;
   }
 
   function normalizeDb(value) {
@@ -1216,20 +1223,52 @@
         }))
       };
     });
-    return { version: 1, processes };
+    return { version: 1, revision: Number.isSafeInteger(next.revision) && next.revision >= 0 ? next.revision : 0, writeId: String(next.writeId || ''), resetId: String(next.resetId || ''), processes };
   }
 
-  function saveDb(db) {
-    storage.set(STORAGE_KEY, db);
-    scheduleAutoBackup(db);
+  function createDataWriteId() {
+    return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   }
 
-  function saveDbIfChanged(db) {
+  async function saveDb(db, options = {}) {
+    if (!navigator.locks || typeof navigator.locks.request !== 'function') {
+      throw new Error('O navegador não oferece bloqueio de armazenamento; a Central preservou os dados sem gravar.');
+    }
+    const expected = dataSnapshots.get(db);
+    if (!options.replace && expected === undefined) throw new Error('Snapshot local ausente; recarregue os dados antes de gravar.');
+    return navigator.locks.request(STORAGE_KEY, async () => {
+      const value = storage.get(STORAGE_KEY, null);
+      if (!options.replace && JSON.stringify(value) !== expected) {
+        throw new Error('Os dados da Central mudaram em outro contexto. Tente a ação novamente.');
+      }
+      const current = normalizeDb(value);
+      if (options.guard && !options.guard(current)) throw new Error('Captura cancelada após navegação ou limpeza dos dados.');
+      const next = normalizeDb(db);
+      next.revision = current.revision + 1;
+      next.writeId = createDataWriteId();
+      next.resetId = options.reset ? next.writeId : current.resetId;
+      const raw = JSON.stringify(next);
+      localStorage.setItem(STORAGE_KEY, raw);
+      dataSnapshots.set(db, raw);
+      Object.assign(db, { revision: next.revision, writeId: next.writeId, resetId: next.resetId });
+      notifyCentralDataChanged();
+      if (typeof GM_setValue === 'function') {
+        if (options.strictMirror) await GM_setValue(STORAGE_KEY, next);
+        else {
+          try { Promise.resolve(GM_setValue(STORAGE_KEY, next)).catch(() => {}); } catch (_) {}
+        }
+      }
+      if (options.autoBackup !== false) scheduleAutoBackup(next);
+      return true;
+    });
+  }
+
+  async function saveDbIfChanged(db, options = {}) {
     const previousSignature = buildBackupSignature();
     const nextSignature = buildBackupSignature(db);
     if (previousSignature === nextSignature) return false;
-    saveDb(db);
-    return true;
+    return saveDb(db, options);
   }
 
   function scheduleAutoBackup(db = loadDb()) {
@@ -1706,22 +1745,22 @@
       });
   }
 
-  function setProcessArchived(processKey, archived) {
+  async function setProcessArchived(processKey, archived) {
     const db = loadDb();
     const processRecord = db.processes[processKey];
     if (!processRecord) return;
     processRecord.archived = !!archived;
     processRecord.archivedAt = archived ? nowIso() : '';
-    saveDb(db);
+    await saveDb(db);
   }
 
-  function setProcessUntracked(processKey, untracked) {
+  async function setProcessUntracked(processKey, untracked) {
     const db = loadDb();
     const processRecord = db.processes[processKey];
     if (!processRecord) return;
     processRecord.untracked = !!untracked;
     processRecord.untrackedAt = untracked ? nowIso() : '';
-    saveDb(db);
+    await saveDb(db);
   }
 
   function allCriticalGuides(db = loadDb(), baseDate = startOfToday()) {
@@ -2885,13 +2924,14 @@
     showToast(message, tone, { persistent: true, scope: 'home' });
   }
 
-  function mountProcessCard() {
+  async function mountProcessCard() {
     const ctx = extractProcessPageContext(document);
     if (!ctx) return;
     const db = loadDb();
     const processRecord = ensureProcessRecord(db, ctx);
     updatePartyFieldsForMatchingProcesses(db, ctx);
-    saveDbIfChanged(db);
+    await saveDbIfChanged(db);
+    if (!matchesAutomaticGuidesProcess(processRecord, extractProcessPageContext(document))) return;
     const summary = computeProcessSummary(processRecord);
 
     const anchor = document.querySelector('#divEditar > fieldset.VisualizaDados') || document.querySelector('#divEditar');
@@ -2936,7 +2976,7 @@
     startAutomaticGuidesSync(processRecord);
   }
 
-  function syncGuidesFromDocument(doc = document, options = {}) {
+  async function syncGuidesFromDocument(doc = document, options = {}) {
     if (!doc) return null;
     const db = loadDb();
     const ctx = extractGuidesPageContext(doc, db);
@@ -2947,7 +2987,7 @@
     processRecord.guides = guides;
     processRecord.lastGuidesSyncAt = nowIso();
     processRecord.lastGuidesSyncSource = String(options.source || 'GuiaEmissao?PaginaAtual=6');
-    const changed = saveDbIfChanged(db);
+    const changed = await saveDbIfChanged(db, { guard: options.guard });
 
     const summary = computeProcessSummary(processRecord);
     if (!options.silent) {
@@ -2958,7 +2998,7 @@
     return { processRecord, summary };
   }
 
-  function syncGuidesFromPage(options = {}) {
+  async function syncGuidesFromPage(options = {}) {
     return syncGuidesFromDocument(document, options);
   }
 
@@ -3001,6 +3041,8 @@
     cancelAutomaticGuidesSync();
     state.automaticGuidesSyncProcessKey = processKey;
     state.automaticGuidesSyncStatus = 'running';
+    const resetId = loadDb().resetId;
+    state.automaticGuidesSyncResetId = resetId;
 
     const frame = document.createElement('iframe');
     frame.id = 'pj-guides-automatic-sync-frame';
@@ -3036,6 +3078,7 @@
           if (state.automaticGuidesSyncStatus !== 'retrying' || state.automaticGuidesSyncProcessKey !== processKey) return;
           state.automaticGuidesSyncTimer = null;
           state.automaticGuidesSyncStatus = 'idle';
+          if (loadDb().resetId !== resetId) { cancelAutomaticGuidesSync(); return; }
           startAutomaticGuidesSync(processRecord, 1);
         }, 1000);
         return;
@@ -3044,7 +3087,7 @@
       if (meta) meta.textContent = 'Atualização automática indisponível. Abra as guias do processo para conferir.';
     };
 
-    const readWhenReady = () => {
+    const readWhenReady = async () => {
       if (settled || state.automaticGuidesSyncFrame !== frame) return;
       if (!matchesAutomaticGuidesProcess(processRecord, extractProcessPageContext(document))) {
         cancelAutomaticGuidesSync();
@@ -3053,12 +3096,15 @@
       try {
         const doc = frame.contentDocument;
         if (doc && doc.readyState !== 'loading' && isGuidesPage(doc)) {
+          if (loadDb().resetId !== resetId) { cancelAutomaticGuidesSync(); return; }
           // Validar a identidade antes de persistir impede capturar outro processo após navegação.
           const ctx = extractGuidesPageContext(doc, { processes: { [processKey]: processRecord } });
           if (!matchesAutomaticGuidesProcess(processRecord, ctx)) { finish(null); return; }
-          const result = syncGuidesFromDocument(doc, {
+          const result = await syncGuidesFromDocument(doc, {
             silent: true,
-            source: 'GuiaEmissao?PaginaAtual=6 (automática)'
+            source: 'GuiaEmissao?PaginaAtual=6 (automática)',
+            guard: current => !settled && state.automaticGuidesSyncFrame === frame && current.resetId === resetId &&
+              matchesAutomaticGuidesProcess(processRecord, extractProcessPageContext(document))
           });
           finish(result);
           return;
@@ -3081,9 +3127,9 @@
     (document.body || document.documentElement).appendChild(frame);
   }
 
-  function mountGuidesCard() {
+  async function mountGuidesCard() {
     if (document.getElementById('pj-guides-guide-card')) return;
-    const sync = syncGuidesFromPage({ silent: true });
+    const sync = await syncGuidesFromPage({ silent: true });
     if (!sync) return;
     const { processRecord, summary } = sync;
     const target = document.querySelector('#divEditar .formEdicao') || document.querySelector('#divEditar');
@@ -3106,12 +3152,12 @@
     `;
 
     const tools = card.querySelector('.pj-guides-inline__tools');
-    tools.appendChild(createIconButton('fa-solid fa-arrows-rotate', 'Sincronizar guias', 'pj-guides-btn pj-guides-btn--tool pj-guides-inline__sync-button', () => {
-      const result = syncGuidesFromPage();
+    tools.appendChild(createIconButton('fa-solid fa-arrows-rotate', 'Sincronizar guias', 'pj-guides-btn pj-guides-btn--tool pj-guides-inline__sync-button', async () => {
+      const result = await syncGuidesFromPage();
       if (!result) return;
       card.remove();
       state.guidesMounted = false;
-      mountGuidesCard();
+      await mountGuidesCard();
     }));
     tools.appendChild(createIconButton('fa-solid fa-table-columns', 'Abrir painel completo', 'pj-guides-btn pj-guides-btn--tool pj-guides-inline__panel-button', () => openManager(processRecord.key)));
 
@@ -3319,14 +3365,14 @@
     };
   }
 
-  function updateGuideManual(processKey, guideIdentifier, patch) {
+  async function updateGuideManual(processKey, guideIdentifier, patch) {
     const db = loadDb();
     const processRecord = db.processes[processKey];
     if (!processRecord) return;
     const target = processRecord.guides.find(guide => (guide.guideId || guide.number) === guideIdentifier);
     if (!target) return;
     target.manual = { ...normalizeManual(target.manual), ...patch };
-    saveDb(db);
+    await saveDb(db);
   }
 
   function queryElements(root, selectors) {
@@ -3446,7 +3492,7 @@
         let nextSettings = readSettings();
         setBackupStatus(elements, 'Restaurando backup...');
         const payload = await readBackupFromGist(nextSettings);
-        applyBackupPayload(payload);
+        await applyBackupPayload(payload);
         nextSettings = saveBackupSettings({ ...nextSettings, lastBackupSignature: buildBackupSignature(payload.db || loadDb()) });
         backupSettings = nextSettings;
         setBackupStatus(elements, 'Backup restaurado com sucesso.');
@@ -3638,6 +3684,7 @@
       deactivateSuiteDialog(panel);
       releaseSuiteUI(overlay);
       overlay.remove();
+      if (state.managerRender === render) state.managerRender = null;
     };
     closeBtn.addEventListener('click', closeManager);
     overlay.addEventListener('click', e => {
@@ -4019,42 +4066,47 @@
       return proc.guides.find(g => (g.guideId || g.number) === guideKey) || null;
     }
 
-    content.addEventListener('click', e => {
+    content.addEventListener('click', async e => {
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
-      const action = btn.getAttribute('data-action');
-      if (action === 'page-next' || action === 'page-prev') {
-        currentPage += action === 'page-next' ? 1 : -1;
+      try {
+        const action = btn.getAttribute('data-action');
+        if (action === 'page-next' || action === 'page-prev') {
+          currentPage += action === 'page-next' ? 1 : -1;
+          render();
+          const nextButton = content.querySelector(`[data-action="${action}"]:not(:disabled)`) || content.querySelector('.pj-guides-pagination button:not(:disabled)');
+          if (nextButton) nextButton.focus({ preventScroll: true });
+          content.querySelector('.pj-guides-manager__table-wrap')?.scrollIntoView({ block: 'nearest' });
+          return;
+        }
+        const processKey = btn.getAttribute('data-process-key');
+        const guideKey = btn.getAttribute('data-guide-key');
+        if (action === 'open') {
+          const proc = loadDb().processes[processKey];
+          if (proc) navigateToUrl(getProcessOpenUrl(proc));
+          return;
+        }
+        if (action === 'archive' || action === 'unarchive') {
+          await setProcessArchived(processKey, action === 'archive');
+          render();
+          return;
+        }
+        if (action === 'untrack' || action === 'track') {
+          await setProcessUntracked(processKey, action === 'untrack');
+          render();
+          return;
+        }
+        const guide = findGuide(loadDb(), processKey, guideKey);
+        const manual = (guide && guide.manual) || {};
+        if (action === 'paid') await updateGuideManual(processKey, guideKey, { paid: !manual.paid });
+        else if (action === 'notify') await updateGuideManual(processKey, guideKey, { notified: !manual.notified });
+        else if (action === 'ignore') await updateGuideManual(processKey, guideKey, { ignored: !manual.ignored });
+        else return;
         render();
-        const nextButton = content.querySelector(`[data-action="${action}"]:not(:disabled)`) || content.querySelector('.pj-guides-pagination button:not(:disabled)');
-        if (nextButton) nextButton.focus({ preventScroll: true });
-        content.querySelector('.pj-guides-manager__table-wrap')?.scrollIntoView({ block: 'nearest' });
-        return;
-      }
-      const processKey = btn.getAttribute('data-process-key');
-      const guideKey = btn.getAttribute('data-guide-key');
-      if (action === 'open') {
-        const proc = loadDb().processes[processKey];
-        if (proc) navigateToUrl(getProcessOpenUrl(proc));
-        return;
-      }
-      if (action === 'archive' || action === 'unarchive') {
-        setProcessArchived(processKey, action === 'archive');
+      } catch (error) {
+        showToast(error.message || 'Não foi possível salvar a alteração local.', 'warn');
         render();
-        return;
       }
-      if (action === 'untrack' || action === 'track') {
-        setProcessUntracked(processKey, action === 'untrack');
-        render();
-        return;
-      }
-      const guide = findGuide(loadDb(), processKey, guideKey);
-      const manual = (guide && guide.manual) || {};
-      if (action === 'paid') updateGuideManual(processKey, guideKey, { paid: !manual.paid });
-      else if (action === 'notify') updateGuideManual(processKey, guideKey, { notified: !manual.notified });
-      else if (action === 'ignore') updateGuideManual(processKey, guideKey, { ignored: !manual.ignored });
-      else return;
-      render();
     });
 
     if (clearFiltersBtn) {
@@ -4091,6 +4143,7 @@
     document.body.appendChild(overlay);
     renderFontAwesome(overlay);
     activateSuiteDialog(panel, closeManager);
+    state.managerRender = render;
     render();
 
     if (focusProcessKey) {
@@ -4101,6 +4154,28 @@
         render();
       }
     }
+  }
+
+  function notifyCentralDataChanged() {
+    window.dispatchEvent(new CustomEvent(DATA_CHANGED_EVENT));
+    const topWin = getTopWindow();
+    if (topWin !== window) {
+      try { topWin.dispatchEvent(new topWin.CustomEvent(DATA_CHANGED_EVENT)); } catch (_) {}
+    }
+  }
+
+  function onCentralDataChanged(event) {
+    if (event.type === 'storage' && event.key !== STORAGE_KEY) return;
+    clearTimeout(state.dataRefreshTimer);
+    state.dataRefreshTimer = setTimeout(() => {
+      state.dataRefreshTimer = null;
+      try {
+        if (['running', 'retrying'].includes(state.automaticGuidesSyncStatus) && loadDb().resetId !== state.automaticGuidesSyncResetId) {
+          cancelAutomaticGuidesSync();
+        }
+        if (state.managerRender) state.managerRender();
+      } catch (_) { showToast('Não foi possível atualizar os dados da Central. Nenhuma cópia foi substituída.', 'warn'); }
+    }, 80);
   }
 
   function isHomeSummaryEnabled() {
@@ -4133,6 +4208,13 @@
   }
 
   function evaluate() {
+    if (state.evaluating) return;
+    state.evaluating = true;
+    evaluatePage().catch(error => showToast(error.message || 'Não foi possível atualizar a Central de Guias.', 'warn'))
+      .finally(() => { state.evaluating = false; });
+  }
+
+  async function evaluatePage() {
     ensureStyles();
     const homePage = isHomePage(document);
     if (!homePage || !isHomeSummaryEnabled()) {
@@ -4163,11 +4245,11 @@
     state.wasHomePage = homePage;
 
     if (guidesPage) {
-      mountGuidesCard();
+      await mountGuidesCard();
       return;
     }
     if (processCtx) {
-      mountProcessCard();
+      await mountProcessCard();
       return;
     }
     if (homePage) {
@@ -4178,6 +4260,10 @@
   function destroy() {
     clearTimeout(state.timer);
     window.removeEventListener('storage', onHomePreferenceChange);
+    window.removeEventListener('storage', onCentralDataChanged);
+    window.removeEventListener(DATA_CHANGED_EVENT, onCentralDataChanged);
+    clearTimeout(state.dataRefreshTimer);
+    state.managerRender = null;
     if (isTopWindow()) window.removeEventListener('message', onMessage);
     clearDynamicUi();
     const overlay = document.getElementById('pj-guides-manager-overlay');
@@ -4195,6 +4281,8 @@
     evaluate();
     scheduleEvaluate(700);
     window.addEventListener('storage', onHomePreferenceChange);
+    window.addEventListener('storage', onCentralDataChanged);
+    window.addEventListener(DATA_CHANGED_EVENT, onCentralDataChanged);
     if (isTopWindow()) window.addEventListener('message', onMessage);
     globalThis[INSTANCE_KEY] = { destroy, openManager };
   }
