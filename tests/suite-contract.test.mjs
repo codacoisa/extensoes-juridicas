@@ -291,18 +291,36 @@ test('APIs auxiliares e mensagens ficam isoladas do contexto global da página',
   }
 });
 
-test('versões seguem data e hora crescentes', () => {
-  const newVersionCutoff = new Date('2026-08-05T00:00:00-03:00');
+// Matches UserScript.isVersionNewer in wBlock 3.1.3:
+// https://github.com/0xCUB3/wBlock/blob/3.1.3/wBlockCoreService/UserScript.swift#L576
+function wBlockVersionIsNewer(remote, local) {
+  const parts = value => value.split('.').map(part => Number(part.match(/^\d+/)?.[0] || 0));
+  const remoteParts = parts(remote);
+  const localParts = parts(local);
+  for (let i = 0; i < Math.max(remoteParts.length, localParts.length); i++) {
+    const difference = (remoteParts[i] || 0) - (localParts[i] || 0);
+    if (difference) return difference > 0;
+  }
+  return false;
+}
+
+test('versões usam data e hora numéricas reconhecidas pelo wBlock', () => {
+  // Old same-day timestamps compare equal because the hour follows a hyphen.
+  assert.equal(wBlockVersionIsNewer('2026.10.19-13:05', '2026.10.19-11:27'), false);
   for (const [id, source] of Object.entries(sources)) {
-    const match = source.match(/^\/\/ @version\s+(\d{4}\.\d{2}\.\d{2}-\d{2}:?\d{2})$/m);
-    assert.ok(match, `${id}: versão fora do formato YYYY.MM.DD-HH:MM`);
+    const match = source.match(/^\/\/ @version\s+(\d{4}\.\d{2}\.\d{2}\.\d{2}\.\d{2})$/m);
+    assert.ok(match, `${id}: versão fora do formato YYYY.MM.DD.HH.MM`);
     const [, value] = match;
-    const [, year, month, day, hour, minute] = value.match(/^(\d{4})\.(\d{2})\.(\d{2})-(\d{2}):?(\d{2})$/);
+    const [year, month, day, hour, minute] = value.split('.');
     const instant = new Date(`${year}-${month}-${day}T${hour}:${minute}:00-03:00`);
     assert.equal(Number.isNaN(instant.getTime()), false, `${id}: data de versão inválida`);
     assert.equal(instant.getUTCFullYear(), Number(year), `${id}: ano de versão inválido`);
-    if (instant >= newVersionCutoff) assert.match(value, /-\d{2}:\d{2}$/, `${id}: versões novas devem usar HH:MM`);
+    assert.equal(wBlockVersionIsNewer(value, '2026.10.19-11:27'), true, `${id}: deve superar a instalação observada`);
+    assert.equal(wBlockVersionIsNewer(value, '2026.10.19-13:05'), true, `${id}: deve superar a última publicação`);
+    assert.equal(wBlockVersionIsNewer(value, value), false, `${id}: versão idêntica não deve atualizar`);
   }
+  assert.equal(wBlockVersionIsNewer('2026.10.19.13.06', '2026.10.19.13.05'), true);
+  assert.equal(wBlockVersionIsNewer('2026.10.19.13.05', '2026.10.19.13.06'), false);
 });
 
 test('payloads de backup não serializam a configuração privada', () => {

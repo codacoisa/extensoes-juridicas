@@ -18,7 +18,7 @@ Visual and browser behavior must also be checked manually in a supported userscr
 
 Use plain JavaScript userscripts with two-space indentation, semicolons, strict mode, and small named functions. Keep each script self-contained inside its existing IIFE. Prefix new DOM IDs, classes, storage keys, and events with the extension namespace (for example, `pjip-` or `projudi-suite::intimacoes::`). Preserve the metadata block at the top of every userscript. Avoid global APIs, broad selectors, webfont runtimes, and unnecessary dependencies; follow the SVG sprite and UI-isolation contracts tested in `tests/suite-contract.test.mjs`.
 
-New userscript versions must use the zero-padded format `YYYY.MM.DD-HH:MM` in the `America/Sao_Paulo` timezone. Keep the timestamp chronological and do not reuse the same minute for a new edit. Legacy versions before 2026.08.05 may retain the previous `HHmm` spelling.
+New userscript versions must use the zero-padded numeric format `YYYY.MM.DD.HH.MM` in the `America/Sao_Paulo` timezone. Separate every component with a dot so wBlock compares same-day updates correctly; do not use hyphens or colons. Keep the timestamp chronological and do not reuse the same minute for a new edit. Historical versions may retain their previous spelling; never rewrite `arquivo/` to change metadata.
 
 ## Testing Guidelines
 
